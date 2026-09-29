@@ -174,7 +174,8 @@
     const b = r.best, a = b.a, where = r.aid.prev && r.aid.next
       ? `between ${r.aid.prev.a.name} and ${r.aid.next.a.name}` : '';
     const pos = r.q.lat != null ? `${r.q.lat.toFixed(5)}, ${r.q.lon.toFixed(5)}` : `${r.lat.toFixed(5)}, ${r.lon.toFixed(5)}`;
-    let s = `${C.event} medical. Casualty at ${kmTxt(r.km)}${where ? ', ' + where : ''}.\n` +
+    const also = r.alsoKm.length ? ` (course passes here again at ${r.alsoKm.map(kmTxt).join(', ')})` : '';
+    let s = `${C.event} medical. Casualty at ${kmTxt(r.km)}${also}${where ? ', ' + where : ''}.\n` +
       `Send ${b.base.name} team. Drive to ${G.cleanName(a)}${G.isGated(a) ? ' (gated, take keys)' : ''}, about ${G.fmt(b.drive)}. ` +
       `Walk in ${one(b.walkKm)} km, about ${G.fmt(b.walk)}.\n` +
       `ETA to casualty ${G.fmt(b.total)}.`;
@@ -203,6 +204,9 @@
     if (prev && next) h += '<br>';
     if (next) h += `<b>${esc(next.a.name)}</b> ${one(next.distKm)} km ahead`;
     h += '</div></div>';
+    if (r.alsoKm.length) {
+      h += `<div class="notice warn">The course passes this spot more than once: ${[r.km].concat(r.alsoKm).sort((x, y) => x - y).map(kmTxt).join(' and ')}. It's the same place on the ground, so the response is the same.</div>`;
+    }
     if (q.offM > 150) {
       h += `<div class="notice warn">This point is ${q.offM >= 1000 ? one(q.offM / 1000) + ' km' : q.offM + ' m'} from the course. Times are to the nearest point on course, ${kmTxt(r.km)}.${q.offM > 3000 ? ' Double check the location.' : ''}</div>`;
     }
@@ -215,9 +219,9 @@
       <div class="eta"><span class="eyebrow">ETA</span><b>${G.fmt(b.total)}</b></div></div>
       <ol class="steps">
         <li><span><b>Drive</b> to ${esc(G.cleanName(a))}${gated ? '<span class="tag gated">Gated</span>' : ''}${a.aid ? '<span class="tag aid">Aid stn</span>' : ''}
-          <span class="sub">${kmTxt(a.trail_km)}${a.conn_m > 50 ? ', ' + a.conn_m + ' m track to the course' : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
+          <span class="sub">${kmTxt(b.joinKm)}${a.conn_m > 50 ? ', ' + a.conn_m + ' m track to the course' : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
         <li><span><b>Walk in</b> ${one(b.walkKm)} km${b.climb >= 5 ? ', ' + Math.round(b.climb) + ' m climb' : ''}
-          <span class="sub">${a.trail_km > r.km ? 'Along the course, against race direction' : (a.trail_km < r.km ? 'Along the course, in race direction' : 'Straight to the course')}</span></span><span class="t">${G.fmt(b.walk)}</span></li>
+          <span class="sub">${b.joinKm > r.km ? 'Along the course, against race direction' : (b.joinKm < r.km ? 'Along the course, in race direction' : 'Straight to the course')}</span></span><span class="t">${G.fmt(b.walk)}</span></li>
       </ol>
       <div class="carry">Carry-out back to the vehicle: about <b>${G.fmt(b.carry)}</b> at stretcher pace.</div>
     </div>`;
@@ -275,7 +279,7 @@
     const drive = G.driveLine(a, b.key);
     // Only draw a drive route we actually have. No straight-line guesses across the map.
     if (drive) L.polyline(drive, { color: b.base.color, weight: 5, opacity: .9 }).addTo(resultLayer);
-    const lo = Math.min(a.idx, r.ic), hi = Math.max(a.idx, r.ic);
+    const lo = Math.min(b.idx, r.ic), hi = Math.max(b.idx, r.ic);
     const walk = (a.conn_geom && a.conn_geom.length > 1 ? a.conn_geom : [accLL]).concat(courseLL.slice(lo, hi + 1));
     L.polyline(walk, { color: '#1666c9', weight: 6, opacity: .95, dashArray: '1,8', lineCap: 'round' }).addTo(resultLayer);
     L.marker(accLL, { icon: pin(b.base.color, 16), zIndexOffset: 800 }).bindPopup(`<b>Park here</b><br>${esc(G.cleanName(a))}`).addTo(resultLayer);

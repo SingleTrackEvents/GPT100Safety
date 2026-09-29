@@ -123,7 +123,7 @@
     </div>
     <div id="result"><div class="empty">Tap the course to see access estimates.</div></div>
     <div class="foot">
-      Course 159.4 km, 7,544 m ascent. Access points and 87 road/trail crossings from OpenStreetMap. Connector tracks routed on the OSM path network where mapped (else straight-line, flagged). Drive times pre-measured (OSRM) &times; road factor; drive lines drawn live. Planning guide only. Verify access, gates and closures on the day.
+      Course <span id="courseStats"></span>. Access points and road/trail crossings from OpenStreetMap. Connector tracks routed on the OSM path network where mapped (else straight-line, flagged). Drive times pre-measured (OSRM) &times; road factor; drive lines drawn live. Planning guide only. Verify access, gates and closures on the day.
     </div>
   </div>
 </div>
@@ -133,6 +133,7 @@
 <script>
 const DATA = window.GPT100_DATA;
 const route=DATA.route, BASE=DATA.bases, CROSS=DATA.crossings;
+document.getElementById('courseStats').textContent=DATA.total_km+' km, '+DATA.total_ascent_m.toLocaleString()+' m ascent, '+DATA.crossings.length+' crossings';
 const BUILTIN=DATA.access;
 let ACCESS=[];
 const OSRM='https://router.project-osrm.org/route/v1/driving/';

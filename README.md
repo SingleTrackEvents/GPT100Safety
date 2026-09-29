@@ -46,6 +46,18 @@ It's a plain static site with no build step. Offline mode needs the site served 
 
 Every staff device picks up the change next time it opens the app with signal.
 
+## Updating the course
+
+When there's a new GPX (a course change, or next year's course), run:
+
+```
+python3 tools/update_course.py path/to/course.gpx
+```
+
+It replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check the Run sheet afterwards and commit `data/course.js`.
+
+Where the course passes the same spot twice, such as the out and back to Jimmy Creek Camp, the app works that out automatically and shows both km.
+
 ## Settings
 
 `data/config.js` holds the bases, the timing assumptions (walk pace, stretcher pace, climb penalty, drive factor) and the green, amber and red thresholds.

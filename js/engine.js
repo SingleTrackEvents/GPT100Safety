@@ -38,10 +38,25 @@
     return { ic: bi, offM: Math.round(metres([lat, lon], [route[bi][0], route[bi][1]])) };
   }
 
+  // Other places the course passes the same spot (e.g. an out and back). Returns one route index per extra pass.
+  function revisits(ic, maxM) {
+    maxM = maxM || 40;
+    const here = [route[ic][0], route[ic][1]], km = route[ic][2], out = [];
+    let group = null;
+    for (let i = 0; i < N; i++) {
+      if (Math.abs(route[i][2] - km) < 0.5) continue;
+      const d = metres(here, [route[i][0], route[i][1]]);
+      if (d > maxM) continue;
+      if (group && route[i][2] - route[group.i][2] < 0.5) { if (d < group.d) { group.i = i; group.d = d; } }
+      else { group = { i, d }; out.push(group); }
+    }
+    return out.map(g => g.i);
+  }
+
   // Access points: built-in minus hidden, plus custom edits.
   const hidden = new Set(EDITS.hidden || []);
   const ACCESS = D.access.filter(a => !hidden.has(a.name + '|' + a.trail_km)).concat(EDITS.custom || []);
-  ACCESS.forEach(a => { a.idx = idxAtKm(a.trail_km); });
+  ACCESS.forEach(a => { a.idx = idxAtKm(a.trail_km); a.idxs = [a.idx].concat(revisits(a.idx)); });
   const AID = ACCESS.filter(a => a.aid).sort((x, y) => x.trail_km - y.trail_km);
   const BASES = C.bases.map(b => {
     const ll = D.bases[b.key];
@@ -60,17 +75,21 @@
     for (const a of ACCESS) {
       const drive = driveMin(a, key);
       if (drive == null) continue;
-      const conn = (a.conn_m || 0) / 1000, along = Math.abs(a.trail_km - km);
-      const up = climb(a.idx, ic) + (a.conn_ascent || 0);
-      const walk = (conn + along) * C.walkPace + up * C.climbPenalty;
-      const total = drive + walk;
-      if (!best || total < best.total) {
-        best = { key, a, drive, walk, total, walkKm: conn + along, climb: up };
+      const conn = (a.conn_m || 0) / 1000;
+      // Join the course wherever it passes this access point (twice on an out and back).
+      for (const j of a.idxs) {
+        const along = Math.abs(route[j][2] - km);
+        const up = climb(j, ic) + (a.conn_ascent || 0);
+        const walk = (conn + along) * C.walkPace + up * C.climbPenalty;
+        const total = drive + walk;
+        if (!best || total < best.total) {
+          best = { key, a, idx: j, joinKm: route[j][2], drive, walk, total, walkKm: conn + along, climb: up };
+        }
       }
     }
     if (best) {
       // Carry-out back to the same access point at stretcher pace.
-      best.carry = best.walkKm * C.evacPace + climb(ic, best.a.idx) * C.climbPenalty;
+      best.carry = best.walkKm * C.evacPace + climb(ic, best.idx) * C.climbPenalty;
     }
     return best;
   }
@@ -98,6 +117,7 @@
     const best = results[0];
     return {
       ic, km: route[ic][2], lat: route[ic][0], lon: route[ic][1], ele: route[ic][3],
+      alsoKm: revisits(ic).map(i => route[i][2]),
       climbSoFar: cumAsc[ic], results, best, backup: results[1] || null,
       aid: aidAround(ic), rating: rating(best.total)
     };
@@ -163,7 +183,7 @@
 
   window.GPT = {
     data: D, config: C, route, ACCESS, AID, BASES, crossings: D.crossings,
-    idxAtKm, snap, metres, climb, driveLine, assess, bestAtAll, sections, rating, fmt, isGated, cleanName,
+    idxAtKm, snap, metres, climb, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName,
     totalKm: D.total_km
   };
 })();

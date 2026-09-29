@@ -31,7 +31,7 @@ a { color: inherit; }
 .brand-event { font-family: var(--head); font-size: 28px; letter-spacing: 1px; }
 .brand-app { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: #bbb; }
 .tabs { display: flex; gap: 4px; margin-left: auto; }
-.tab-btn { background: none; color: #bbb; border: 0; border-bottom: 3px solid transparent; padding: 8px 10px; font-weight: 600; font-size: 14px; cursor: pointer; }
+.tab-btn { white-space: nowrap; background: none; color: #bbb; border: 0; border-bottom: 3px solid transparent; padding: 8px 10px; font-weight: 600; font-size: 14px; cursor: pointer; }
 .tab-btn.on { color: #fff; border-bottom-color: var(--course); }
 .net { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; background: var(--amber); color: #fff; padding: 3px 8px; border-radius: 20px; }
 
@@ -47,12 +47,12 @@ a { color: inherit; }
 .btn.picking { background: var(--course); border-color: var(--course); color: #fff; }
 
 /* Find layout */
-.find-layout { display: grid; grid-template-columns: 1fr; }
+.find-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
 .find-panel { padding: 16px; }
 .find-map { position: relative; height: 55vh; min-height: 320px; border-top: 1px solid var(--line); }
 #map { position: absolute; inset: 0; background: #ddd; }
 @media (min-width: 900px) {
-  .find-layout { grid-template-columns: 440px 1fr; height: calc(100vh - 58px); }
+  .find-layout { grid-template-columns: 440px minmax(0, 1fr); height: calc(100vh - 58px); }
   .find-panel { overflow-y: auto; border-right: 1px solid var(--line); }
   .find-map { height: auto; border-top: 0; }
   body.on-find .foot { display: none; }
