@@ -163,6 +163,8 @@
 
   // Stored drive lines link an access point to one base, in either direction. Only use them for that base.
   function driveLine(a, key) {
+    // Checked routes from each base (tools/drive_routes.py) come first.
+    if (a.drive_geoms && a.drive_geoms[key] && a.drive_geoms[key].length > 1) return a.drive_geoms[key];
     const g = a.drive_geom, b = BASES.find(x => x.key === key);
     if (!g || g.length < 2 || !b) return null;
     const near = p => metres(p, [b.lat, b.lon]) < 1500;
