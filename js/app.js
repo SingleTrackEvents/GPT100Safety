@@ -273,8 +273,8 @@
     const ll = [r.lat, r.lon];
     const accLL = [a.lat, a.lon];
     const drive = G.driveLine(a, b.key);
+    // Only draw a drive route we actually have. No straight-line guesses across the map.
     if (drive) L.polyline(drive, { color: b.base.color, weight: 5, opacity: .9 }).addTo(resultLayer);
-    else L.polyline([[b.base.lat, b.base.lon], accLL], { color: b.base.color, weight: 3, opacity: .7, dashArray: '4,8' }).addTo(resultLayer);
     const lo = Math.min(a.idx, r.ic), hi = Math.max(a.idx, r.ic);
     const walk = (a.conn_geom && a.conn_geom.length > 1 ? a.conn_geom : [accLL]).concat(courseLL.slice(lo, hi + 1));
     L.polyline(walk, { color: '#1666c9', weight: 6, opacity: .95, dashArray: '1,8', lineCap: 'round' }).addTo(resultLayer);
