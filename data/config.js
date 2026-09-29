@@ -15,7 +15,7 @@ window.GPT100_CONFIG = {
   // Run sheet ratings, in minutes to reach a casualty.
   amberMin: 60,
   redMin: 120,
-  // what3words API key. Leave blank to be asked once on each device.
-  // Only put a key here if the site is private or the key is locked to your domain.
-  what3wordsKey: ''
+  // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
+  // so it only works from the live site. Leave blank to be asked once on each device instead.
+  what3wordsKey: 'LBTPEWCQ'
 };

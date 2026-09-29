@@ -34,13 +34,15 @@ On a phone, use **Add to Home Screen** so it opens like an app.
 
 ## Hosting
 
-It's a plain static site with no build step. The simplest option is GitHub Pages: in the repository settings, go to **Pages** and publish from this branch's root folder. Offline mode needs the site served over https, which GitHub Pages does.
+The app is live at **https://singletrackevents.github.io/GPT100Safety/** through GitHub Pages, publishing from the `main` branch. Anything merged into `main` goes live within a couple of minutes.
+
+It's a plain static site with no build step. Offline mode needs the site served over https, which GitHub Pages does.
 
 ## Updating access points
 
 1. Open `admin.html`, click **Edit access points**, and add, edit or delete points.
 2. Press **Publish file**. This downloads `access-edits.js`.
-3. Replace `data/access-edits.js` in the repository with the downloaded file and commit it.
+3. Replace `data/access-edits.js` on the `main` branch with the downloaded file and commit it.
 
 Every staff device picks up the change next time it opens the app with signal.
 
@@ -48,7 +50,7 @@ Every staff device picks up the change next time it opens the app with signal.
 
 `data/config.js` holds the bases, the timing assumptions (walk pace, stretcher pace, climb penalty, drive factor) and the green, amber and red thresholds.
 
-The what3words API key is left blank on purpose, so it isn't published in the repository. Each device asks for it once and remembers it. If the site is private, or the key is locked to your domain in the what3words dashboard, you can put it in `config.js` instead.
+The what3words API key lives in `config.js`, so every device can look up what3words addresses with no setup. The key is locked in the what3words dashboard to `singletrackevents.github.io`, so it only works from the live site and is useless to anyone who copies it. If the app ever moves to a new address, add that address to the key's allowed list first. what3words lookups won't work when testing from your own computer unless you add that address too.
 
 ## How the estimates work
 
