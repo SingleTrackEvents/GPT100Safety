@@ -6,8 +6,9 @@ Usage: python3 tools/update_course.py path/to/course.gpx
 What it does:
 - Replaces the route with the GPX track (km measured along the track, elevation from the GPX).
 - Re-measures trail_km for every access point and crossing against the new route.
-- Marks aid stations from the GPX waypoints whose names contain "Aid Station",
+- Marks staffed points from the GPX waypoints whose names contain "Aid Station" or "Water Point",
   renaming the matching access point to the waypoint's name. The start and finish stay aid stations.
+  Staffed points split the run sheet into sections, whatever kind they are.
 - Warns about any aid station waypoint with no access point nearby. Add that point in admin.html
   (or data/course.js) with its drive times, then run this again.
 
@@ -82,12 +83,14 @@ def main():
     for c in data['crossings']:
         c['km'] = route[nearest(route, c['lat'], c['lon'])][2]
 
-    aid_wpts = [w for w in wpts if re.search(r'aid station', w[2], re.I)]
+    aid_wpts = [w for w in wpts if re.search(r'aid station|water point', w[2], re.I)]
     for a in data['access']:
         a['aid'] = a['trail_km'] in (0, end) and bool(re.search(r'\((Start|Finish)\)', a['name']))
     for lat, lon, name in aid_wpts:
-        clean = re.sub(r'^(Emergency\s+)?Aid Station\s*-\s*', '', name, flags=re.I).strip()
-        if re.match(r'Emergency', name, re.I):
+        clean = re.sub(r'^((Emergency\s+)?Aid Station|Water Point)\s*-\s*', '', name, flags=re.I).strip()
+        if re.match(r'Water Point', name, re.I):
+            clean += ' (water point)'
+        elif re.match(r'Emergency', name, re.I):
             clean += ' (emergency aid)'
         cands = sorted((metres((lat, lon), (a['lat'], a['lon'])), i) for i, a in enumerate(data['access']))
         if cands and cands[0][0] <= AID_MATCH_M:
@@ -103,7 +106,7 @@ def main():
     out = src[:m.start(1)] + json.dumps(data, separators=(',', ':')) + src[m.end(1):]
     open(COURSE, 'w', encoding='utf-8').write(out)
     print(f'Course updated: {data["total_km"]} km, {data["total_ascent_m"]} m ascent, {len(route)} points, '
-          f'{sum(1 for a in data["access"] if a["aid"])} aid stations.')
+          f'{sum(1 for a in data["access"] if a["aid"])} staffed points.')
 
 
 if __name__ == '__main__':

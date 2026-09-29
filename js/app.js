@@ -65,14 +65,14 @@
       .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m to course' : ''}`)
       .addTo(map);
   });
-  G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>Aid station, ${kmTxt(a.trail_km)}`).addTo(map));
+  G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>${/water point/i.test(a.name) ? 'Staffed water point' : 'Aid station'}, ${kmTxt(a.trail_km)}`).addTo(map));
   G.BASES.forEach(b => L.marker([b.lat, b.lon], { icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b>`).addTo(map));
 
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = () => {
     const d = L.DomUtil.create('div', 'map-legend');
     d.innerHTML = G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)}`).join('<br>') +
-      '<br><i style="background:#111"></i>Aid station<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
+      '<br><i style="background:#111"></i>Aid station or water point<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
       `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach`;
     return d;
   };
@@ -218,7 +218,7 @@
       <div class="hero-top"><div><span class="eyebrow">Send</span><h2>${esc(base.name)} team</h2></div>
       <div class="eta"><span class="eyebrow">ETA</span><b>${G.fmt(b.total)}</b></div></div>
       <ol class="steps">
-        <li><span><b>Drive</b> to ${esc(G.cleanName(a))}${gated ? '<span class="tag gated">Gated</span>' : ''}${a.aid ? '<span class="tag aid">Aid stn</span>' : ''}
+        <li><span><b>Drive</b> to ${esc(G.cleanName(a))}${gated ? '<span class="tag gated">Gated</span>' : ''}${a.aid ? `<span class="tag aid">${/water point/i.test(a.name) ? 'Water pt' : 'Aid stn'}</span>` : ''}
           <span class="sub">${kmTxt(b.joinKm)}${a.conn_m > 50 ? ', ' + a.conn_m + ' m track to the course' : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
         <li><span><b>Walk in</b> ${one(b.walkKm)} km${b.climb >= 5 ? ', ' + Math.round(b.climb) + ' m climb' : ''}
           <span class="sub">${b.joinKm > r.km ? 'Along the course, against race direction' : (b.joinKm < r.km ? 'Along the course, in race direction' : 'Straight to the course')}</span></span><span class="t">${G.fmt(b.walk)}</span></li>
@@ -239,7 +239,7 @@
       });
       h += '</div>';
     }
-    h += '<div class="card"><h3>Nearest aid stations</h3>';
+    h += '<div class="card"><h3>Nearest aid and water points</h3>';
     [['Back', prev], ['Ahead', next]].forEach(([label, x]) => {
       if (!x) return;
       h += `<div class="row"><span><b>${label}: ${esc(x.a.name)}</b><span class="sub">${kmTxt(x.a.trail_km)}, ${one(x.distKm)} km away. Walk ${G.fmt(x.walk)}, carry ${G.fmt(x.carry)}</span></span></div>`;
