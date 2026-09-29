@@ -183,6 +183,16 @@
     return s;
   }
 
+  // WhatsApp version: the same message plus map links for the casualty and the parking spot.
+  function whatsappText(r) {
+    const a = r.best.a, cas = r.q.lat != null ? [r.q.lat, r.q.lon] : [r.lat, r.lon];
+    let s = '*' + radioScript(r).replace('\n', '*\n') +
+      `\n\nCasualty: https://maps.google.com/?q=${cas[0].toFixed(5)},${cas[1].toFixed(5)}` +
+      `\nPark at ${G.cleanName(a)}: https://maps.google.com/?q=${a.lat},${a.lon}`;
+    if (location.protocol.startsWith('http')) s += `\nFull details: ${location.href}`;
+    return s;
+  }
+
   function show(ic, q) {
     const r = G.assess(ic); r.q = q;
     const b = r.best, a = b.a, base = b.base;
@@ -213,10 +223,10 @@
     </div>`;
     const dir = `https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lon}`;
     h += `<div class="actions">
-      <button class="btn" id="btnCopy" type="button">Copy for radio</button>
+      <a class="btn" id="btnWa" href="#" target="_blank" rel="noopener">WhatsApp</a>
       <button class="btn" id="btnShare" type="button">Share</button>
       <a class="btn" href="${dir}" target="_blank" rel="noopener">Directions</a></div>`;
-    h += `<div class="card"><h3>Radio script</h3><p class="script" id="script">${esc(radioScript(r))}</p></div>`;
+    h += `<div class="card"><h3>Message</h3><p class="script" id="script">${esc(radioScript(r))}</p></div>`;
     if (r.results.length > 1) {
       h += '<div class="card"><h3>Other teams</h3>';
       r.results.slice(1).forEach(o => {
@@ -235,7 +245,6 @@
       `${q.source && q.source !== 'km' ? 'Found from ' + esc(q.source) + '.' : ''}</p>`;
     $('result').innerHTML = h;
 
-    $('btnCopy').addEventListener('click', () => copy(radioScript(r), $('btnCopy')));
     const sh = $('btnShare');
     if (navigator.share) sh.addEventListener('click', () => navigator.share({ title: `${C.event} casualty ${kmTxt(r.km)}`, text: radioScript(r) }).catch(() => { }));
     else sh.addEventListener('click', () => copy(location.href, sh, 'Link copied'));
@@ -243,6 +252,7 @@
     drawResult(r);
     const hash = q.lat != null ? `#ll=${q.lat.toFixed(5)},${q.lon.toFixed(5)}` : `#km=${one(r.km)}`;
     history.replaceState(null, '', hash);
+    $('btnWa').href = 'https://wa.me/?text=' + encodeURIComponent(whatsappText(r));
     if (innerWidth < 900) $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 

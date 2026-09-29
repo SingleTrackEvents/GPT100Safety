@@ -11,7 +11,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - Type a km (`87.3`), coordinates (`-37.294, 142.601`) or what3words (`///word.word.word`). You can also use your phone's GPS or tap the map.
 - You get one clear answer: which team to send, where to park (with gated roads flagged), the walk in, and the ETA.
 - It also shows the backup team, the nearest aid stations either side, and how long a stretcher carry-out would take.
-- **Copy for radio** gives a short script you can read straight out. **Directions** opens Google Maps to the parking spot.
+- **WhatsApp** opens WhatsApp with the message ready to send. Pick the safety group or a person. It includes map links for the casualty and the parking spot. The same message shows on screen, so it can also be read out over the radio.
+- **Directions** opens Google Maps to the parking spot.
 - If a spot takes more than 2 hours to reach, a red warning tells you to escalate early.
 
 **Run sheet** (for briefings, aid station captains and sweeps)
