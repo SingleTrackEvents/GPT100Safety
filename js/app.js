@@ -279,8 +279,11 @@
     const drive = G.driveLine(a, b.key);
     // Only draw a drive route we actually have. No straight-line guesses across the map.
     if (drive) L.polyline(drive, { color: b.base.color, weight: 5, opacity: .9 }).addTo(resultLayer);
+    // Walk: access point, its track to the course, then along the course from where it joins to the casualty.
     const lo = Math.min(b.idx, r.ic), hi = Math.max(b.idx, r.ic);
-    const walk = (a.conn_geom && a.conn_geom.length > 1 ? a.conn_geom : [accLL]).concat(courseLL.slice(lo, hi + 1));
+    const along = courseLL.slice(lo, hi + 1);
+    if (b.idx > r.ic) along.reverse();
+    const walk = (a.conn_geom && a.conn_geom.length > 1 ? a.conn_geom : [accLL]).concat(along);
     L.polyline(walk, { color: '#1666c9', weight: 6, opacity: .95, dashArray: '1,8', lineCap: 'round' }).addTo(resultLayer);
     L.marker(accLL, { icon: pin(b.base.color, 16), zIndexOffset: 800 }).bindPopup(`<b>Park here</b><br>${esc(G.cleanName(a))}`).addTo(resultLayer);
     if (r.q.lat != null && r.q.offM > 60) L.polyline([[r.q.lat, r.q.lon], ll], { color: '#111', weight: 1.5, dashArray: '3,4' }).addTo(resultLayer);
