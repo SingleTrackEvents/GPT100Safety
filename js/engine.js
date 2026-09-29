@@ -65,7 +65,10 @@
 
   function driveMin(a, key) {
     const s = a['drive_' + key + '_s'];
-    return (s == null || isNaN(s)) ? null : (s / 60) * C.driveFactor;
+    if (s == null || isNaN(s)) return null;
+    // Valhalla times already allow for winding and gravel roads, so they skip the road factor.
+    const factor = a.drive_src && a.drive_src[key] === 'valhalla' ? 1 : C.driveFactor;
+    return (s / 60) * factor;
   }
 
   // Best way for one base to reach course index ic.
