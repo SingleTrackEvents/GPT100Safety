@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPT100 Safety Admin</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{ --ink:#1c1c1c; --paper:#f7f5f0; --line:#dcd7cc; --hg:#c0392b; --dk:#1f6f4a; --accent:#b5651d; --muted:#6b6459; --walk:#1666c9; --jc:#1b6ca8;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--ink);background:var(--paper)}
+  #wrap{display:flex;height:100vh;width:100%}
+  #map{flex:1 1 auto;height:100%}
+  #panel{flex:0 0 395px;height:100%;overflow-y:auto;background:var(--paper);border-left:2px solid var(--line);padding:18px 20px}
+  h1{font-size:18px;margin:0 0 2px;letter-spacing:.3px}
+  .sub{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.45}
+  .card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 0 8px}
+  .big{font-size:15px;font-weight:600}
+  .row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line)}
+  .row:last-child{border-bottom:none}
+  .row .lab{font-size:13px} .row .val{font-size:14px;font-weight:600;text-align:right}
+  .tot{font-size:18px}
+  .hg{color:var(--hg)} .dk{color:var(--dk)} .jc{color:var(--jc)}
+  .pill{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 7px;border-radius:20px;color:#fff}
+  .pill.hg{background:var(--hg)} .pill.dk{background:var(--dk)} .pill.jc{background:var(--jc)}
+  .fastest{background:#fff8e6;border:1px solid var(--accent);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:14px}
+  label.sl{display:block;font-size:12px;color:var(--muted);margin:10px 0 3px}
+  input[type=range]{width:100%}
+  .slval{font-weight:700;color:var(--ink)}
+  .warn{font-size:12px;color:#8a5a00;background:#fff3d6;border:1px solid #e6c98a;border-radius:6px;padding:6px 9px;margin-top:6px}
+  .legend{font-size:11px;color:var(--muted);margin:2px 0 8px;line-height:1.7}
+  .legend span{display:inline-block;margin-right:10px}
+  .sw{display:inline-block;width:16px;height:3px;vertical-align:middle;margin-right:3px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;margin-right:3px;border:1px solid #fff}
+  .toggle{font-size:12px;margin:0 12px 8px 0;cursor:pointer;color:var(--accent);user-select:none;display:inline-block}
+  .foot{font-size:11px;color:var(--muted);line-height:1.55;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+  .empty{color:var(--muted);font-size:14px;font-style:italic;padding:20px 0;text-align:center}
+  .load{color:var(--accent);font-size:12px;font-weight:600}
+  .leaflet-popup-content{font-size:12px;line-height:1.4}
+  @media(max-width:820px){#wrap{flex-direction:column}#panel{flex:0 0 auto;height:auto;border-left:none;border-top:2px solid var(--line)}#map{height:52vh}}
+.ebtn{font-size:12px;padding:3px 8px;margin:2px 2px 0 0;border:1px solid #b9a2cf;background:#fff;border-radius:5px;cursor:pointer}
+  #editPanel input[type=text],#editPanel input[type=number]{font-size:12px;padding:3px 5px;border:1px solid #cbb8dd;border-radius:4px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="map"></div>
+  <div id="panel">
+    <h1>GPT100 Safety: Admin</h1>
+    <p class="sub"><a href="index.html" style="color:var(--accent);font-weight:600">Back to the staff app</a>. This page is for planning and editing access points. Changes stay on this device until you press <b>Publish file</b> and replace <code>data/access-edits.js</code> in the repository.</p>
+    <p class="sub">Click anywhere on the course. It tests every road access point within ~2 km plus the live nearest road crossing, and picks the fastest drive + trail walk-in for each base. Walk-in follows real connector tracks where mapped.</p>
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:#6b6459;margin-bottom:3px">Locate a casualty by coordinates:</div>
+      <div style="display:flex;gap:6px">
+        <input id="findInput" type="text" placeholder="lat, lon  e.g. -37.1407, 142.5197" style="flex:1;padding:6px 8px;font-size:13px;border:1px solid var(--line);border-radius:5px">
+        <button id="findBtn" style="padding:6px 14px;font-size:13px;background:var(--accent);color:#fff;border:none;border-radius:5px;cursor:pointer">Find</button>
+      </div>
+      <div id="findMsg" style="font-size:11px;color:var(--hg);margin-top:3px"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:#6b6459;margin-bottom:3px">…or by what3words: <span id="w3wKeyLink" style="color:var(--accent);cursor:pointer;text-decoration:underline">change API key</span></div>
+      <div style="display:flex;gap:6px">
+        <input id="w3wInput" type="text" placeholder="///word.word.word" style="flex:1;padding:6px 8px;font-size:13px;border:1px solid var(--line);border-radius:5px">
+        <button id="w3wBtn" style="padding:6px 14px;font-size:13px;background:var(--accent);color:#fff;border:none;border-radius:5px;cursor:pointer">Find</button>
+      </div>
+      <div id="w3wMsg" style="font-size:11px;color:var(--hg);margin-top:3px"></div>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:#c0392b"></span>Halls Gap</span>
+      <span><span class="dot" style="background:#1f6f4a"></span>Dunkeld</span>
+      <span><span class="dot" style="background:#1b6ca8"></span>Jimmy Creek</span>
+      <span><span class="dot" style="background:#333"></span>Aid station</span>
+      <span><span class="dot" style="background:#888"></span>Access point</span>
+      <span><span class="dot" style="background:#e67e22"></span>Road crossing</span>
+      <span><span class="dot" style="background:#3a86c8"></span>Trail crossing</span>
+      <span><span class="sw" style="background:#e00000;height:5px;opacity:.5"></span>&gt;2 h access (danger)</span>
+    </div>
+    <div><span class="toggle" id="tgAccess">Hide access points</span><span class="toggle" id="tgCross">Hide crossings</span><span class="toggle" id="tgDanger">Hide danger zones</span></div>
+    <div id="editToggle" class="toggle" style="color:#8e44ad;font-weight:600">Edit access points</div>
+    <div id="editPanel" style="display:none;background:#f3ecf7;border:1px solid #d8c7e6;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px">
+      <div style="margin-bottom:6px"><b>Editor:</b> <span id="editStatus" style="color:#8e44ad">choose an action</span></div>
+      <button id="btnAdd" class="ebtn">+ Add point</button>
+      <button id="btnEdit" class="ebtn">Edit: off</button>
+      <button id="btnDel" class="ebtn">Delete: off</button>
+      <button id="btnExport" class="ebtn">Export edits</button>
+      <button id="btnPublish" class="ebtn" style="background:#111;color:#fff;border-color:#111">Publish file</button>
+      <button id="btnReset" class="ebtn">Reset to published</button>
+      <label class="ebtn" style="cursor:pointer;display:inline-block">Import<input id="fileImp" type="file" accept="application/json,.json" style="display:none"></label>
+      <div id="addForm" style="display:none;margin-top:8px;border-top:1px solid #d8c7e6;padding-top:8px">
+        <input id="naName" type="text" placeholder="Name (e.g. Gate 4 fire trail)" style="width:100%;margin-bottom:5px">
+        <label style="display:block;margin-bottom:4px"><input id="naGated" type="checkbox" checked> Gated (team has access)</label>
+        <div style="display:flex;gap:6px;margin-bottom:5px">
+          <input id="naHG" type="number" placeholder="Drive HG (min)" style="width:50%">
+          <input id="naDK" type="number" placeholder="Drive DK (min)" style="width:50%">
+          <input id="naJC" type="number" placeholder="Drive JC (min)" style="width:50%">
+        </div>
+        <button id="btnAuto" class="ebtn">Auto drive times</button>
+        <button id="btnDraw" class="ebtn">Draw walk track</button>
+        <button id="btnDriveDraw" class="ebtn">Draw drive route</button>
+        <button id="btnClrWalk" class="ebtn">Clear walk</button>
+        <button id="btnClrDrive" class="ebtn">Clear drive</button>
+        <div style="margin-top:5px"><label><input id="naSnap" type="checkbox" checked> Snap drive route to roads (click waypoints; uncheck for gated sections)</label></div>
+        <div style="margin-top:5px"><button id="btnUndo" class="ebtn">&#8630; Undo last point</button></div>
+        <div style="margin-top:6px">
+          <button id="btnSave" class="ebtn" style="background:#1f6f4a;color:#fff;border-color:#1f6f4a">Save point</button>
+          <button id="btnCancel" class="ebtn">Cancel</button>
+        </div>
+        <div style="color:#6b6459;margin-top:6px;line-height:1.4">Place the point on the parking/access spot. Optionally draw the walking track to the course (click along it, ending on the trail). Drive times can be auto-filled, but for gated roads enter the real time your team can drive. Use “Draw drive route” to trace the actual driving line (avoids weird auto-routing through gates), and “Draw walk track” for the walk to the course.</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Assumptions</h2>
+      <label class="sl">Responder on-foot pace: <span class="slval" id="walkV">12</span> min/km</label>
+      <input type="range" id="walk" min="6" max="40" step="1" value="12">
+      <label class="sl">Stretcher / evac pace: <span class="slval" id="evacV">30</span> min/km</label>
+      <input type="range" id="evac" min="15" max="60" step="1" value="30">
+      <label class="sl">Climb penalty: <span class="slval" id="climbV">0.10</span> min per m ascent</label>
+      <input type="range" id="climb" min="0.05" max="0.25" step="0.01" value="0.10">
+      <label class="sl">Access-road time factor: <span class="slval" id="driveV">1.2</span>&times;</label>
+      <input type="range" id="drive" min="1" max="2" step="0.1" value="1.2">
+    </div>
+    <div id="result"><div class="empty">Tap the course to see access estimates.</div></div>
+    <div class="foot">
+      Course 159.4 km, 7,544 m ascent. Access points and 87 road/trail crossings from OpenStreetMap. Connector tracks routed on the OSM path network where mapped (else straight-line, flagged). Drive times pre-measured (OSRM) &times; road factor; drive lines drawn live. Planning guide only. Verify access, gates and closures on the day.
+    </div>
+  </div>
+</div>
+<script src="data/course.js"></script>
+<script src="data/access-edits.js"></script>
+<script src="data/config.js"></script>
+<script>
+const DATA = window.GPT100_DATA;
+const route=DATA.route, BASE=DATA.bases, CROSS=DATA.crossings;
+const BUILTIN=DATA.access;
+let ACCESS=[];
+const OSRM='https://router.project-osrm.org/route/v1/driving/';
+const map=L.map('map',{preferCanvas:true}).setView([-37.27,142.47],10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'&copy; OpenStreetMap'}).addTo(map);
+const line=L.polyline(route.map(p=>[p[0],p[1]]),{color:'#b5651d',weight:4,opacity:.9}).addTo(map);
+map.fitBounds(line.getBounds().pad(0.08));
+// ---- danger overlay: shade course where fastest response > 2 h ----
+const cumAsc=new Array(route.length),cumDesc=new Array(route.length);cumAsc[0]=0;cumDesc[0]=0;
+for(let i=1;i<route.length;i++){const d=route[i][3]-route[i-1][3];cumAsc[i]=cumAsc[i-1]+(d>0?d:0);cumDesc[i]=cumDesc[i-1]+(d<0?-d:0);}
+function ascIdx(ia,ib){return ia<=ib?(cumAsc[ib]-cumAsc[ia]):(cumDesc[ia]-cumDesc[ib]);}
+let showDanger=true,dangerLayer=null;const DANGER_MIN=120;
+function computeDanger(){
+  if(dangerLayer){map.removeLayer(dangerLayer);dangerLayer=null;}
+  if(!showDanger||!ACCESS||!ACCESS.length)return;
+  const pace=val('walk'),cp=val('climb'),fac=val('drive');
+  const segs=[];let cur=null;
+  for(let si=0;si<route.length;si++){
+    const km=route[si][2];let best=1e18;
+    for(const a of ACCESS){if(a.idx==null)continue;
+      const dmin=Math.min(...[a.drive_hg_s,a.drive_dk_s,a.drive_jc_s].filter(x=>x!=null&&!isNaN(x)))/60*fac;
+      const t=dmin+(a.conn_m/1000+Math.abs(a.trail_km-km))*pace+(ascIdx(a.idx,si)+(a.conn_ascent||0))*cp;
+      if(t<best)best=t;}
+    if(best>DANGER_MIN){if(!cur){cur=[];segs.push(cur);}cur.push([route[si][0],route[si][1]]);}
+    else cur=null;
+  }
+  dangerLayer=L.layerGroup();
+  for(const s of segs)if(s.length>1)L.polyline(s,{color:'#e00000',weight:11,opacity:.4,lineCap:'round',interactive:false}).addTo(dangerLayer);
+  dangerLayer.addTo(map);
+}
+function mk(color,r){r=r||14;return L.divIcon({className:'',html:`<div style="width:${r}px;height:${r}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.5)"></div>`,iconSize:[r,r],iconAnchor:[r/2,r/2]});}
+function metres(a,b){const R=6371000,la1=a[0]*Math.PI/180,la2=b[0]*Math.PI/180,dla=(b[0]-a[0])*Math.PI/180,dlo=(b[1]-a[1])*Math.PI/180;const x=Math.sin(dla/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dlo/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+function nearestIdx(lat,lon){let best=1e18,bi=0;for(let i=0;i<route.length;i++){const dy=route[i][0]-lat,dx=(route[i][1]-lon)*Math.cos(lat*Math.PI/180),d=dy*dy+dx*dx;if(d<best){best=d;bi=i;}}return bi;}
+function idxAtKm(km){let best=1e18,bi=0;for(let i=0;i<route.length;i++){const d=Math.abs(route[i][2]-km);if(d<best){best=d;bi=i;}}return bi;}
+function ascentBetween(kmA,kmB){let ia=idxAtKm(kmA),ib=idxAtKm(kmB);if(ia===ib)return 0;let asc=0;
+  if(ia<ib){for(let i=ia+1;i<=ib;i++){const d=route[i][3]-route[i-1][3];if(d>0)asc+=d;}}
+  else{for(let i=ia-1;i>=ib;i--){const d=route[i][3]-route[i+1][3];if(d>0)asc+=d;}}return asc;}
+function trailSlice(i1,i2){const a=Math.min(i1,i2),b=Math.max(i1,i2),o=[];for(let i=a;i<=b;i++)o.push([route[i][0],route[i][1]]);return o;}
+function orderedSlice(from,to){const o=[];if(from<=to){for(let i=from;i<=to;i++)o.push([route[i][0],route[i][1]]);}else{for(let i=from;i>=to;i--)o.push([route[i][0],route[i][1]]);}return o;}
+function fmt(m){m=Math.round(m);if(m<60)return m+' min';const h=Math.floor(m/60),x=m%60;return h+' h '+(x<10?'0':'')+x+' min';}
+function val(id){return +document.getElementById(id).value;}
+function decodePolyline(str){let index=0,lat=0,lng=0,c=[];while(index<str.length){let b,sh=0,res=0;
+  do{b=str.charCodeAt(index++)-63;res|=(b&0x1f)<<sh;sh+=5;}while(b>=0x20);lat+=((res&1)?~(res>>1):(res>>1));
+  sh=0;res=0;do{b=str.charCodeAt(index++)-63;res|=(b&0x1f)<<sh;sh+=5;}while(b>=0x20);lng+=((res&1)?~(res>>1):(res>>1));
+  c.push([lat/1e5,lng/1e5]);}return c;}
+
+const LS_C='gpt100_customAccess_b2',LS_H='gpt100_hiddenAccess_b2';
+const PUB=window.GPT100_EDITS||{custom:[],hidden:[]};
+let custom=(PUB.custom||[]).map(a=>Object.assign({},a)),hidden=new Set(PUB.hidden||[]);
+try{const c=localStorage.getItem(LS_C);if(c!=null)custom=JSON.parse(c);}catch(e){}
+try{const h=localStorage.getItem(LS_H);if(h!=null)hidden=new Set(JSON.parse(h));}catch(e){}
+function saveCustom(){try{localStorage.setItem(LS_C,JSON.stringify(custom));}catch(e){}}
+function saveHidden(){try{localStorage.setItem(LS_H,JSON.stringify([...hidden]));}catch(e){}}
+function bkey(a){return a.name+'|'+a.trail_km;}
+function buildACCESS(){ACCESS=BUILTIN.filter(a=>!hidden.has(bkey(a))).concat(custom);ACCESS.forEach(a=>{a.idx=idxAtKm(a.trail_km);});}
+buildACCESS();
+let editState={mode:null,pending:null};
+let accMarkers=[],aidMarkers=[],crossMarkers=[];
+function accStyle(a){
+  if(a.aid)return{col:a.name.indexOf('Halls Gap')===0?'#c0392b':(a.name.indexOf('Dunkeld')===0?'#1f6f4a':'#333'),r:13,label:'aid station'};
+  if(a.custom)return{col:'#8e44ad',r:12,label:'custom access'+(a.gated?' (gated)':'')};
+  if(a.gated)return{col:'#8e44ad',r:12,label:'access (gated)'};
+  if(a.road_crossing)return{col:'#e67e22',r:11,label:'road crossing access (drivable)'};
+  return{col:'#888',r:9,label:'access'};
+}
+function rebuildAccessMarkers(){
+  [...accMarkers,...aidMarkers].forEach(m=>map.removeLayer(m));accMarkers=[];aidMarkers=[];
+  ACCESS.forEach(a=>{const s=accStyle(a);
+    const m=L.marker([a.lat,a.lon],{icon:mk(s.col,s.r)});
+    m.bindPopup(`<b>${a.name}</b><br>${s.label} &bull; trail ${a.trail_km} km${a.conn_geom?(' &bull; track '+a.conn_m+' m'):''}`);
+    m.on('click',()=>{if(editState.mode==='delete'){deleteAccess(a);}else if(editState.mode==='edit-select'){startEdit(a);}else{m.openPopup();}});
+    m.addTo(map);(a.aid?aidMarkers:accMarkers).push(m);
+  });
+  if(!showAcc)accMarkers.forEach(m=>map.removeLayer(m));
+}
+function deleteAccess(a){
+  if(a.custom){custom=custom.filter(x=>x!==a);saveCustom();}
+  else{hidden.add(bkey(a));saveHidden();}
+  buildACCESS();rebuildAccessMarkers();computeDanger();if(last)render();
+}
+CROSS.forEach(c=>{const col=c.type==='road'?'#e67e22':'#3a86c8';
+  const m=L.marker([c.lat,c.lon],{icon:mk(col,7)}).addTo(map).bindPopup(`<b>${c.name||(c.type==='road'?'Road crossing':'Trail junction')}</b><br>${c.type} &bull; ${c.km} km on course`);crossMarkers.push(m);});
+L.marker([BASE.hg[1],BASE.hg[0]],{icon:mk('#c0392b',20)}).addTo(map).bindPopup('<b>Halls Gap base</b>');
+L.marker([BASE.dk[1],BASE.dk[0]],{icon:mk('#1f6f4a',20)}).addTo(map).bindPopup('<b>Dunkeld base</b>');
+L.marker([BASE.jc[1],BASE.jc[0]],{icon:mk('#1b6ca8',20)}).addTo(map).bindPopup('<b>Jimmy Creek base / aid station</b>');
+let showAcc=true,showCross=true;
+rebuildAccessMarkers();
+computeDanger();
+document.getElementById('tgAccess').addEventListener('click',function(){showAcc=!showAcc;accMarkers.forEach(m=>showAcc?m.addTo(map):map.removeLayer(m));this.textContent=showAcc?'Hide access points':'Show access points';});
+document.getElementById('tgCross').addEventListener('click',function(){showCross=!showCross;crossMarkers.forEach(m=>showCross?m.addTo(map):map.removeLayer(m));this.textContent=showCross?'Hide crossings':'Show crossings';});
+document.getElementById('tgDanger').addEventListener('click',function(){showDanger=!showDanger;computeDanger();this.textContent=showDanger?'Hide danger zones':'Show danger zones';});
+
+function findCrossing(geom,Kc){let best=null,bd=1e18;
+  for(let di=0;di<geom.length;di++){const g=geom[di];let bb=1e18,ti=0;
+    for(let i=0;i<route.length;i++){const dy=route[i][0]-g[0],dx=(route[i][1]-g[1])*Math.cos(g[0]*Math.PI/180),d=dy*dy+dx*dx;if(d<bb){bb=d;ti=i;}}
+    if(Math.sqrt(bb)*111320<50){const diff=Math.abs(route[ti][2]-Kc);if(diff<bd){bd=diff;best={driveIdx:di,trailIdx:ti,trailKm:route[ti][2]};}}}
+  return best;}
+async function fetchRoute(flon,flat,tlon,tlat){
+  const r=await fetch(`${OSRM}${flon},${flat};${tlon},${tlat}?overview=full&geometries=polyline`);
+  const j=await r.json();if(j.code!=='Ok')throw 0;const rt=j.routes[0],wp=j.waypoints[1];
+  return {dur:rt.duration,geom:decodePolyline(rt.geometry),acc:[wp.location[1],wp.location[0]],off:wp.distance};}
+const geomCache={};
+function accessGeom(key,a){const id=key+'|'+a.name+a.trail_km;
+  if(id in geomCache)return geomCache[id];geomCache[id]='pending';
+  fetchRoute(BASE[key][0],BASE[key][1],a.lon,a.lat).then(r=>{geomCache[id]=r.geom;render();}).catch(()=>{geomCache[id]=0;render();});
+  return 'pending';}
+function makeCross(cas,Kc){if(!cas)return null;const cr=findCrossing(cas.geom,Kc);
+  if(cr)return {mode:'trail',trailKm:cr.trailKm,trailIdx:cr.trailIdx,driveSec:cas.dur,geom:cas.geom.slice(0,cr.driveIdx+1).concat([[route[cr.trailIdx][0],route[cr.trailIdx][1]]])};
+  return {mode:'off',off:cas.off,acc:cas.acc,driveSec:cas.dur,geom:cas.geom};}
+
+function pick(field,cross,km,ic){
+  const fac=val('drive'),pace=val('walk'),cp=val('climb');
+  let best=null,bt=1e18;
+  for(const a of ACCESS){
+    if(a[field]==null||isNaN(a[field]))continue;
+    const drive=(a[field]/60)*fac;
+    const conn=a.conn_m/1000;
+    const trailKm=Math.abs(a.trail_km-km), asc=ascentBetween(a.trail_km,km), ca=a.conn_ascent||0;
+    const walk=(conn+trailKm)*pace+(asc+ca)*cp;
+    const total=drive+walk;
+    if(total<bt){bt=total;best={type:'acc',a,name:a.name,driveSec:a[field],km:conn+trailKm,conn:a.conn_m,asc:asc+ca,trailIdx:a.idx,total,aid:a.aid,reliable:a.reliable};}
+  }
+  if(cross&&cross.mode==='trail'){
+    const wk=Math.abs(km-cross.trailKm),asc=ascentBetween(cross.trailKm,km),trailIdx=cross.trailIdx;
+    const drive=(cross.driveSec/60)*fac,total=drive+wk*pace+asc*cp;
+    if(total<bt){bt=total;best={type:'live',name:'live road crossing',driveSec:cross.driveSec,km:wk,conn:0,asc,trailIdx,total,geom:cross.geom,crossKm:cross.trailKm};}}
+  best.drive=(best.driveSec/60)*fac; best.walk=best.total-best.drive;
+  return best;
+}
+function resolve(key,w,ic){
+  if(w.type==='acc'){
+    w.access=[w.a.lat,w.a.lon];
+    const tail=orderedSlice(w.trailIdx,ic);
+    w.walkDraw=(w.a.conn_geom?w.a.conn_geom.slice():[[w.a.lat,w.a.lon]]).concat(tail);
+    if(w.a.drive_geom&&w.a.drive_geom.length>1){w.driveDraw=w.a.drive_geom;}
+    else if(w.a.custom){w.driveDraw=null;}
+    else{const g=accessGeom(key,w.a);w.driveDraw=Array.isArray(g)?g:null;}
+    w.via=w.aid?`${w.name} (aid stn)`:`${w.name}`;
+  } else if(w.type==='live'){w.access=[route[w.trailIdx][0],route[w.trailIdx][1]];w.walkDraw=trailSlice(w.trailIdx,ic);w.driveDraw=w.geom;w.via=`live crossing at ${w.crossKm.toFixed(1)} km`;}
+  else{w.access=w.acc;w.walkDraw=[w.acc,[route[ic][0],route[ic][1]]];w.driveDraw=w.geom;w.via=`nearest road ${(w.off/1000).toFixed(1)} km off trail`;}
+}
+let clickMarker=null,layers=[];
+function clearLayers(){if(clickMarker){map.removeLayer(clickMarker);clickMarker=null;}layers.forEach(l=>map.removeLayer(l));layers=[];}
+function add(l){l.addTo(map);layers.push(l);return l;}
+let last=null;
+function drawBase(key,w,solid){
+  const col={hg:'#c0392b',dk:'#1f6f4a',jc:'#1b6ca8'}[key]||'#1f6f4a';
+  if(Array.isArray(w.driveDraw))add(L.polyline(w.driveDraw,{color:col,weight:solid?5:3,opacity:solid?.9:.3,dashArray:solid?null:'6,6'}));
+  else add(L.polyline([[BASE[key][1],BASE[key][0]],w.access],{color:col,weight:solid?4:2,opacity:solid?.5:.2,dashArray:'2,6'}));
+  if(solid){
+    if(w.walkDraw&&w.walkDraw.length)add(L.polyline(w.walkDraw,{color:'#1666c9',weight:5,opacity:.95,dashArray:'1,7',lineCap:'round'}));
+    add(L.marker(w.access,{icon:mk('#111',12)}).bindPopup('Access: '+w.via));
+  }
+}
+function render(){
+  if(!last)return;
+  const km=last.km,ic=last.ic,evac=val('evac'),cp=val('climb');
+  const B=[{k:'hg',nm:'Halls Gap',cr:last.hgCross},{k:'dk',nm:'Dunkeld',cr:last.dkCross},{k:'jc',nm:'Jimmy Creek',cr:last.jcCross}];
+  const R=B.map(b=>{const w=pick('drive_'+b.k+'_s',b.cr,km,ic);resolve(b.k,w,ic);return {k:b.k,nm:b.nm,o:w};});
+  const order=[...R].sort((a,b)=>a.o.total-b.o.total);
+  let near=null,nd=1e18;ACCESS.forEach(a=>{if(!a.aid)return;const d=Math.abs(a.trail_km-km);if(d<nd){nd=d;near=a;}});
+  const nearAsc=ascentBetween(near.trail_km,km),nearWalk=nd*val('walk')+nearAsc*cp;
+  const outAsc=ascentBetween(km,near.trail_km),nearEvac=nd*evac+outAsc*cp;
+  clearLayers();
+  clickMarker=L.circleMarker([last.snapLat,last.snapLon],{radius:8,color:'#111',weight:2,fillColor:'#ffd24d',fillOpacity:1}).addTo(map).bindPopup('Casualty, '+km.toFixed(1)+' km');
+  if(metres([last.clat,last.clon],[last.snapLat,last.snapLon])>60)add(L.polyline([[last.clat,last.clon],[last.snapLat,last.snapLon]],{color:'#111',weight:1,dashArray:'3,4'}));
+  for(let i=order.length-1;i>=1;i--)drawBase(order[i].k,order[i].o,false);
+  drawBase(order[0].k,order[0].o,true);
+  let html=`<div class="fastest">Fastest response: <span class="pill ${order[0].k}">${order[0].nm}</span> &nbsp;<b>&asymp; ${fmt(order[0].o.total)}</b> <span style="color:#6b6459">via ${order[0].o.via}</span></div>`;
+  html+=`<div class="card"><h2>Clicked location</h2><div class="big">${km.toFixed(1)} km along course</div>
+    <div class="row"><span class="lab">Total ascent to here</span><span class="val">${Math.round(ascentBetween(0,km))} m</span></div></div>`;
+  html+=`<div class="card"><h2>Closest aid station</h2>
+    <div class="row"><span class="lab big">${near.name}</span><span class="val">${nd.toFixed(1)} km</span></div>
+    <div class="row"><span class="lab">Walk-in (+${Math.round(nearAsc)} m climb)</span><span class="val">${fmt(nearWalk)}</span></div>
+    <div class="row"><span class="lab">Evac out (stretcher, +${Math.round(outAsc)} m)</span><span class="val">${fmt(nearEvac)}</span></div></div>`;
+  function card(name,cls,o){
+    let note='';
+    if(o.type==='acc'&&o.conn>200){note=` <span style="color:#8a5a00">(+${o.conn} m ${o.reliable?'track':'straight'} to trail)</span>`;}
+    return `<div class="card"><h2><span class="pill ${cls}">${name}</span> best access</h2>
+      <div class="row"><span class="lab">Via</span><span class="val">${o.via}</span></div>
+      <div class="row"><span class="lab">Drive time</span><span class="val">${fmt(o.drive)}</span></div>
+      <div class="row"><span class="lab">Walk-in ${o.km.toFixed(1)} km (+${Math.round(o.asc)} m)${note}</span><span class="val">${fmt(o.walk)}</span></div>
+      <div class="row"><span class="lab big">Total</span><span class="val tot ${cls}">${fmt(o.total)}</span></div></div>`;}
+  R.forEach(x=>{html+=card(x.nm,x.k,x.o);});
+  document.getElementById('result').innerHTML=html;
+}
+async function onClick(clat,clon){
+  const ic=nearestIdx(clat,clon),snap=route[ic];
+  last={clat,clon,ic,km:snap[2],snapLat:snap[0],snapLon:snap[1],hgCross:null,dkCross:null,jcCross:null};
+  document.getElementById('result').innerHTML='<div class="load">Finding drive &amp; trail routes&hellip;</div>';
+  clearLayers();clickMarker=L.circleMarker([snap[0],snap[1]],{radius:8,color:'#111',weight:2,fillColor:'#ffd24d',fillOpacity:1}).addTo(map);
+  try{const [hg,dk,jc]=await Promise.all([fetchRoute(BASE.hg[0],BASE.hg[1],snap[1],snap[0]),fetchRoute(BASE.dk[0],BASE.dk[1],snap[1],snap[0]),fetchRoute(BASE.jc[0],BASE.jc[1],snap[1],snap[0])]);
+    last.hgCross=makeCross(hg,snap[2]);last.dkCross=makeCross(dk,snap[2]);last.jcCross=makeCross(jc,snap[2]);}catch(e){}
+  render();
+}
+// ---------- access editor ----------
+let tempMarker=null,tempLine=null,tempDriveLine=null;
+const _e=id=>document.getElementById(id);
+function estatus(t){_e('editStatus').textContent=t||'';}
+_e('editToggle').addEventListener('click',function(){
+  const p=_e('editPanel');const on=p.style.display==='none';p.style.display=on?'block':'none';
+  this.textContent=on?'Close editor':'Edit access points';
+  if(!on){cleanupTemp();editState={mode:null,pending:null};_e('addForm').style.display='none';_e('btnDel').textContent='Delete: off';}
+  else estatus('choose an action');
+});
+_e('btnAdd').addEventListener('click',()=>{cleanupTemp();editState={mode:'add-place',pending:null};_e('addForm').style.display='none';_e('btnDel').textContent='Delete: off';estatus('click the map to place the access point');});
+_e('btnDel').addEventListener('click',function(){const on=editState.mode!=='delete';editState={mode:on?'delete':null,pending:null};this.textContent='Delete: '+(on?'ON':'off');_e('btnEdit').textContent='Edit: off';_e('addForm').style.display='none';estatus(on?'click any access marker to remove it':'choose an action');});
+_e('btnEdit').addEventListener('click',function(){const on=editState.mode!=='edit-select';editState={mode:on?'edit-select':null,pending:null,editing:null};this.textContent='Edit: '+(on?'ON':'off');_e('btnDel').textContent='Delete: off';_e('addForm').style.display='none';estatus(on?'click an access point to edit it':'choose an action');});
+function startEdit(a){cleanupTemp();
+  editState={mode:'add-form',editing:a,pending:{lat:a.lat,lon:a.lon,geom:a.conn_geom?a.conn_geom.map(p=>p.slice()):[[a.lat,a.lon]],drive:a.drive_geom?a.drive_geom.map(p=>p.slice()):[],geomSteps:[],driveSteps:[],_last:null}};
+  _e('addForm').style.display='block';_e('naName').value=a.name;_e('naGated').checked=!!a.gated;
+  _e('naHG').value=Math.round(a.drive_hg_s/60);_e('naDK').value=Math.round(a.drive_dk_s/60);_e('naJC').value=a.drive_jc_s!=null?Math.round(a.drive_jc_s/60):'';
+  tempMarker=L.marker([a.lat,a.lon],{icon:mk('#8e44ad',12)}).addTo(map);
+  if(a.conn_geom)drawTempWalk();if(a.drive_geom)drawTempDrive();
+  estatus('editing "'+a.name+'" - change fields, redraw/clear tracks, then Save');}
+_e('btnClrWalk').addEventListener('click',()=>{const p=editState.pending;if(!p)return;p.geom=[[p.lat,p.lon]];p.geomSteps=[];drawTempWalk();estatus('walk track cleared');});
+_e('btnClrDrive').addEventListener('click',()=>{const p=editState.pending;if(!p)return;p.drive=[];p.driveSteps=[];if(tempDriveLine){map.removeLayer(tempDriveLine);tempDriveLine=null;}estatus('drive route cleared');});
+function placeNew(ll){editState.pending={lat:ll.lat,lon:ll.lng,geom:[[ll.lat,ll.lng]],drive:[],geomSteps:[],driveSteps:[],_last:null};if(tempMarker)map.removeLayer(tempMarker);
+  tempMarker=L.marker([ll.lat,ll.lng],{icon:mk('#8e44ad',12)}).addTo(map);editState.mode='add-form';
+  _e('addForm').style.display='block';_e('naName').value='';_e('naGated').checked=true;_e('naHG').value='';_e('naDK').value='';_e('naJC').value='';
+  estatus('name it, set drive times, optionally draw the track, then Save');}
+_e('btnDraw').addEventListener('click',function(){if(!editState.pending)return;
+  if(editState.mode==='add-draw'){editState.mode='add-form';this.textContent='Draw walk track';estatus('walk track drawn; draw drive route or Save');}
+  else{editState.mode='add-draw';this.textContent='Finish walk track';estatus('click along the WALK track from the point to the trail');}});
+function drawTempWalk(){if(tempLine){map.removeLayer(tempLine);tempLine=null;}const g=editState.pending.geom;if(g.length>1)tempLine=L.polyline(g,{color:'#8e44ad',weight:4,dashArray:'2,6'}).addTo(map);}
+function addDrawPoint(ll){const p=editState.pending;p.geom.push([ll.lat,ll.lng]);p.geomSteps.push(1);p._last='walk';drawTempWalk();estatus('walk point added (Undo/ Ctrl+Z to remove)');}
+_e('btnDriveDraw').addEventListener('click',function(){if(!editState.pending)return;
+  if(editState.mode==='add-drive'){editState.mode='add-form';this.textContent='Draw drive route';estatus('drive route drawn; Save when ready');}
+  else{editState.mode='add-drive';this.textContent='Finish drive route';estatus('click waypoints along the DRIVE route (auto-follows roads); Finish when done');}});
+function drawTempDrive(){if(tempDriveLine)map.removeLayer(tempDriveLine);tempDriveLine=L.polyline(editState.pending.drive,{color:'#c0392b',weight:4,dashArray:'4,4'}).addTo(map);}
+async function addDrivePoint(ll){const p=editState.pending;p._last='drive';
+  if(p.drive.length===0){p.drive.push([ll.lat,ll.lng]);p.driveSteps.push(1);drawTempDrive();estatus('drive route started; click the next waypoint');return;}
+  const before=p.drive.length;
+  if(_e('naSnap')&&_e('naSnap').checked){const last=p.drive[p.drive.length-1];estatus('tracing along roads...');
+    try{const r=await fetchRoute(last[1],last[0],ll.lng,ll.lat);for(let i=1;i<r.geom.length;i++)p.drive.push([+r.geom[i][0].toFixed(5),+r.geom[i][1].toFixed(5)]);estatus('road traced; click next waypoint, Undo, or Finish');}
+    catch(e){p.drive.push([ll.lat,ll.lng]);estatus('routing failed - added straight segment');}}
+  else{p.drive.push([ll.lat,ll.lng]);estatus('added waypoint (freehand)');}
+  p.driveSteps.push(p.drive.length-before);drawTempDrive();}
+function undoStep(){const p=editState.pending;if(!p){estatus('nothing to undo');return;}
+  const target=editState.mode==='add-draw'?'walk':(editState.mode==='add-drive'?'drive':p._last);
+  if(target==='drive'&&p.driveSteps.length){const n=p.driveSteps.pop();p.drive.splice(p.drive.length-n,n);drawTempDrive();estatus('undid last drive step');}
+  else if(target==='walk'&&p.geomSteps.length){const n=p.geomSteps.pop();p.geom.splice(p.geom.length-n,n);drawTempWalk();estatus('undid last walk point');}
+  else estatus('nothing left to undo');}
+_e('btnAuto').addEventListener('click',async()=>{const p=editState.pending;if(!p)return;estatus('fetching drive times...');
+  try{const [hg,dk,jc]=await Promise.all([fetchRoute(BASE.hg[0],BASE.hg[1],p.lon,p.lat),fetchRoute(BASE.dk[0],BASE.dk[1],p.lon,p.lat),fetchRoute(BASE.jc[0],BASE.jc[1],p.lon,p.lat)]);
+    _e('naHG').value=Math.round(hg.dur/60);_e('naDK').value=Math.round(dk.dur/60);_e('naJC').value=Math.round(jc.dur/60);estatus('drive times filled (override for gated roads)');}
+  catch(e){estatus('OSRM fetch failed - enter drive times manually');}});
+function connLen(g){let m=0;for(let i=1;i<g.length;i++)m+=metres(g[i-1],g[i]);return Math.round(m);}
+_e('btnSave').addEventListener('click',async()=>{const p=editState.pending;if(!p){estatus('place a point first');return;}
+  const nm=_e('naName').value.trim()||'Custom access';const hg=parseFloat(_e('naHG').value),dk=parseFloat(_e('naDK').value),jc=parseFloat(_e('naJC').value);
+  if(isNaN(hg)||isNaN(dk)||isNaN(jc)){estatus('enter drive times (minutes) for all three bases');return;}
+  const geom=p.geom.length>1?p.geom.map(x=>[+x[0].toFixed(5),+x[1].toFixed(5)]):null;
+  const join=geom?geom[geom.length-1]:[p.lat,p.lon];const ji=nearestIdx(join[0],join[1]);
+  const cm=geom?connLen(p.geom):Math.round(metres([p.lat,p.lon],[route[ji][0],route[ji][1]]));
+  const dg=(p.drive&&p.drive.length>1)?p.drive.map(x=>[+x[0].toFixed(5),+x[1].toFixed(5)]):null;
+  const orig=editState.editing;
+  let ca=orig?(orig.conn_ascent||0):0;if(geom){estatus('fetching connector elevation...');try{ca=await connAscent(geom);}catch(e){estatus('elevation lookup failed - keeping previous climb');}}
+  if(orig){if(orig.custom){custom=custom.filter(x=>x!==orig);}else{hidden.add(bkey(orig));saveHidden();}}
+  custom.push({name:nm,lat:p.lat,lon:p.lon,trail_km:route[ji][2],off_m:cm,conn_m:cm,conn_geom:geom,drive_geom:dg,conn_ascent:ca,reliable:true,aid:orig?!!orig.aid:false,road_crossing:orig?!!orig.road_crossing:false,custom:true,gated:_e('naGated').checked,drive_hg_s:Math.round(hg*60),drive_dk_s:Math.round(dk*60),drive_jc_s:Math.round(jc*60)});
+  saveCustom();buildACCESS();cleanupTemp();editState={mode:null,pending:null,editing:null};_e('addForm').style.display='none';_e('btnDraw').textContent='Draw walk track';_e('btnDriveDraw').textContent='Draw drive route';_e('btnEdit').textContent='Edit: off';_e('btnDel').textContent='Delete: off';rebuildAccessMarkers();computeDanger();if(last)render();estatus((orig?'updated ':'added ')+'"'+nm+'" (connector +'+ca+' m climb)');});
+_e('btnCancel').addEventListener('click',()=>{cleanupTemp();editState={mode:null,pending:null,editing:null};_e('addForm').style.display='none';_e('btnEdit').textContent='Edit: off';_e('btnDel').textContent='Delete: off';estatus('choose an action');});
+function cleanupTemp(){if(tempMarker){map.removeLayer(tempMarker);tempMarker=null;}if(tempLine){map.removeLayer(tempLine);tempLine=null;}if(tempDriveLine){map.removeLayer(tempDriveLine);tempDriveLine=null;}}
+_e('btnExport').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({custom,hidden:[...hidden]},null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download='gpt100_access_edits.json';document.body.appendChild(a);a.click();a.remove();estatus('exported '+custom.length+' custom, '+hidden.size+' hidden');});
+_e('fileImp').addEventListener('change',ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);custom=Array.isArray(j.custom)?j.custom:[];hidden=new Set(j.hidden||[]);saveCustom();saveHidden();buildACCESS();rebuildAccessMarkers();computeDanger();if(last)render();estatus('imported '+custom.length+' custom points');}catch(e){estatus('could not read file');}ev.target.value='';};r.readAsText(f);});
+_e('btnPublish').addEventListener('click',()=>{
+  const body='// Published access point edits, shared by every staff device.\n// To update: make changes in admin.html, press "Publish file", and replace this file with the download.\n// custom: added or edited access points. hidden: built-in points removed ("name|trail_km").\nwindow.GPT100_EDITS = '+JSON.stringify({custom,hidden:[...hidden]})+';\n';
+  const u=URL.createObjectURL(new Blob([body],{type:'text/javascript'}));const a=document.createElement('a');a.href=u;a.download='access-edits.js';document.body.appendChild(a);a.click();a.remove();
+  estatus('downloaded access-edits.js: replace data/access-edits.js with it to publish to staff');});
+_e('btnReset').addEventListener('click',()=>{if(!confirm('Throw away the edits on this device and go back to the published access points?'))return;
+  try{localStorage.removeItem(LS_C);localStorage.removeItem(LS_H);}catch(e){}location.reload();});
+// ---- connector elevation (Open-Elevation) ----
+async function connAscent(geom){
+  if(!geom||geom.length<2)return 0;
+  const locs=geom.map(p=>(+p[0]).toFixed(6)+','+(+p[1]).toFixed(6)).join('|');
+  const r=await fetch('https://api.open-elevation.com/api/v1/lookup?locations='+encodeURIComponent(locs));
+  const j=await r.json();
+  if(!j.results)throw new Error('no elevation');
+  let asc=0,prev=null;
+  for(const res of j.results){const e=res.elevation;if(e==null)continue;if(prev!=null&&e>prev)asc+=e-prev;prev=e;}
+  return Math.round(asc);
+}
+async function backfillElevation(){
+  const need=custom.filter(a=>a.conn_geom&&(a.conn_ascent==null));
+  for(const a of need){try{a.conn_ascent=await connAscent(a.conn_geom);saveCustom();buildACCESS();if(last)render();}catch(e){}await new Promise(r=>setTimeout(r,1100));}
+}
+_e('btnUndo').addEventListener('click',undoStep);
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')&&editState.pending){e.preventDefault();undoStep();}});
+map.on('click',e=>{
+  if(editState.mode==='add-place'){placeNew(e.latlng);}
+  else if(editState.mode==='add-draw'){addDrawPoint(e.latlng);}
+  else if(editState.mode==='add-drive'){addDrivePoint(e.latlng);}
+  else if(editState.mode==='add-form'||editState.mode==='delete'){/* ignore map clicks */}
+  else{onClick(e.latlng.lat,e.latlng.lng);}
+});
+[['walk','walkV',0],['evac','evacV',0],['climb','climbV',2],['drive','driveV',1]].forEach(([id,out,dp])=>{
+  document.getElementById(id).addEventListener('input',e=>{document.getElementById(out).textContent=(+e.target.value).toFixed(dp);render();computeDanger();});});
+function doFind(){var el=document.getElementById('findInput');var v=(el.value||'').trim();var msg=document.getElementById('findMsg');
+  var m=v.match(/-?\d+(?:\.\d+)?/g);
+  if(!m||m.length<2){msg.textContent='Enter coordinates as: lat, lon';return;}
+  var lat=+m[0],lon=+m[1];
+  if(Math.abs(lat)>90&&Math.abs(lon)<=90){var t=lat;lat=lon;lon=t;}
+  if(isNaN(lat)||isNaN(lon)||Math.abs(lat)>90||Math.abs(lon)>180){msg.textContent='Invalid coordinates';return;}
+  msg.textContent='';map.setView([lat,lon],15);onClick(lat,lon);}
+document.getElementById('findBtn').addEventListener('click',doFind);
+document.getElementById('findInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();doFind();}});
+var W3W_KEY='gpt100_w3w_key';
+var W3W_DEFAULT=(window.GPT100_CONFIG||{}).what3wordsKey||'';
+function w3wGetKey(){try{return localStorage.getItem(W3W_KEY)||W3W_DEFAULT;}catch(e){return W3W_DEFAULT;}}
+function w3wSetKey(){var cur=w3wGetKey();var k=prompt('Enter your what3words API key\n(free from developer.what3words.com):',cur);if(k!=null){try{localStorage.setItem(W3W_KEY,k.trim());}catch(e){}document.getElementById('w3wMsg').textContent=k.trim()?'API key saved':'API key cleared';}}
+document.getElementById('w3wKeyLink').addEventListener('click',w3wSetKey);
+async function doW3W(){var msg=document.getElementById('w3wMsg');
+  var w=(document.getElementById('w3wInput').value||'').trim().replace(/^what3words:\/\//i,'').replace(/^\/+/,'');
+  if(!/^[^.\s]+\.[^.\s]+\.[^.\s]+$/.test(w)){msg.textContent='Enter as word.word.word';return;}
+  var key=w3wGetKey();
+  if(!key){w3wSetKey();key=w3wGetKey();if(!key){msg.textContent='what3words API key required';return;}}
+  msg.textContent='Looking up '+w+'…';
+  try{var r=await fetch('https://api.what3words.com/v3/convert-to-coordinates?words='+encodeURIComponent(w)+'&key='+encodeURIComponent(key));
+    var j=await r.json();
+    if(j&&j.coordinates){msg.textContent='///'+w;map.setView([j.coordinates.lat,j.coordinates.lng],15);onClick(j.coordinates.lat,j.coordinates.lng);}
+    else{msg.textContent=(j&&j.error&&j.error.message)?j.error.message:'Address not found';}
+  }catch(e){msg.textContent='Lookup failed (check internet / API key)';}}
+document.getElementById('w3wBtn').addEventListener('click',doW3W);
+document.getElementById('w3wInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();doW3W();}});
+backfillElevation();
+</script>
+</body>
+</html>
