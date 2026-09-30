@@ -15,6 +15,12 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Directions** opens Google Maps to the parking spot.
 - If a spot takes more than 2 hours to reach, a red warning tells you to escalate early.
 
+**what3words throughout**
+
+- Every access point, aid station and base has a what3words address stored in the app, so it shows even with no signal. Tap one to open it in the what3words app, which can navigate there.
+- Search by what3words, with suggestions near the course as you type. If a word is misheard or the address lands a long way from the course, the app suggests likely alternatives near the race.
+- With signal, the casualty's what3words is looked up and added to the result, the message and the WhatsApp text, along with the parking spot's what3words.
+
 **Run sheet** (for briefings, aid station captains and sweeps)
 
 - The course from aid station to aid station, rated green, amber or red by how long it takes to reach the hardest point.
@@ -54,7 +60,9 @@ When there's a new GPX (a course change, or next year's course), run:
 python3 tools/update_course.py path/to/course.gpx
 ```
 
-It replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check the Run sheet afterwards and commit `data/course.js`.
+Then run `python3 tools/add_w3w.py` to give any new points a what3words address.
+
+The update script replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check the Run sheet afterwards and commit `data/course.js`.
 
 Where the course passes the same spot twice, such as the out and back to Jimmy Creek Camp, the app works that out automatically and shows both km.
 

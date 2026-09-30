@@ -1,6 +1,6 @@
 // Offline support. App files use network first (so updates land), falling back to the cache.
 // Leaflet, fonts and map tiles are cached as they're used.
-const VERSION = 'gpt100-v2';
+const VERSION = 'gpt100-v3';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'js/engine.js', 'js/app.js',
   'data/config.js', 'data/course.js', 'data/access-edits.js',

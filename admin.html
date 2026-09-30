@@ -203,7 +203,7 @@ function rebuildAccessMarkers(){
   [...accMarkers,...aidMarkers].forEach(m=>map.removeLayer(m));accMarkers=[];aidMarkers=[];
   ACCESS.forEach(a=>{const s=accStyle(a);
     const m=L.marker([a.lat,a.lon],{icon:mk(s.col,s.r)});
-    m.bindPopup(`<b>${a.name}</b><br>${s.label} &bull; trail ${a.trail_km} km${a.conn_geom?(' &bull; track '+a.conn_m+' m'):''}`);
+    m.bindPopup(`<b>${a.name}</b><br>${s.label} &bull; trail ${a.trail_km} km${a.conn_geom?(' &bull; track '+a.conn_m+' m'):''}${a.w3w?'<br><a href="https://w3w.co/'+a.w3w+'" target="_blank" style="color:#e11f26;font-weight:700">///'+a.w3w+'</a>':''}`);
     m.on('click',()=>{if(editState.mode==='delete'){deleteAccess(a);}else if(editState.mode==='edit-select'){startEdit(a);}else{m.openPopup();}});
     m.addTo(map);(a.aid?aidMarkers:accMarkers).push(m);
   });
@@ -391,8 +391,11 @@ _e('btnSave').addEventListener('click',async()=>{const p=editState.pending;if(!p
   const dg=(p.drive&&p.drive.length>1)?p.drive.map(x=>[+x[0].toFixed(5),+x[1].toFixed(5)]):null;
   const orig=editState.editing;
   let ca=orig?(orig.conn_ascent||0):0;if(geom){estatus('fetching connector elevation...');try{ca=await connAscent(geom);}catch(e){estatus('elevation lookup failed - keeping previous climb');}}
+  // what3words for the point, so staff can navigate to it (needs signal; kept from before if the point hasn't moved)
+  let w3=orig&&orig.lat===p.lat&&orig.lon===p.lon?(orig.w3w||null):null;
+  if(!w3&&navigator.onLine){try{const k=w3wGetKey();if(k){const j=await (await fetch('https://api.what3words.com/v3/convert-to-3wa?coordinates='+p.lat.toFixed(6)+','+p.lon.toFixed(6)+'&key='+encodeURIComponent(k))).json();w3=j.words||null;}}catch(e){}}
   if(orig){if(orig.custom){custom=custom.filter(x=>x!==orig);}else{hidden.add(bkey(orig));saveHidden();}}
-  custom.push({name:nm,lat:p.lat,lon:p.lon,trail_km:route[ji][2],off_m:cm,conn_m:cm,conn_geom:geom,drive_geom:dg,conn_ascent:ca,reliable:true,aid:orig?!!orig.aid:false,road_crossing:orig?!!orig.road_crossing:false,custom:true,gated:_e('naGated').checked,drive_hg_s:Math.round(hg*60),drive_dk_s:Math.round(dk*60),drive_jc_s:Math.round(jc*60)});
+  custom.push({name:nm,w3w:w3,lat:p.lat,lon:p.lon,trail_km:route[ji][2],off_m:cm,conn_m:cm,conn_geom:geom,drive_geom:dg,conn_ascent:ca,reliable:true,aid:orig?!!orig.aid:false,road_crossing:orig?!!orig.road_crossing:false,custom:true,gated:_e('naGated').checked,drive_hg_s:Math.round(hg*60),drive_dk_s:Math.round(dk*60),drive_jc_s:Math.round(jc*60)});
   saveCustom();buildACCESS();cleanupTemp();editState={mode:null,pending:null,editing:null};_e('addForm').style.display='none';_e('btnDraw').textContent='Draw walk track';_e('btnDriveDraw').textContent='Draw drive route';_e('btnEdit').textContent='Edit: off';_e('btnDel').textContent='Delete: off';rebuildAccessMarkers();computeDanger();if(last)render();estatus((orig?'updated ':'added ')+'"'+nm+'" (connector +'+ca+' m climb)');});
 _e('btnCancel').addEventListener('click',()=>{cleanupTemp();editState={mode:null,pending:null,editing:null};_e('addForm').style.display='none';_e('btnEdit').textContent='Edit: off';_e('btnDel').textContent='Delete: off';estatus('choose an action');});
 function cleanupTemp(){if(tempMarker){map.removeLayer(tempMarker);tempMarker=null;}if(tempLine){map.removeLayer(tempLine);tempLine=null;}if(tempDriveLine){map.removeLayer(tempDriveLine);tempDriveLine=null;}}

@@ -6,10 +6,13 @@
   const baseOf = k => G.BASES.find(b => b.key === k);
   const one = n => (Math.round(n * 10) / 10).toFixed(1);
   const kmTxt = km => 'km ' + one(km);
+  // what3words: a tappable ///address that opens the what3words app or website.
+  const w3wLink = w => w ? `<a class="w3w" href="https://w3w.co/${esc(w)}" target="_blank" rel="noopener">///${esc(w)}</a>` : '';
 
   $('assumptions').textContent =
     `Estimates assume responders walk ${C.walkPace} min/km, stretcher carry ${C.evacPace} min/km, ` +
-    `${C.climbPenalty} min per metre of climb, and measured drive times x ${C.driveFactor} for access roads.`;
+    `${C.climbPenalty} min per metre of climb. Drive times are the race team's times or checked routes ` +
+    `(older automatic times x ${C.driveFactor}).`;
 
   // ---------- Tabs ----------
   let sheetBuilt = false;
@@ -62,11 +65,11 @@
   G.ACCESS.forEach(a => {
     if (a.aid) return;
     L.marker([a.lat, a.lon], { icon: pin(G.isGated(a) ? '#6d3b8e' : '#888', 10) })
-      .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m to course' : ''}`)
+      .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m to course' : ''}<br>${w3wLink(a.w3w)}`)
       .addTo(map);
   });
-  G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>${/water point/i.test(a.name) ? 'Staffed water point' : 'Aid station'}, ${kmTxt(a.trail_km)}`).addTo(map));
-  G.BASES.forEach(b => L.marker([b.lat, b.lon], { icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b>`).addTo(map));
+  G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>${/water point/i.test(a.name) ? 'Staffed water point' : 'Aid station'}, ${kmTxt(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(map));
+  G.BASES.forEach(b => L.marker([b.lat, b.lon], { icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b><br>${w3wLink(G.data.bases_w3w && G.data.bases_w3w[b.key])}`).addTo(map));
 
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = () => {
@@ -87,7 +90,7 @@
   }
 
   // ---------- Find ----------
-  let picking = false;
+  let picking = false, last = null, casMarker = null;
 
   function setMsg(t, ok) { const m = $('qMsg'); m.textContent = t || ''; m.classList.toggle('ok', !!ok); }
 
@@ -111,9 +114,9 @@
   }
 
   function findKm(km, source) { show(G.idxAtKm(km), { source: source || 'km' }); }
-  function findLL(lat, lon, source) {
+  function findLL(lat, lon, source, words) {
     const s = G.snap(lat, lon);
-    show(s.ic, { source, lat, lon, offM: s.offM });
+    show(s.ic, { source, lat, lon, offM: s.offM, words });
   }
 
   $('findForm').addEventListener('submit', e => {
@@ -156,18 +159,90 @@
     }
     return k;
   }
-  async function lookupW3W(words) {
-    if (!navigator.onLine) { setMsg('what3words needs mobile signal. Ask for the km or GPS coordinates instead.'); return; }
+  // Course area for what3words suggestions, so misheard words resolve to somewhere near the race.
+  const BOX = (() => {
+    let s = 90, n = -90, w = 180, e = -180;
+    route.forEach(p => { s = Math.min(s, p[0]); n = Math.max(n, p[0]); w = Math.min(w, p[1]); e = Math.max(e, p[1]); });
+    return [s - 0.1, w - 0.1, n + 0.1, e + 0.1].map(x => x.toFixed(4)).join(',');
+  })();
+  const MID = route[Math.floor(route.length / 2)];
+
+  async function w3wApi(path, params) {
     const key = w3wKey(false);
-    if (!key) { setMsg('A what3words API key is needed for this lookup'); return; }
+    if (!key) throw new Error('nokey');
+    const qs = new URLSearchParams(Object.assign({ key }, params)).toString();
+    const j = await (await fetch(`https://api.what3words.com/v3/${path}?${qs}`)).json();
+    if (j && j.error && /key|referrer/i.test(j.error.code + j.error.message)) {
+      try { localStorage.removeItem(W3W_LS); } catch (e) { }
+      throw new Error('badkey');
+    }
+    return j;
+  }
+
+  // The what3words address of a spot (needs signal). Cached so repeat searches don't use up the quota.
+  const w3wCache = {};
+  async function w3wAt(lat, lon) {
+    const id = lat.toFixed(5) + ',' + lon.toFixed(5);
+    if (id in w3wCache) return w3wCache[id];
+    if (!navigator.onLine) return null;
+    try { const j = await w3wApi('convert-to-3wa', { coordinates: id }); return (w3wCache[id] = j.words || null); }
+    catch (e) { return null; }
+  }
+
+  async function suggest(input) {
+    const j = await w3wApi('autosuggest', { input, 'clip-to-bounding-box': BOX, focus: MID[0] + ',' + MID[1], 'n-results': 3 });
+    return (j && j.suggestions) || [];
+  }
+
+  // Suggestions list under the search box (also used for "did you mean").
+  function showSuggestions(list, heading) {
+    const box = $('w3wSug');
+    if (!list || !list.length) { box.hidden = true; box.innerHTML = ''; return; }
+    box.innerHTML = (heading ? `<p class="sug-head">${esc(heading)}</p>` : '') + list.map(x =>
+      `<button type="button" class="sug" data-w="${esc(x.words)}"><b>///${esc(x.words)}</b><span>near ${esc(x.nearestPlace || '')}</span></button>`).join('');
+    box.hidden = false;
+    box.querySelectorAll('.sug').forEach(btn => btn.addEventListener('click', () => {
+      $('q').value = '///' + btn.dataset.w; showSuggestions(null); lookupW3W(btn.dataset.w);
+    }));
+  }
+
+  let sugTimer = null, sugSeq = 0;
+  $('q').addEventListener('input', () => {
+    clearTimeout(sugTimer);
+    const w = $('q').value.trim().replace(/^what3words:\/\//i, '').replace(/^\/+/, '');
+    if (!navigator.onLine || !/^[\p{L}]+\.[\p{L}]+\.[\p{L}]+$/u.test(w)) { showSuggestions(null); return; }
+    const seq = ++sugSeq;
+    sugTimer = setTimeout(async () => {
+      try { const list = await suggest(w.toLowerCase()); if (seq === sugSeq) showSuggestions(list, 'Near the course'); }
+      catch (e) { }
+    }, 350);
+  });
+
+  async function lookupW3W(words) {
+    clearTimeout(sugTimer); sugSeq++; // drop any typing suggestions still on their way
+    showSuggestions(null);
+    if (!navigator.onLine) { setMsg('what3words needs mobile signal. Ask for the km or GPS coordinates instead.'); return; }
+    if (!w3wKey(false)) { setMsg('A what3words API key is needed for this lookup'); return; }
     setMsg('Looking up ///' + words + '...', true);
     try {
-      const r = await fetch('https://api.what3words.com/v3/convert-to-coordinates?words=' + encodeURIComponent(words) + '&key=' + encodeURIComponent(key));
-      const j = await r.json();
-      if (j && j.coordinates) { setMsg('///' + words, true); findLL(j.coordinates.lat, j.coordinates.lng, '///' + words); }
-      else if (j && j.error && /key/i.test(j.error.code + j.error.message)) { setMsg('what3words key was rejected. Tap Find to enter a new one.'); try { localStorage.removeItem(W3W_LS); } catch (e) { } }
+      const j = await w3wApi('convert-to-coordinates', { words });
+      if (j && j.coordinates) {
+        const lat = j.coordinates.lat, lon = j.coordinates.lng, off = G.snap(lat, lon).offM;
+        setMsg('///' + words + (j.nearestPlace ? ', near ' + j.nearestPlace : ''), true);
+        findLL(lat, lon, '///' + words, words);
+        // A long way from the course usually means a misheard word. Offer nearby alternatives.
+        if (off > 5000) {
+          const alts = (await suggest(words)).filter(x => x.words !== words);
+          if (alts.length) showSuggestions(alts, `That address is ${Math.round(off / 1000)} km from the course. Did you mean:`);
+        }
+        return;
+      }
+      const alts = await suggest(words);
+      if (alts.length) { setMsg('That what3words address doesn\'t exist. Check the words with the caller.'); showSuggestions(alts, 'Did you mean:'); }
       else setMsg((j && j.error && j.error.message) || 'what3words address not found');
-    } catch (e) { setMsg('what3words lookup failed. Check signal, or ask for km or coordinates.'); }
+    } catch (e) {
+      setMsg(e.message === 'badkey' ? 'what3words key was rejected. Tap Find to enter a new one.' : 'what3words lookup failed. Check signal, or ask for km or coordinates.');
+    }
   }
 
   function radioScript(r) {
@@ -176,7 +251,8 @@
     const pos = r.q.lat != null ? `${r.q.lat.toFixed(5)}, ${r.q.lon.toFixed(5)}` : `${r.lat.toFixed(5)}, ${r.lon.toFixed(5)}`;
     const also = r.alsoKm.length ? ` (course passes here again at ${r.alsoKm.map(kmTxt).join(', ')})` : '';
     let s = `${C.event} medical. Casualty at ${kmTxt(r.km)}${also}${where ? ', ' + where : ''}.\n` +
-      `Send ${b.base.name} team. Drive to ${G.cleanName(a)}${G.isGated(a) ? ' (gated, take keys)' : ''}, about ${G.fmt(b.drive)}. ` +
+      (r.casW3w ? `Casualty what3words ///${r.casW3w}.\n` : '') +
+      `Send ${b.base.name} team. Drive to ${G.cleanName(a)}${a.w3w ? ' ///' + a.w3w : ''}${G.isGated(a) ? ' (gated, take keys)' : ''}, about ${G.fmt(b.drive)}. ` +
       `Walk in ${one(b.walkKm)} km, about ${G.fmt(b.walk)}.\n` +
       `ETA to casualty ${G.fmt(b.total)}.`;
     if (r.backup) s += ` Backup ${r.backup.base.name} team, ${G.fmt(r.backup.total)}.`;
@@ -189,13 +265,16 @@
     const a = r.best.a, cas = r.q.lat != null ? [r.q.lat, r.q.lon] : [r.lat, r.lon];
     let s = '*' + radioScript(r).replace('\n', '*\n') +
       `\n\nCasualty: https://maps.google.com/?q=${cas[0].toFixed(5)},${cas[1].toFixed(5)}` +
-      `\nPark at ${G.cleanName(a)}: https://maps.google.com/?q=${a.lat},${a.lon}`;
+      (r.casW3w ? `\nCasualty what3words: https://w3w.co/${r.casW3w}` : '') +
+      `\nPark at ${G.cleanName(a)}: https://maps.google.com/?q=${a.lat},${a.lon}` +
+      (a.w3w ? `\nParking what3words: https://w3w.co/${a.w3w}` : '');
     if (location.protocol.startsWith('http')) s += `\nFull details: ${location.href}`;
     return s;
   }
 
   function show(ic, q) {
-    const r = G.assess(ic); r.q = q;
+    const r = G.assess(ic); r.q = q; last = r;
+    r.casW3w = q.words || null;
     const b = r.best, a = b.a, base = b.base;
     let h = '';
     const prev = r.aid.prev, next = r.aid.next;
@@ -204,6 +283,7 @@
     if (prev && next) h += '<br>';
     if (next) h += `<b>${esc(next.a.name)}</b> ${one(next.distKm)} km ahead`;
     h += '</div></div>';
+    h += `<p class="cas-w3w" id="casW3w">${r.casW3w ? 'Casualty ' + w3wLink(r.casW3w) : ''}</p>`;
     if (r.alsoKm.length) {
       h += `<div class="notice warn">The course passes this spot more than once: ${[r.km].concat(r.alsoKm).sort((x, y) => x - y).map(kmTxt).join(' and ')}. It's the same place on the ground, so the response is the same.</div>`;
     }
@@ -219,7 +299,7 @@
       <div class="eta"><span class="eyebrow">ETA</span><b>${G.fmt(b.total)}</b></div></div>
       <ol class="steps">
         <li><span><b>Drive</b> to ${esc(G.cleanName(a))}${gated ? '<span class="tag gated">Gated</span>' : ''}${a.aid ? `<span class="tag aid">${/water point/i.test(a.name) ? 'Water pt' : 'Aid stn'}</span>` : ''}
-          <span class="sub">${kmTxt(b.joinKm)}${a.conn_m > 50 ? ', ' + a.conn_m + ' m track to the course' : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
+          <span class="sub">${kmTxt(b.joinKm)}${a.conn_m > 50 ? ', ' + a.conn_m + ' m track to the course' : ''}${a.w3w ? ' &middot; ' + w3wLink(a.w3w) : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
         <li><span><b>Walk in</b> ${one(b.walkKm)} km${b.climb >= 5 ? ', ' + Math.round(b.climb) + ' m climb' : ''}
           <span class="sub">${b.joinKm > r.km ? 'Along the course, against race direction' : (b.joinKm < r.km ? 'Along the course, in race direction' : 'Straight to the course')}</span></span><span class="t">${G.fmt(b.walk)}</span></li>
       </ol>
@@ -242,7 +322,7 @@
     h += '<div class="card"><h3>Nearest aid and water points</h3>';
     [['Back', prev], ['Ahead', next]].forEach(([label, x]) => {
       if (!x) return;
-      h += `<div class="row"><span><b>${label}: ${esc(x.a.name)}</b><span class="sub">${kmTxt(x.a.trail_km)}, ${one(x.distKm)} km away. Walk ${G.fmt(x.walk)}, carry ${G.fmt(x.carry)}</span></span></div>`;
+      h += `<div class="row"><span><b>${label}: ${esc(x.a.name)}</b><span class="sub">${kmTxt(x.a.trail_km)}, ${one(x.distKm)} km away. Walk ${G.fmt(x.walk)}, carry ${G.fmt(x.carry)}${x.a.w3w ? '<br>' + w3wLink(x.a.w3w) : ''}</span></span></div>`;
     });
     h += '</div>';
     h += `<p class="details">Course point ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} at ${Math.round(r.ele)} m. ${Math.round(r.climbSoFar).toLocaleString()} m climbed from the start. ` +
@@ -256,8 +336,24 @@
     drawResult(r);
     const hash = q.lat != null ? `#ll=${q.lat.toFixed(5)},${q.lon.toFixed(5)}` : `#km=${one(r.km)}`;
     history.replaceState(null, '', hash);
-    $('btnWa').href = 'https://wa.me/?text=' + encodeURIComponent(whatsappText(r));
+    refreshMessage(r);
+    // Look up the casualty's what3words when there's signal (the spot they were found at, else the course point).
+    if (!r.casW3w) {
+      const at = q.lat != null ? [q.lat, q.lon] : [r.lat, r.lon];
+      w3wAt(at[0], at[1]).then(w => {
+        if (!w || last !== r) return;
+        r.casW3w = w;
+        $('casW3w').innerHTML = (q.lat != null ? 'Casualty ' : 'Course point ') + w3wLink(w);
+        refreshMessage(r);
+        if (casMarker) casMarker.setPopupContent(`<b>Casualty</b><br>${kmTxt(r.km)}<br>${w3wLink(w)}`);
+      });
+    }
     if (innerWidth < 900) $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function refreshMessage(r) {
+    $('script').textContent = radioScript(r);
+    $('btnWa').href = 'https://wa.me/?text=' + encodeURIComponent(whatsappText(r));
   }
 
   function copy(text, btn, done) {
@@ -285,9 +381,10 @@
     if (b.idx > r.ic) along.reverse();
     const walk = (a.conn_geom && a.conn_geom.length > 1 ? a.conn_geom : [accLL]).concat(along);
     L.polyline(walk, { color: '#1666c9', weight: 6, opacity: .95, dashArray: '1,8', lineCap: 'round' }).addTo(resultLayer);
-    L.marker(accLL, { icon: pin(b.base.color, 16), zIndexOffset: 800 }).bindPopup(`<b>Park here</b><br>${esc(G.cleanName(a))}`).addTo(resultLayer);
+    L.marker(accLL, { icon: pin(b.base.color, 16), zIndexOffset: 800 }).bindPopup(`<b>Park here</b><br>${esc(G.cleanName(a))}<br>${w3wLink(a.w3w)}`).addTo(resultLayer);
     if (r.q.lat != null && r.q.offM > 60) L.polyline([[r.q.lat, r.q.lon], ll], { color: '#111', weight: 1.5, dashArray: '3,4' }).addTo(resultLayer);
-    L.circleMarker(ll, { radius: 10, color: '#111', weight: 3, fillColor: '#ffd21f', fillOpacity: 1 }).bindPopup(`<b>Casualty</b><br>${kmTxt(r.km)}`).addTo(resultLayer);
+    casMarker = L.circleMarker(ll, { radius: 10, color: '#111', weight: 3, fillColor: '#ffd21f', fillOpacity: 1 })
+      .bindPopup(`<b>Casualty</b><br>${kmTxt(r.km)}${r.casW3w ? '<br>' + w3wLink(r.casW3w) : ''}`).addTo(resultLayer);
     const bounds = L.latLngBounds([ll, accLL].concat(walk));
     if (r.q.lat != null) bounds.extend([r.q.lat, r.q.lon]);
     map.fitBounds(bounds.pad(0.35), { maxZoom: 15 });
@@ -334,10 +431,11 @@
         <span class="sec-meta">${one(s.lengthKm)} km, ${Math.round(s.climb)} m climb &middot; <span class="pill ${s.rating}">${label}</span></span>
         <span class="badge"><span>Up to</span><b>${G.fmt(w.r.total)}</b></span>
       </button><div class="sec-body">`;
+    h += `<p class="sec-ends"><b>${esc(s.from.name)}</b> ${w3wLink(s.from.w3w)}<br><b>${esc(s.to.name)}</b> ${w3wLink(s.to.w3w)}</p>`;
     h += `<p><b>Hardest point to reach:</b> ${kmTxt(w.km)}. Send ${esc(w.r.base ? w.r.base.name : baseOf(w.r.key).name)} team via ${esc(G.cleanName(w.r.a))}${G.isGated(w.r.a) ? ' (gated)' : ''}, ${G.fmt(w.r.total)}.</p>`;
     h += '<h4>Access points in this section</h4>';
     if (s.access.length) {
-      h += '<ul class="acc-list">' + s.access.map(a => `<li><span class="km">${kmTxt(a.trail_km)}</span>${esc(G.cleanName(a))}${G.isGated(a) ? '<span class="tag gated">Gated</span>' : ''}${a.conn_m > 50 ? `<span class="tag track">${a.conn_m} m walk to course</span>` : ''}</li>`).join('') + '</ul>';
+      h += '<ul class="acc-list">' + s.access.map(a => `<li><span class="km">${kmTxt(a.trail_km)}</span>${esc(G.cleanName(a))}${G.isGated(a) ? '<span class="tag gated">Gated</span>' : ''}${a.conn_m > 50 ? `<span class="tag track">${a.conn_m} m walk to course</span>` : ''} ${w3wLink(a.w3w)}</li>`).join('') + '</ul>';
     } else h += '<p class="muted">None between these aid stations. Access is from the aid stations at each end.</p>';
     h += `<h4>Km by km</h4><table class="kmtable"><thead><tr><th>Km</th><th>Send</th><th>Via</th><th style="text-align:right">ETA</th></tr></thead><tbody>`;
     s.rows.forEach(row => {
