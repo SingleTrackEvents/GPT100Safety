@@ -249,7 +249,7 @@ function pick(field,cross,km,ic){
   let best=null,bt=1e18;
   for(const a of ACCESS){
     if(a[field]==null||isNaN(a[field]))continue;
-    const k=field.slice(6,8),drive=(a[field]/60)*(a.drive_src&&a.drive_src[k]==='valhalla'?1:fac);
+    const k=field.slice(6,8),drive=(a[field]/60)*(a.drive_src&&(a.drive_src[k]==='valhalla'||a.drive_src[k]==='manual')?1:fac);
     const conn=a.conn_m/1000;
     const trailKm=Math.abs(a.trail_km-km), asc=ascentBetween(a.trail_km,km), ca=a.conn_ascent||0;
     const walk=(conn+trailKm)*pace+(asc+ca)*cp;
