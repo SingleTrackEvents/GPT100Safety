@@ -1,0 +1,55 @@
+# Hourly GPT100 weather watch: fetches the forecast models, CFA fire ratings, BOM warnings and air quality,
+# checks the risk triggers, sends phone alerts (ntfy) and publishes the results to the weather-data branch
+# for the Weather tab. Set the NTFY_TOPIC secret for alerts. OPEN_METEO_KEY is optional (commercial licence).
+name: Weather watch
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+    inputs:
+      force_models:
+        description: Fetch every forecast model now
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weather-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Previous results
+        run: |
+          mkdir -p wx-prev
+          if git fetch --depth=1 origin weather-data; then
+            git --work-tree=wx-prev checkout FETCH_HEAD -- .
+            git reset -q
+          fi
+
+      - name: Weather watch
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          OPEN_METEO_KEY: ${{ secrets.OPEN_METEO_KEY }}
+          TZ: Australia/Melbourne
+        run: node tools/weather_watch.mjs --prev wx-prev --out wx-out ${{ inputs.force_models && '--force-models' || '' }}
+
+      - name: Publish to the weather-data branch
+        run: |
+          cd wx-out
+          git init -q -b weather-data
+          git add -A
+          git -c user.name='GPT100 weather watch' -c user.email='actions@users.noreply.github.com' commit -q -m "Weather data $(date -u +%FT%TZ)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" weather-data

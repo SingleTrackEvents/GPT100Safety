@@ -1,21 +1,23 @@
 // Offline support. App files use network first (so updates land), falling back to the cache.
 // Leaflet, fonts and map tiles are cached as they're used.
-const VERSION = 'gpt100-v8';
+const VERSION = 'gpt100-v9';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'js/engine.js', 'js/app.js',
   'data/config.js', 'data/course.js', 'data/courses.js', 'data/access-edits.js', 'data/medplan.enc.js', 'js/medplan.js',
+  'data/pacing.js', 'js/weather-core.js', 'js/weather.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 const TILES = 'gpt100-tiles';
+const WX_CACHE = 'gpt100-weather';
 const MAX_TILES = 2500;
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== TILES).map(k => caches.delete(k))))
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== TILES && k !== WX_CACHE).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -48,6 +50,15 @@ self.addEventListener('fetch', e => {
       if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
+    return;
+  }
+
+  // Weather data from the hourly watch: network first, the last copy when offline.
+  if (url.hostname === 'raw.githubusercontent.com') {
+    e.respondWith(fetch(req).then(res => {
+      if (res.ok) { const copy = res.clone(); caches.open(WX_CACHE).then(c => c.put(req.url, copy)); }
+      return res;
+    }).catch(() => caches.open(WX_CACHE).then(c => c.match(req.url)).then(r => r || new Response('', { status: 504 }))));
     return;
   }
 

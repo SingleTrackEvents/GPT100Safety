@@ -265,11 +265,124 @@ a.w3w:hover { text-decoration: underline; }
 .so-mark.on { background: #ffd21f; border-color: #111; }
 @media (max-width: 420px) { .brand-app { display: none; } .tab-btn { padding: 8px 7px; } }
 
+/* Weather tab: panel on the left, map on the right (laptop); map on top (phone) */
+.wx-layout { display: flex; flex-direction: column; }
+.wx-panel { padding: 12px 14px 20px; min-width: 0; }
+.wx-map { position: relative; order: -1; height: 38vh; min-height: 240px; border-bottom: 1px solid var(--line); }
+#wxMap { position: absolute; inset: 0; background: #ddd; }
+@media (min-width: 900px) {
+  .wx-layout { display: grid; grid-template-columns: minmax(520px, 1.1fr) 1fr; height: calc(100vh - 58px); }
+  .wx-panel { overflow-y: auto; border-right: 1px solid var(--line); }
+  .wx-map { order: 0; height: auto; border-bottom: 0; }
+  body.on-wx .foot { display: none; }
+}
+.wx-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.wx-head h1 { font-size: 34px; }
+.wx-upd { margin: 0; font-size: 12px; color: var(--muted); }
+.seg { display: flex; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden; margin: 10px 0; }
+.seg button { flex: 1; min-height: 40px; border: 0; background: #fff; font-weight: 600; font-size: 13px; cursor: pointer; padding: 0 6px; }
+.seg button + button { border-left: 2px solid var(--ink); }
+.seg button.on { background: var(--ink); color: #fff; }
+.seg.small { margin: 0; border-width: 1.5px; }
+.seg.small button { min-height: 32px; font-size: 12px; white-space: nowrap; padding: 0 10px; }
+.seg.small button + button { border-left-width: 1.5px; }
+.wx-h { font-size: 24px; margin: 18px 0 6px; }
+.wx-h3 { font-size: 20px; margin: 12px 0 4px; }
+.wx-when { font-family: var(--body); font-size: 12px; color: var(--muted); letter-spacing: 0; }
+.wx-note { font-size: 12px; color: var(--muted); margin: 4px 0 8px; }
+.wx-ok { font-size: 14px; margin: 0 0 8px; }
+.wx-overall { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wx-scope { text-align: left; border: 0; border-left: 8px solid; border-radius: 8px; padding: 8px 12px; cursor: pointer; background: var(--paper); box-shadow: 0 0 0 1px var(--line) inset; }
+.wx-scope span { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.wx-scope b { font-family: var(--head); font-weight: 400; font-size: 28px; line-height: 1.1; }
+.wx-scope.on { box-shadow: 0 0 0 2px var(--ink) inset; }
+.st-ok { border-color: var(--green); }
+.st-close { border-color: #f0b429; }
+.st-met { border-color: #d64545; }
+.st-nodata { border-color: #bbb; }
+.wx-scope.st-met { background: var(--red-bg); }
+.wx-scope.st-close { background: var(--amber-bg); }
+.wx-pill { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 2px 8px; border-radius: 20px; background: #eee; color: #555; white-space: nowrap; margin: 1px 0; }
+.wx-pill.st-ok { background: var(--green-bg); color: var(--green); }
+.wx-pill.st-close { background: #f0b429; color: #111; }
+.wx-pill.st-met { background: #d64545; color: #fff; }
+.wx-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.wx-card { text-align: left; font: inherit; color: inherit; background: var(--paper); border: 1px solid var(--line); border-left: 6px solid; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+.wx-card:not([data-km]) { cursor: default; }
+.wx-card.st-met { background: var(--red-bg); }
+.wx-card.st-close { background: var(--amber-bg); }
+.wx-card-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.wx-card p { margin: 4px 0 0; font-size: 13px; }
+.wx-card .wx-where { font-size: 12px; color: var(--muted); }
+.wx-card .wx-rule { font-size: 11px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 4px; margin-top: 6px; }
+.wx-bom { display: block; text-decoration: none; background: var(--red-bg); border-left: 6px solid #d64545; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+.wx-bom span { display: block; font-size: 11px; color: var(--muted); }
+.wx-fire { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--paper); border-radius: 8px; overflow: hidden; }
+.wx-fire th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; padding: 5px 8px; border-bottom: 2px solid var(--ink); }
+.wx-fire td { padding: 5px 8px; border-bottom: 1px solid var(--line); }
+.fdr { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; background: #eee; }
+.fdr-moderate { background: #64bf30; color: #fff; }
+.fdr-high { background: #ffe300; color: #111; }
+.fdr-extreme { background: #f47216; color: #fff; }
+.fdr-catastrophic { background: #b0171f; color: #fff; }
+.tfb { color: #b0171f; font-size: 12px; }
+.wx-trend { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 12px; font-size: 12px; }
+.wx-trend svg { display: block; width: 100%; height: 40px; background: var(--paper); border-radius: 4px; }
+.wx-src { margin-top: 16px; font-size: 13px; }
+.wx-src summary { cursor: pointer; font-weight: 700; }
+.wx-src ul { padding-left: 18px; margin: 6px 0; }
+.wx-ds { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 4px 0 8px; font-size: 13px; font-weight: 600; }
+.wx-ds label, .wx-ctl label, .wx-any label { display: inline-flex; align-items: center; gap: 6px; }
+.wx-panel select, .wx-panel input[type=date], .wx-panel input[type=datetime-local], .wx-panel input[type=number] { min-height: 34px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font: inherit; font-size: 13px; padding: 0 6px; max-width: 100%; }
+.wx-ds select { max-width: 280px; }
+.wx-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 6px 0 8px; font-size: 13px; font-weight: 600; }
+.wx-tl { width: 100%; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.wx-tl canvas { display: block; cursor: crosshair; }
+.wx-key { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; margin: 6px 0; color: var(--muted); }
+.wx-key i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.15); }
+.wx-key i.ln { width: 16px; height: 0; border: 0; border-top: 2px solid #111; vertical-align: 3px; border-radius: 0; }
+.wx-key i.ln.slow { border-top-style: dashed; }
+.wx-any { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; font-weight: 600; margin: 8px 0; }
+.wx-any input[type=number] { width: 80px; }
+.wx-read { background: var(--paper); border: 1px solid var(--line); border-left: 6px solid var(--course); border-radius: 8px; padding: 8px 12px; }
+.wx-read h3 { font-size: 24px; }
+.wx-read p { margin: 4px 0; font-size: 13px; }
+.wx-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.wx-sim-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.wx-slider { width: 100%; margin: 10px 0 2px; }
+.wx-simt { font-size: 28px; margin: 2px 0 8px; }
+.wx-runners { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+.wx-runner { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.wx-runner p { margin: 3px 0; }
+.wx-rk { font-family: var(--head); font-size: 26px; line-height: 1; }
+.wx-rk span { font-family: var(--body); font-size: 12px; color: var(--muted); }
+.wx-trip { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.wx-trip h3 { font-size: 20px; }
+.wx-trip p { margin: 4px 0; font-size: 13px; }
+.wx-journey, .wx-models { display: block; width: 100%; height: auto; font: 11px var(--body); fill: #625c53; margin-top: 6px; }
+.wx-models { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; cursor: crosshair; }
+.wx-facts { list-style: none; padding: 0; margin: 6px 0; font-size: 13px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2px 12px; }
+.wx-facts .wx-where { font-size: 11px; color: var(--muted); }
+.wx-legend { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; font-size: 12px; }
+.wx-legend button, .wx-legend span { border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 2px 8px; cursor: pointer; font-size: 12px; }
+.wx-legend button.off { opacity: .35; text-decoration: line-through; }
+.wx-legend i, .wx-mt i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.wx-mt { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--paper); }
+.wx-mt th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; padding: 4px 8px; border-bottom: 2px solid var(--ink); }
+.wx-mt td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.wx-mt tr.med td { font-weight: 700; }
+.wx-rm { width: 24px; height: 24px; border-radius: 50%; background: #111; color: #fff; font: 800 12px/20px var(--body); text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+.wx-rm.slow { background: var(--course); }
+.wx-tm { display: inline-block; white-space: nowrap; font: 700 11px var(--body); padding: 2px 7px; border-radius: 12px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.wx-tm.st-met { background: #d64545; color: #fff; }
+.wx-tm.st-close { background: #f0b429; color: #111; }
+@media (max-width: 400px) { .tab-btn { padding: 8px 5px; font-size: 13px; } .wx-overall { grid-template-columns: 1fr; } }
+
 /* Print: the run sheet as a paper backup */
 @media print {
   @page { size: A4; margin: 12mm; }
   body { background: #fff; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .top, #tab-find, #tab-med, .sheet-tools, .sec-actions, .foot a { display: none !important; }
+  .top, #tab-find, #tab-med, #tab-wx, .sheet-tools, .sec-actions, .foot a { display: none !important; }
   #tab-sheet { display: block !important; }
   .sheet { padding: 0; max-width: none; }
   .sec { break-inside: avoid; border: 1px solid #999; border-left-width: 8px; margin-bottom: 6px; }

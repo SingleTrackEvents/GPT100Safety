@@ -25,12 +25,14 @@
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
     document.body.classList.toggle('on-find', name === 'find');
     document.body.classList.toggle('on-med', name === 'med');
+    document.body.classList.toggle('on-wx', name === 'wx');
+    if (window.WeatherTab) { if (name === 'wx') window.WeatherTab.onShow(); else window.WeatherTab.onHide(); }
     if (name === 'sheet' && !sheetBuilt) buildSheet();
     if (name === 'med' && window.MedPlan) window.MedPlan.onShow();
     if (name === 'find' && map) setTimeout(() => map.invalidateSize(), 0);
   }
   document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
-    history.replaceState(null, '', b.dataset.tab === 'sheet' ? '#sheet' : b.dataset.tab === 'med' ? '#medical' : location.pathname + location.search);
+    history.replaceState(null, '', b.dataset.tab === 'sheet' ? '#sheet' : b.dataset.tab === 'med' ? '#medical' : b.dataset.tab === 'wx' ? '#weather' : location.pathname + location.search);
     showTab(b.dataset.tab);
   }));
 
@@ -560,6 +562,7 @@
     const h = decodeURIComponent(location.hash.slice(1));
     if (h === 'sheet') { showTab('sheet'); return; }
     if (h === 'medical') { showTab('med'); return; }
+    if (h === 'weather') { showTab('wx'); return; }
     showTab('find');
     const cm = /[&?]c=([\w-]+)/.exec(h), rm = /[&?]r=([\w-]+)/.exec(h);
     setCourse(cm ? cm[1] : window.GPT.id);

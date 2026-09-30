@@ -31,6 +31,16 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - Open a section to see its access points and a km by km table. Tap any row to open it in Find.
 - **Print** gives a clean A4 paper backup for vehicles and aid stations.
 
+**Weather** (for the weather lead and race control)
+
+- **Triggers:** the Risk Management Plan triggers (fire, wind on ridges, thunderstorms, heat, heavy rain, cold on ridges, smoke) for the next 48 hours and for race weekend. Each shows Clear, Getting close or Met, where and when, and whether runners will be there. Official BOM warnings near the course and the CFA fire ratings come first. Tap a trigger to see it on the timeline.
+- **Timeline:** the whole course against time, coloured by trigger status, feels like temperature, gusts, rain, chance of rain, heat stress (WBGT), thunderstorms or cloud, with the fastest and slowest runners drawn on. Tap anywhere, or type a km and a time, for the weather at that spot.
+- **Simulator:** press Play and watch the fastest runner and the slowest (the cut-offs) travel the course, with the weather where they are, then a summary of each runner's whole race: hottest, coldest feels like, strongest ridge gust, rain and any triggers. Before the forecast reaches race weekend you can move the race into the forecast, or replay the race dates from past years (2016 to 2025).
+- **Models:** every forecast model for any point on the course (ECMWF, ECMWF AI, GFS, ICON, UK Met Office, Météo-France, GEM and JMA), the consensus, trigger lines, and how well the models agree.
+- The consensus is the middle value of all the models. "Getting close" also lights up when any single model reaches a trigger. Temperatures are adjusted for the height of each point.
+- **Phone alerts:** the hourly weather watch sends a phone notification (ntfy app) when a trigger gets closer or eases, when a BOM warning is issued near the course, and a 6 am summary each day from 30 October to the end of the race. Race weekend alerts start as soon as the forecast reaches it.
+- Lightning isn't included yet (it needs a paid lightning feed).
+
 **Medical** (password protected, for the medical team and race control)
 
 - The race medical plan: who is on duty at each station, runner numbers per hour, where the medical vehicles are, and the movements in the next 2 hours.
@@ -95,6 +105,16 @@ MEDPLAN_PASSWORD='new password' node tools/encrypt_medplan.mjs path/to/GPT100_Me
 
 This replaces `data/medplan.enc.js`. Commit that file only, never the plan itself (`.gitignore` blocks it). Changing the password asks every device for the new one.
 
+## Weather watch
+
+`.github/workflows/weather.yml` runs `tools/weather_watch.mjs` every hour on GitHub Actions. It fetches the forecast models from Open-Meteo every 3 hours (they only update a few times a day), and the CFA fire ratings, BOM warnings (from the Bureau's anonymous FTP service) and the air quality forecast every hour. It publishes the results to the `weather-data` branch, which the Weather tab reads. The branch holds only the latest results, so it doesn't grow.
+
+- **Phone alerts:** install the ntfy app (iPhone or Android), subscribe to a private topic name only you know, then add that name as a repository secret called `NTFY_TOPIC` (Settings, Secrets and variables, Actions). Anyone who should get alerts subscribes to the same topic.
+- **Run it now:** Actions, Weather watch, Run workflow (tick "Fetch every forecast model now" to refresh the models straight away).
+- **Commercial use:** the free Open-Meteo service is for non-commercial use. With a paid Open-Meteo licence, add the key as a secret called `OPEN_METEO_KEY`.
+- **Triggers, models and dates** are set in `data/config.js` under `weather`. Runner pacing is in `data/pacing.js`.
+- If the watch stops, the Weather tab warns that the data is old, and GitHub emails the repository owner when a run fails.
+
 ## Settings
 
 `data/config.js` holds the bases, the timing assumptions (walk pace, stretcher pace, climb penalty, drive factor) and the green, amber and red thresholds.
@@ -118,7 +138,7 @@ These are planning estimates. Always check access, gates and closures on the day
 
 | File | What it is |
 | --- | --- |
-| `index.html` | Staff app (Find and Run sheet) |
+| `index.html` | Staff app (Find, Run sheet, Weather and Medical) |
 | `admin.html` | Planning map and access point editor |
 | `js/engine.js` | Response calculations, shared by Find and Run sheet |
 | `js/app.js` | Staff app screens |
@@ -126,6 +146,9 @@ These are planning estimates. Always check access, gates and closures on the day
 | `data/course.js` | Course route, bases, access points and crossings |
 | `data/access-edits.js` | Published access point changes |
 | `data/config.js` | Bases, assumptions and thresholds |
+| `js/weather.js`, `js/weather-core.js` | Weather tab, and the trigger logic shared with the weather watch |
+| `data/pacing.js` | Fastest and slowest runner times for the simulator |
+| `tools/weather_watch.mjs`, `.github/workflows/weather.yml` | Hourly weather watch and phone alerts |
 | `sw.js`, `manifest.webmanifest` | Offline support and Add to Home Screen |
 
 ## Coming later

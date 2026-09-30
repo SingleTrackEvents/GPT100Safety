@@ -21,6 +21,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab-btn on" data-tab="find" role="tab" aria-selected="true">Find</button>
     <button class="tab-btn" data-tab="sheet" role="tab" aria-selected="false">Run sheet</button>
+    <button class="tab-btn" data-tab="wx" role="tab" aria-selected="false">Weather</button>
     <button class="tab-btn" data-tab="med" role="tab" aria-selected="false">Medical</button>
   </nav>
   <span id="net" class="net" hidden>Offline</span>
@@ -78,6 +79,10 @@
   </section>
 
 
+  <section id="tab-wx" class="tab" role="tabpanel">
+    <div id="wxBody"></div>
+  </section>
+
   <section id="tab-med" class="tab" role="tabpanel">
     <div id="medBody"></div>
   </section>
@@ -96,6 +101,9 @@
 <script src="js/engine.js"></script>
 <script src="data/medplan.enc.js"></script>
 <script src="js/medplan.js"></script>
+<script src="data/pacing.js"></script>
+<script src="js/weather-core.js"></script>
+<script src="js/weather.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

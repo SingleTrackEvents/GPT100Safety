@@ -24,6 +24,33 @@ window.GPT100_CONFIG = {
   // Run sheet ratings, in minutes to reach a casualty.
   amberMin: 60,
   redMin: 120,
+  // Weather tab and the hourly weather watch (tools/weather_watch.mjs, run by GitHub Actions).
+  // Triggers follow the Risk Management Plan v3.2, section 5. "close" is the getting-close level.
+  weather: {
+    // Where the hourly watch publishes its results (a separate branch, so the site isn't rebuilt every hour).
+    dataUrl: 'https://raw.githubusercontent.com/SingleTrackEvents/GPT100Safety/weather-data/',
+    event: { start: '2026-11-05T06:00', end: '2026-11-08T17:00' },  // first start to last cut-off
+    alertsFrom: '2026-10-30T00:00',  // phone alerts from course marking onwards
+    districts: ['Wimmera', 'South West'],  // CFA fire districts and BOM warning areas for the course
+    ridgeMinEle: 600,  // course points at or above this height (m) count as ridges and high ground
+    staleHours: 3,     // warn when the latest data is older than this
+    // Forecast models on Open-Meteo. Models with nothing for the course are skipped automatically.
+    models: ['ecmwf_ifs025', 'ecmwf_aifs025_single', 'gfs_seamless', 'icon_seamless', 'ukmo_seamless',
+      'meteofrance_seamless', 'gem_seamless', 'jma_seamless', 'bom_access_global'],
+    modelEveryHours: 3,  // the models update a few times a day, so fetch them every 3 hours
+    replayYears: [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],  // past race dates for the simulator
+    // BOM warnings that name any of these count as near the course.
+    warningWords: ['Wimmera', 'South West', 'Grampians', 'Glenelg', 'Wannon', 'Halls Gap', 'Dunkeld', 'Stawell', 'Horsham', 'Hamilton', 'Ararat'],
+    triggers: {
+      heat: { met: 36, close: 32, wbgtMet: 30, wbgtClose: 28 },
+      wind: { met: 60, close: 50, proposed: true },       // gusts km/h on ridges
+      rain: { met: 40, close: 30 },                       // mm in 24 hours
+      cold: { met: 0, close: 3, rainMm: 1, windKmh: 40, hours: 3, proposed: true }, // feels-like °C on ridges overnight
+      storm: { capeClose: 800, proposed: true },          // thunderstorm in the model forecasts
+      smoke: { met: 150, close: 100, proposed: true },    // PM2.5 air quality index
+      fire: {}                                            // Total Fire Ban, or Extreme / Catastrophic rating
+    }
+  },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
   what3wordsKey: 'LBTPEWCQ'
