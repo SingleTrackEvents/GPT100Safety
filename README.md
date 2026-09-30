@@ -10,6 +10,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 **Find** (for whoever takes the call)
 
+- **Runner's race:** on the GPT100 course, pick the runner's race (Miler, 50k or Stage 1, Stage 2, Stage 3, Stage 4 or 33k) and type the km they give. The app converts it, for example Stage 2 km 10 is GPT100 km 59.2, and shows both in the result and the message. Races are set in `data/config.js` by their start and finish aid stations.
+
 - Type a km (`87.3`), coordinates (`-37.294, 142.601`) or what3words (`///word.word.word`). You can also use your phone's GPS or tap the map.
 - You get one clear answer: which team to send, where to park (with gated roads flagged), the walk in, and the ETA.
 - It also shows the backup team, the nearest aid stations either side, and how long a stretcher carry-out would take.

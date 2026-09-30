@@ -12,6 +12,15 @@ window.GPT100_CONFIG = {
   evacPace: 30,     // stretcher / carry-out, min per km
   climbPenalty: 0.10, // min per metre of ascent
   driveFactor: 1.2, // multiplier on measured drive times for access roads
+  // Races on the GPT100 course, for converting a runner's race km to GPT100 km.
+  // from/to are aid stations on the GPT100 course (their names in the app).
+  races: [
+    { id: 'miler', label: 'GPT100 Miler', from: 'Mt Zero (Start)', to: 'Dunkeld (Finish)' },
+    { id: '50k', label: '50k or Stage 1', from: 'Mt Zero (Start)', to: 'Halls Gap' },
+    { id: 's2', label: 'Stage 2', from: 'Halls Gap', to: 'Mt William Carpark' },
+    { id: 's3', label: 'Stage 3', from: 'Mt William Carpark', to: 'Griffin Fireline' },
+    { id: 's4', label: 'Stage 4 or 33k', from: 'Griffin Fireline', to: 'Dunkeld (Finish)' }
+  ],
   // Run sheet ratings, in minutes to reach a casualty.
   amberMin: 60,
   redMin: 120,

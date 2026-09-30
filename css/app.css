@@ -67,6 +67,11 @@ a { color: inherit; }
 .course-note:empty { display: none; }
 .sheet .course-pick { max-width: 420px; }
 
+/* Runner's race */
+.race-pick { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+.race-pick select { flex: 1; min-height: 40px; border: 2px solid var(--ink); border-radius: 8px; background: #fff; font: inherit; font-weight: 600; padding: 0 8px; }
+.race-km { margin: 0 0 6px; font-size: 14px; background: #fff3c4; border-radius: 6px; padding: 6px 10px; }
+
 /* Search */
 .search { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
 .search-label { display: block; font-family: var(--head); font-size: 24px; margin-bottom: 8px; }

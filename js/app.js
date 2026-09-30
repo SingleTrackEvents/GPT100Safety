@@ -112,6 +112,7 @@
     document.querySelectorAll('.course-note').forEach(n => n.textContent = G.note);
     last = null; $('result').innerHTML = EMPTY; setMsg('');
     if (map) { resultLayer.clearLayers(); drawCourse(true); }
+    if ($('racePick')) $('racePick').hidden = !G.main;
     sheetBuilt = false;
     if ($('tab-sheet').classList.contains('on')) buildSheet();
   }
@@ -120,6 +121,38 @@
     $('findForm').insertAdjacentHTML('afterbegin', html);
     document.querySelector('.sheet-head').insertAdjacentHTML('afterend', html);
     document.querySelectorAll('.course-pick button').forEach(b => b.addEventListener('click', () => setCourse(b.dataset.c)));
+  }
+
+  // ---------- Runner's race (on the GPT100 course) ----------
+  // Stage and shorter races run on part of the GPT100 course; a runner gives their own race km,
+  // which is converted to GPT100 km using the race's start and finish aid stations.
+  const RACES = (C.races || []).map(r => {
+    const a = window.GPT.AID.find(x => x.name === r.from), b = window.GPT.AID.find(x => x.name === r.to);
+    return a && b ? Object.assign({}, r, { start: a.trail_km, end: b.trail_km }) : null;
+  }).filter(Boolean);
+  let race = RACES[0] || null;
+  const isSub = () => G.main && race && race.start + (window.GPT.totalKm - race.end) > 0.05; // not the whole course
+  if (RACES.length > 1) {
+    const box = `<label class="race-pick" id="racePick">Runner's race <select id="race">${RACES.map(r => `<option value="${r.id}">${esc(r.label)}</option>`).join('')}</select></label>`;
+    const note = $('findForm').querySelector('.course-note');
+    if (note) note.insertAdjacentHTML('afterend', box); else $('findForm').insertAdjacentHTML('afterbegin', box);
+    $('race').addEventListener('change', () => setRace($('race').value, true));
+  }
+  function setRace(id, rerun) {
+    race = RACES.find(r => r.id === id) || RACES[0];
+    if ($('race')) $('race').value = race.id;
+    $('q').placeholder = isSub() ? `${race.label} km, coordinates or what3words` : 'Km, coordinates or what3words';
+    if (!rerun) return;
+    // A typed km is re-read as the new race's km; any other search just updates the race km shown.
+    const q = parseQuery($('q').value);
+    if (q && q.type === 'km') { setMsg(''); findKm(q.km); }
+    else if (q && q.type === 'error' && /^\s*\d/.test($('q').value)) setMsg(q.msg);
+    else if (last) show(last.ic, last.q);
+  }
+  // Where a GPT100 km falls in the runner's race, or null if it's outside that race.
+  function raceKmOf(km) {
+    if (!isSub() || km < race.start - 0.05 || km > race.end + 0.05) return null;
+    return Math.max(0, km - race.start);
   }
 
   // ---------- Find ----------
@@ -136,6 +169,11 @@
     if (!nums) return { type: 'error', msg: 'Enter a km, coordinates (lat, lon) or ///word.word.word' };
     if (nums.length === 1) {
       const km = +nums[0];
+      if (isSub()) {
+        const len = race.end - race.start;
+        if (km < 0 || km > len + 0.05) return { type: 'error', msg: `${race.label} km must be between 0 and ${len.toFixed(1)}` };
+        return { type: 'km', km: Math.min(race.start + km, race.end) };
+      }
       if (km < 0 || km > G.totalKm) return { type: 'error', msg: `Km must be between 0 and ${G.totalKm}` };
       return { type: 'km', km };
     }
@@ -283,7 +321,8 @@
       ? `between ${r.aid.prev.a.name} and ${r.aid.next.a.name}` : '';
     const pos = r.q.lat != null ? `${r.q.lat.toFixed(5)}, ${r.q.lon.toFixed(5)}` : `${r.lat.toFixed(5)}, ${r.lon.toFixed(5)}`;
     const also = r.alsoKm.length ? ` (course passes here again at ${r.alsoKm.map(kmTxt).join(', ')})` : '';
-    let s = `${G.name} medical. Casualty at ${kmTxt(r.km)}${also}${where ? ', ' + where : ''}.\n` +
+    const at = r.raceKm != null ? `${race.label} km ${one(r.raceKm)} (${G.name} ${kmTxt(r.km)})` : kmTxt(r.km);
+    let s = `${G.name} medical. Casualty at ${at}${also}${where ? ', ' + where : ''}.\n` +
       (r.casW3w ? `Casualty what3words ///${r.casW3w}.\n` : '') +
       `Send ${b.base.name} team. Drive to ${G.cleanName(a)}${a.w3w ? ' ///' + a.w3w : ''}${G.isGated(a) ? ' (gated, take keys)' : ''}, about ${G.fmt(b.drive)}. ` +
       `Walk in ${one(b.walkKm)} km, about ${G.fmt(b.walk)}.\n` +
@@ -308,8 +347,14 @@
   function show(ic, q) {
     const r = G.assess(ic); r.q = q; last = r;
     r.casW3w = q.words || null;
+    r.raceKm = raceKmOf(r.km);
     const b = r.best, a = b.a, base = b.base;
     let h = '';
+    if (isSub()) {
+      h += r.raceKm != null
+        ? `<p class="race-km"><b>${esc(race.label)} km ${one(r.raceKm)}</b> is ${G.name} km ${one(r.km)}</p>`
+        : `<div class="notice warn">This spot isn't on the ${esc(race.label)} course. It's ${G.name} km ${one(r.km)}.</div>`;
+    }
     const prev = r.aid.prev, next = r.aid.next;
     h += `<div class="loc"><div class="loc-km"><small>KM</small>${one(r.km)}</div><div class="loc-between">`;
     if (prev) h += `<b>${esc(prev.a.name)}</b> ${one(prev.distKm)} km back`;
@@ -368,7 +413,7 @@
     else sh.addEventListener('click', () => copy(location.href, sh, 'Link copied'));
 
     drawResult(r);
-    const hash = (q.lat != null ? `#ll=${q.lat.toFixed(5)},${q.lon.toFixed(5)}` : `#km=${one(r.km)}`) + (G.main ? '' : '&c=' + G.id);
+    const hash = (q.lat != null ? `#ll=${q.lat.toFixed(5)},${q.lon.toFixed(5)}` : `#km=${one(r.km)}`) + (G.main ? '' : '&c=' + G.id) + (isSub() ? '&r=' + race.id : '');
     history.replaceState(null, '', hash);
     refreshMessage(r);
     // Look up the casualty's what3words when there's signal (the spot they were found at, else the course point).
@@ -516,8 +561,9 @@
     if (h === 'sheet') { showTab('sheet'); return; }
     if (h === 'medical') { showTab('med'); return; }
     showTab('find');
-    const cm = /[&?]c=([\w-]+)/.exec(h);
+    const cm = /[&?]c=([\w-]+)/.exec(h), rm = /[&?]r=([\w-]+)/.exec(h);
     setCourse(cm ? cm[1] : window.GPT.id);
+    if (RACES.length) setRace(rm ? rm[1] : RACES[0].id, false);
     let m;
     if ((m = h.match(/^km=([\d.]+)/))) { $('q').value = m[1]; findKm(+m[1]); }
     else if ((m = h.match(/^ll=(-?[\d.]+),(-?[\d.]+)/))) { $('q').value = m[1] + ', ' + m[2]; findLL(+m[1], +m[2], 'shared link'); }
