@@ -22,6 +22,7 @@
     });
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
     document.body.classList.toggle('on-find', name === 'find');
+    document.body.classList.toggle('on-med', name === 'med');
     if (name === 'sheet' && !sheetBuilt) buildSheet();
     if (name === 'med' && window.MedPlan) window.MedPlan.onShow();
     if (name === 'find' && map) setTimeout(() => map.invalidateSize(), 0);
@@ -454,6 +455,7 @@
   // Used by the Medical tab: open a km in Find, and refresh the "Medical on duty" card when the plan time changes.
   window.GPT_UI = {
     openKm: openInFinder,
+    map: () => map,
     refresh: () => { if (last && $('medNear') && window.MedPlan) $('medNear').innerHTML = window.MedPlan.nearbyHTML(last); }
   };
 

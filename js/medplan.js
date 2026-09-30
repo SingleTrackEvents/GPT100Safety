@@ -12,7 +12,7 @@
   let P = null;          // the decrypted plan
   let T0 = null;         // plan start (Melbourne wall clock)
   let pick = null;       // chosen time in hours from T0, or null to follow the live clock
-  let liveTimer = null, map = null, mapLayer = null;
+  let liveTimer = null;
 
   // ---------- Unlocking ----------
   const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -43,8 +43,8 @@
   }
   function lock() {
     try { localStorage.removeItem(LS); } catch (e) { }
-    P = null; stopLive(); if (map) { map.remove(); map = null; }
-    render();
+    P = null; stopLive(); stopPlay();
+    render(); refreshFind();
   }
 
   // ---------- Plan helpers ----------
@@ -101,104 +101,203 @@
   const col = g => P.grades[g] || '#888';
 
   // ---------- Medical tab ----------
+  // The tab is built once (render) and then refreshed in place (update), so Play and Live are smooth.
+  let built = false, playTimer = null, map = null, fitted = false, stMarks = {}, vMarks = {};
+  const JUMPS = [['Thu 07:00', 2], ['Thu 14:00', 9], ['Fri 08:00', 27], ['Fri 15:30', 34.5], ['Fri 23:00', 42], ['Sat 03:00', 46], ['Sat 09:00', 52], ['Sat 20:00', 63], ['Sun 03:00', 70], ['Sun 12:00', 79]];
+
   function render() {
     const el = $('medBody'); if (!el) return;
-    if (!ENC) { el.innerHTML = '<div class="card"><p>No medical plan has been loaded into this version of the app.</p></div>'; return; }
+    built = false; stopPlay();
+    if (map) { map.remove(); map = null; fitted = false; }
+    if (!ENC) { el.innerHTML = '<div class="sheet"><div class="card"><p>No medical plan has been loaded into this version of the app.</p></div></div>'; return; }
     if (!P) {
-      el.innerHTML = `<form class="card med-lock" id="medUnlock" autocomplete="off">
+      el.innerHTML = `<div class="sheet"><form class="card med-lock" id="medUnlock" autocomplete="off">
         <h3>Medical plan</h3>
         <p>Who is on duty where, runner numbers and medical vehicles, live during the event. Enter the password from the Race Director. This device remembers it until you lock the tab.</p>
         <div class="search-row"><input id="medPw" type="password" placeholder="Password" autocomplete="current-password"><button class="btn primary" type="submit">Unlock</button></div>
-        <p class="msg" id="medMsg" role="status"></p></form>`;
+        <p class="msg" id="medMsg" role="status"></p></form></div>`;
       $('medUnlock').addEventListener('submit', async e => {
         e.preventDefault(); const pw = $('medPw').value; if (!pw) return;
-        $('medMsg').textContent = ''; $('medMsg').classList.add('ok'); $('medMsg').textContent = 'Unlocking...';
-        try { await unlock(pw); render(); if (window.GPT_UI) window.GPT_UI.refresh(); }
+        $('medMsg').classList.add('ok'); $('medMsg').textContent = 'Unlocking...';
+        try { await unlock(pw); render(); refreshFind(); }
         catch (err) { $('medMsg').classList.remove('ok'); $('medMsg').textContent = window.crypto && crypto.subtle ? 'That password didn\'t work.' : 'This browser can\'t unlock the plan. Open the app over https.'; }
       });
       return;
     }
+    el.innerHTML = `<div class="med-layout">
+      <div class="med-panel">
+        <div class="med-top">
+          <div class="med-clock"><span class="live-dot" id="medDot" hidden></span><b id="medClock"></b><span class="muted" id="medNote"></span></div>
+          <div class="med-tools">
+            <button class="btn small" id="medPlay" type="button">&#9654; Play</button>
+            <select id="medSpeed" aria-label="Play speed"><option value="250">Fast</option><option value="600" selected>Normal</option><option value="1200">Slow</option></select>
+            <button class="btn small" id="medGoLive" type="button">Live</button>
+            <button class="btn small" id="medLockBtn" type="button">Lock</button>
+          </div>
+        </div>
+        <input type="range" id="medSlider" min="0" max="${P.n - 1}" aria-label="Plan time">
+        <div class="med-jumps">${JUMPS.map(([l, j]) => `<button type="button" data-h="${j}">${l}</button>`).join('')}</div>
+        <div class="med-races" id="medRaces"></div>
+        <div class="med-veh" id="medVeh"></div>
+        <div class="med-grid" id="medStations"></div>
+        <p class="med-note">Draft plan. Runner numbers are 2025 results on the 2026 clock; person IDs are provisional. Keep this information within the medical and event team.</p>
+      </div>
+      <div class="med-mapbox"><div id="medMap"></div></div>
+    </div>`;
+
+    $('medLockBtn').addEventListener('click', () => { if (confirm('Lock the medical plan on this device? You will need the password again.')) lock(); });
+    $('medGoLive').addEventListener('click', () => { stopPlay(); pick = null; update(); });
+    $('medPlay').addEventListener('click', () => playTimer ? stopPlay() : startPlay());
+    $('medSpeed').addEventListener('change', () => { if (playTimer) { stopPlay(); startPlay(); } });
+    $('medSlider').addEventListener('input', e => { stopPlay(); pick = +e.target.value / 4; update(); });
+    el.querySelectorAll('.med-jumps [data-h]').forEach(b => b.addEventListener('click', () => { stopPlay(); pick = +b.dataset.h; update(); }));
+    $('medStations').addEventListener('click', e => {
+      const f = e.target.closest('[data-km]');
+      if (f) { window.GPT_UI && window.GPT_UI.openKm(+f.dataset.km); return; }
+      const n = e.target.closest('.med-pos, .med-acc'); if (n) n.classList.toggle('open'); // tap a note to read it in full
+    });
+    buildMap();
+    built = true;
+    update();
+  }
+
+  function startPlay() {
+    if (pick == null) pick = curH();
+    if (pick >= endH() - 0.25) pick = 0;
+    $('medPlay').innerHTML = '&#10074;&#10074; Pause'; $('medPlay').classList.add('on');
+    playTimer = setInterval(() => {
+      pick = Math.min(pick + 0.25, endH() - 0.25);
+      update();
+      if (pick >= endH() - 0.25) stopPlay();
+    }, +$('medSpeed').value);
+  }
+  function stopPlay() {
+    if (!playTimer) return;
+    clearInterval(playTimer); playTimer = null;
+    if ($('medPlay')) { $('medPlay').innerHTML = '&#9654; Play'; $('medPlay').classList.remove('on'); }
+  }
+
+  function update() {
+    if (!built || !P) return;
     const h = curH();
-    let html = `<div class="med-head"><div><h1>Medical</h1>
-      <p class="med-when">${isLive() ? '<span class="live-dot"></span>Live, ' : ''}<b>${fmtH(h)}</b>${pick == null && !inEvent() ? ` <span class="muted">(the event runs Thu 5 Nov 05:00 to Sun 8 Nov; showing a sample time)</span>` : ''}</p></div>
-      <div class="med-tools">${pick != null && inEvent() ? '<button class="btn small" id="medGoLive" type="button">Back to live</button>' : ''}<button class="btn small" id="medLockBtn" type="button">Lock</button></div></div>`;
-    // time picker
-    const jumps = [['Thu 07:00', 2], ['Thu 14:00', 9], ['Fri 08:00', 27], ['Fri 15:30', 34.5], ['Fri 23:00', 42], ['Sat 03:00', 46], ['Sat 09:00', 52], ['Sat 20:00', 63], ['Sun 03:00', 70], ['Sun 12:00', 79]];
-    html += `<details class="card med-time" id="medTime"${pick != null ? ' open' : ''}><summary>View another time</summary>
-      <input type="range" id="medSlider" min="0" max="${P.n - 1}" value="${Math.max(0, Math.min(P.n - 1, Math.round(h * 4)))}" aria-label="Plan time">
-      <div class="med-jumps">${jumps.map(([l, j]) => `<button type="button" class="btn small" data-h="${j}">${l}</button>`).join('')}</div></details>`;
-    // races
+    $('medClock').textContent = fmtH(h);
+    $('medDot').hidden = !isLive();
+    $('medNote').textContent = isLive() ? ' live' : (pick == null ? ' sample time; the event runs Thu 5 to Sun 8 Nov' : ' plan time');
+    $('medGoLive').disabled = !inEvent() || isLive();
+    $('medGoLive').title = inEvent() ? '' : 'Live works during the event';
+    $('medSlider').value = Math.max(0, Math.min(P.n - 1, Math.round(h * 4)));
+
+    // races and busiest stations
     const running = P.raceTimes.filter(r => r.start != null && r.start <= h && (r.end == null || r.end > h));
     const next = P.raceTimes.filter(r => r.start != null && r.start > h).sort((a, b) => a.start - b.start)[0];
-    html += `<div class="med-races">${running.length ? running.map(r => `<span class="chip">${esc(r.name)}</span>`).join('') : '<span class="muted">No races on course</span>'}${next ? `<span class="muted">Next: ${esc(next.name)}, ${fmtH(next.start)}</span>` : ''}</div>`;
-    // busiest
     const loads = P.stations.map(s => ({ s, n: runnersAt(s.name, h).reduce((a, b) => a + b, 0) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
-    if (loads.length) html += `<p class="med-busy"><b>Busiest now:</b> ${loads.slice(0, 3).map(x => `${esc(x.s.name)} (${x.n}/h)`).join(', ')}</p>`;
-    // vehicles
-    html += '<div class="card"><h3>Medical vehicles</h3>';
-    VEH().forEach(v => {
+    $('medRaces').innerHTML = (running.length ? running.map(r => `<span class="chip">${esc(r.name)}</span>`).join('') : '<span class="muted">No races on course.</span>') +
+      (next ? ` <span class="muted">Next: ${esc(next.name)}, ${fmtH(next.start)}.</span>` : '') +
+      (loads.length ? ` <span><b>Busiest:</b> ${loads.slice(0, 3).map(x => `${esc(x.s.name)} ${x.n}/h`).join(', ')}</span>` : '');
+
+    // vehicles and the next two hours of movements
+    let vh = '<div class="med-vlist">' + VEH().map(v => {
       const s = vehicle(v, h);
-      html += `<div class="row"><span><span class="vk">${v}</span> ${esc(P.veh[v])}</span><span class="v">${s.moving ? `${esc(s.moving.a)} to ${esc(s.moving.b)}, arrives ${timeOnly(s.moving.arr)}` : 'at ' + esc(s.at)}</span></div>`;
-    });
+      return `<div><span class="vk">${v}</span> ${esc(P.veh[v].replace(/^RDM /, ''))}: <b>${s.moving ? `to ${esc(s.moving.b)}, arr ${timeOnly(s.moving.arr)}` : esc(s.at)}</b></div>`;
+    }).join('') + '</div>';
     const soon = P.mv.filter(m => m.dep >= h - 0.25 && m.dep <= h + 2).sort((a, b) => a.dep - b.dep);
-    if (soon.length) {
-      html += '<h4>Next 2 hours</h4>' + soon.map(m => `<div class="row"><span>${timeOnly(m.dep)} <b>${esc(m.who)}</b> ${esc(m.a)} to ${esc(m.b)}<span class="sub">${esc(m.vname)}${m.note ? ', ' + esc(m.note) : ''}</span></span><span class="v">${m.min} min</span></div>`).join('');
-    }
-    html += '</div>';
-    // stations
-    html += '<h2 class="med-h2">Stations</h2>';
+    if (soon.length) vh += '<div class="med-moves"><b>Next 2 h:</b> ' + soon.map(m => `<span title="${esc(m.vname + (m.note ? ', ' + m.note : ''))}">${timeOnly(m.dep)} ${esc(m.who)} ${esc(m.a)} to ${esc(m.b)} (${m.veh})</span>`).join(' &middot; ') + '</div>';
+    $('medVeh').innerHTML = vh;
+
+    // stations with anyone on post or runners coming through
     const shown = P.stations.filter(s => staffAt(s.name, h).length || crewAt(s.name, h).length || runnersAt(s.name, h).some(x => x));
-    if (!shown.length) html += '<p class="muted">Nobody is on post at this time.</p>';
-    shown.forEach(s => {
+    $('medStations').innerHTML = shown.length ? shown.map(s => {
       const staff = staffAt(s.name, h), crew = crewAt(s.name, h), [m, st] = runnersAt(s.name, h), tot = m + st;
       const top = staff.find(p => p.status === 'on' && p.grade === 'Doctor') ? 'Doctor' : (staff.find(p => p.status === 'on') || {}).grade;
-      html += `<article class="card med-st" style="--g:${top ? col(top) : '#ccc'}">
-        <div class="med-st-head"><div><h3>${esc(s.name)}</h3><span class="muted">km ${s.ckm.toFixed(1)}${s.w3w ? ' &middot; <a class="w3w" href="https://w3w.co/' + esc(s.w3w) + '" target="_blank" rel="noopener">///' + esc(s.w3w) + '</a>' : ''}</span></div>
-        <button class="btn small" type="button" data-km="${s.ckm}">Find</button></div>
-        ${tot ? `<div class="med-bar"><i style="width:${Math.min(100, tot * 2.5)}%"></i></div><p class="med-load">${tot} runners this hour${st ? ` (Miler ${m}, Stage Race ${st})` : ''}</p>` : ''}
-        ${staff.map(p => `<div class="med-pos"><i class="sw${p.status === 'call' ? ' call' : ''}" style="--c:${col(p.grade)}"></i><span><b>${esc(p.grade)}</b>${p.status === 'call' ? ' on call' : ''} (${esc(p.person)}) ${timeOnly(p.a)} to ${timeOnly(p.z)}${p.note ? `<span class="sub">${esc(p.note)}</span>` : ''}</span></div>`).join('')}
-        ${crew.map(p => `<div class="med-pos"><i class="sw" style="--c:#bdbdbd"></i><span class="muted">SingleTrack: ${esc(p.label)}</span></div>`).join('')}
-        ${s.acc ? `<p class="med-acc">${esc(s.acc)}</p>` : ''}</article>`;
-    });
-    html += `<details class="card" id="medMapWrap"><summary>Map</summary><div id="medMap"></div></details>
-      <p class="med-note">Draft plan. Runner numbers are 2025 results on the 2026 clock; person IDs are provisional. Keep this information within the medical and event team.</p>`;
-    el.innerHTML = html;
+      return `<article class="med-st" style="--g:${top ? col(top) : '#ccc'}">
+        <div class="med-st-head"><b>${esc(s.name)}</b><span class="muted">km ${s.ckm.toFixed(1)}</span>${tot ? `<span class="med-n" title="${m} Miler, ${st} Stage Race">${tot}/h</span>` : ''}<button class="lnk" type="button" data-km="${s.ckm}">Find</button></div>
+        ${tot ? `<div class="med-bar"><i style="width:${Math.min(100, tot * 2.5)}%"></i></div>` : ''}
+        ${staff.map(p => `<div class="med-pos"><i class="sw${p.status === 'call' ? ' call' : ''}" style="--c:${col(p.grade)}"></i><span><b>${esc(p.grade)}</b>${p.status === 'call' ? ' on call' : ''} ${esc(p.person)} ${timeOnly(p.a)}-${timeOnly(p.z)}${p.note ? `<span class="note">${esc(p.note)}</span>` : ''}</span></div>`).join('')}
+        ${crew.map(p => `<div class="med-pos crew"><i class="sw" style="--c:#9e9e9e"></i><span>${esc(p.label)}</span></div>`).join('')}
+        ${s.acc ? `<div class="med-acc">${esc(s.acc)}</div>` : ''}
+        ${s.w3w ? `<a class="w3w" href="https://w3w.co/${esc(s.w3w)}" target="_blank" rel="noopener">///${esc(s.w3w)}</a>` : ''}</article>`;
+    }).join('') : '<p class="muted">Nobody is on post at this time.</p>';
 
-    // wiring
-    $('medLockBtn').addEventListener('click', () => { if (confirm('Lock the medical plan on this device? You will need the password again.')) lock(); });
-    if ($('medGoLive')) $('medGoLive').addEventListener('click', () => { pick = null; render(); refreshFind(); });
-    $('medSlider').addEventListener('input', e => { pick = +e.target.value / 4; render(); $('medTime').open = true; refreshFind(); });
-    el.querySelectorAll('.med-jumps [data-h]').forEach(b => b.addEventListener('click', () => { pick = +b.dataset.h; render(); refreshFind(); }));
-    el.querySelectorAll('.med-st [data-km]').forEach(b => b.addEventListener('click', () => window.GPT_UI && window.GPT_UI.openKm(+b.dataset.km)));
-    $('medMapWrap').addEventListener('toggle', e => { if (e.target.open) drawMap(h); });
+    updateMap(h);
+    refreshFind();
     if (isLive()) startLive(); else stopLive();
   }
 
-  function drawMap(h) {
+  function buildMap() {
     if (!window.L) { $('medMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
-    if (map) { map.remove(); map = null; }
     map = L.map('medMap', { zoomControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenStreetMap' }).addTo(map);
-    const line = L.polyline(G.route.map(p => [p[0], p[1]]), { color: '#d9531e', weight: 3, opacity: .8 }).addTo(map);
-    map.fitBounds(line.getBounds().pad(0.05));
+    L.polyline(G.route.map(p => [p[0], p[1]]), { color: '#d9531e', weight: 3, opacity: .8 }).addTo(map);
+    stMarks = {}; vMarks = {};
     P.stations.forEach(s => {
-      const staff = staffAt(s.name, h), onPost = staff.filter(p => p.status === 'on');
+      stMarks[s.name] = L.circleMarker([s.lat, s.lon], { radius: 6, color: '#333', weight: 1, fillColor: '#eee', fillOpacity: 1 })
+        .bindTooltip(s.name, { direction: 'right', offset: [8, 0], className: 'med-tip' }).addTo(map);
+    });
+    VEH().forEach(v => {
+      vMarks[v] = L.marker([P.stations[0].lat, P.stations[0].lon], { zIndexOffset: 900, icon: L.divIcon({ className: '', html: `<div class="vmark">${v}</div>`, iconSize: [26, 16], iconAnchor: [13, 8] }) })
+        .bindPopup(esc(P.veh[v])).addTo(map);
+    });
+    const legend = L.control({ position: 'bottomleft' });
+    legend.onAdd = () => {
+      const d = L.DomUtil.create('div', 'map-legend');
+      d.innerHTML = MEDICAL.map(g => `<i style="background:${col(g)}"></i>${g}`).join('<br>') +
+        '<br><i style="background:#9e9e9e"></i>Safety Officers only<br>Size = runners per hour<br>Red ring = on call';
+      return d;
+    };
+    legend.addTo(map);
+    fitMap();
+  }
+  function fitMap() {
+    if (!map || !$('medMap').offsetWidth) return; // tab hidden: fit when shown
+    map.invalidateSize();
+    if (!fitted) { map.fitBounds(L.latLngBounds(P.stations.map(s => [s.lat, s.lon])).pad(0.06)); fitted = true; }
+  }
+  function updateMap(h) {
+    if (!map) return;
+    P.stations.forEach(s => {
+      const staff = staffAt(s.name, h), onPost = staff.filter(p => p.status === 'on'), crew = crewAt(s.name, h);
       const g = onPost.find(p => p.grade === 'Doctor') ? 'Doctor' : (onPost[0] || {}).grade;
-      const n = runnersAt(s.name, h).reduce((a, b) => a + b, 0);
-      L.circleMarker([s.lat, s.lon], { radius: 6 + Math.min(n, 40) * 0.35, color: staff.some(p => p.status === 'call') ? col('Doctor') : '#333', weight: staff.some(p => p.status === 'call') ? 3 : 1, fillColor: g ? col(g) : (crewAt(s.name, h).length ? '#9e9e9e' : '#eee'), fillOpacity: 1 })
-        .bindPopup(`<b>${esc(s.name)}</b><br>${staff.map(p => esc(p.grade) + (p.status === 'call' ? ' on call' : '')).join(', ') || 'No medical staff'}<br>${n} runners this hour`).addTo(map);
+      const n = runnersAt(s.name, h).reduce((a, b) => a + b, 0), call = staff.some(p => p.status === 'call');
+      stMarks[s.name].setStyle({ radius: 6 + Math.min(n, 40) * 0.35, color: call ? col('Doctor') : '#333', weight: call ? 3 : 1, fillColor: g ? col(g) : (crew.length ? '#9e9e9e' : '#eee') });
+      stMarks[s.name].setTooltipContent(`<b>${esc(s.name)}</b>${staff.length ? '<br>' + staff.map(p => esc(p.grade) + (p.status === 'call' ? ' on call' : '')).join(', ') : ''}${crew.length ? '<br>' + crew.map(p => esc(p.label)).join(', ') : ''}${n ? `<br>${n} runners/h` : ''}`);
     });
     VEH().forEach(v => {
       const s = vehicle(v, h); let ll;
       if (s.moving) { const f = (h - s.moving.dep) / (s.moving.arr - s.moving.dep), A = stationByName(s.moving.a), B = stationByName(s.moving.b); ll = [A.lat + (B.lat - A.lat) * f, A.lon + (B.lon - A.lon) * f]; }
       else { const st = stationByName(s.at); ll = [st.lat, st.lon]; }
-      L.marker(ll, { icon: L.divIcon({ className: '', html: `<div class="vmark">${v}</div>`, iconSize: [26, 16], iconAnchor: [13, 8] }) }).bindPopup(esc(P.veh[v])).addTo(map);
+      vMarks[v].setLatLng(ll);
     });
   }
 
-  function startLive() { if (!liveTimer) liveTimer = setInterval(() => { if (isLive()) { render(); refreshFind(); } }, 60000); }
+  function startLive() { if (!liveTimer) liveTimer = setInterval(() => { if (isLive()) update(); refreshFind(); }, 60000); }
   function stopLive() { if (liveTimer) { clearInterval(liveTimer); liveTimer = null; } }
-  function refreshFind() { if (window.GPT_UI) window.GPT_UI.refresh(); }
+  function refreshFind() { if (window.GPT_UI) window.GPT_UI.refresh(); drawFindLayer(); }
+
+  // ---------- Safety Officer posts on the Find map ----------
+  let findLayer = null, soKey = null;
+  function drawFindLayer() {
+    const fmap = window.GPT_UI && window.GPT_UI.map && window.GPT_UI.map();
+    if (!fmap || !window.L) return;
+    if (findLayer) { findLayer.remove(); findLayer = null; }
+    if (!P) { if (soKey) { soKey.remove(); soKey = null; } return; }
+    if (!soKey) {
+      soKey = L.control({ position: 'bottomright' });
+      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers on post<br><span class="so-mark" style="display:inline-block;width:22px;margin-right:5px;opacity:.5">SO</span>Not on post at this time'; return d; };
+      soKey.addTo(fmap);
+    }
+    const h = curH();
+    findLayer = L.layerGroup().addTo(fmap);
+    P.stations.forEach(s => {
+      const posts = P.st.filter(p => p.station === s.name && !/passage/i.test(p.label));
+      if (!posts.length) return;
+      const now = posts.filter(p => on(p, h));
+      const shifts = posts.map(p => `${esc(p.label)}<br><span style="color:#625c53">${fmtH(p.a)} to ${fmtH(p.z)}</span>`).join('<br>');
+      L.marker([s.lat, s.lon], {
+        zIndexOffset: 400, opacity: now.length ? 1 : 0.45,
+        icon: L.divIcon({ className: '', html: `<div class="so-mark${now.length ? ' on' : ''}">SO</div>`, iconSize: [24, 18], iconAnchor: [12, 9] })
+      }).bindPopup(`<b>${esc(s.name)}</b> &middot; Safety Officers<br>${now.length ? `<b>On post ${isLive() ? 'now' : 'at ' + fmtH(h)}</b><br>` : `Not on post ${isLive() ? 'now' : 'at ' + fmtH(h)}<br>`}${shifts}`).addTo(findLayer);
+    });
+  }
 
   // ---------- For Find: medics on duty near a casualty ----------
   function nearbyHTML(r) {
@@ -224,5 +323,6 @@
     return html;
   }
 
-  window.MedPlan = { render, nearbyHTML, onShow: render, ready: unlockStored().then(ok => { if (ok) { render(); refreshFind(); } }) };
+  function onShow() { if (built) { fitMap(); update(); } else render(); }
+  window.MedPlan = { render, nearbyHTML, onShow, ready: unlockStored().then(ok => { if (ok) { render(); refreshFind(); } }) };
 })();

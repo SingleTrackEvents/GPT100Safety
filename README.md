@@ -30,7 +30,9 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 **Medical** (password protected, for the medical team and race control)
 
 - The race medical plan: who is on duty at each station, runner numbers per hour, where the medical vehicles are, and the movements in the next 2 hours.
-- Follows the clock live during the event (Thu 5 to Sun 8 November, Melbourne time). Before or after, it shows a sample time; "View another time" picks any moment.
+- Follows the clock live during the event (Thu 5 to Sun 8 November, Melbourne time). Before or after, it shows a sample time. The slider, quick jumps and **Play** step through the weekend for planning.
+- On a laptop the plan and a map sit side by side. On a phone the map sits on top.
+- Safety Officer posts also appear on the Find map as SO markers, highlighted when on post.
 - Once unlocked, Find also shows the nearest medics on duty to the casualty, and the vehicles.
 - The plan is stored encrypted, so it can't be read from the public site without the password. Each device asks once and remembers until someone taps Lock.
 
