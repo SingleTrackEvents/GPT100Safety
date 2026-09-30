@@ -185,19 +185,28 @@ async function fetchFire() {
 }
 
 // BOM warnings come from the Bureau's free anonymous FTP service (their website blocks automated access).
+// Each Victorian warning in force is a file there; the CAP version (standard alert format) has its headline,
+// event type and area.
+const FTP = 'ftp://ftp.bom.gov.au/anon/gen/fwo/';
+function curl(url) { return execFileSync('curl', ['-sS', '--max-time', '60', url], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
 function fetchWarnings() {
-  let xml;
-  try { xml = execFileSync('curl', ['-sS', '--max-time', '60', 'ftp://ftp.bom.gov.au/anon/gen/fwo/IDZ00059.warnings_vic.xml'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
-  catch (e) {
-    // Show what the feed folder holds, to find the file if the Bureau renames it.
-    try {
-      const names = execFileSync('curl', ['-sS', '-l', '--max-time', '60', 'ftp://ftp.bom.gov.au/anon/gen/fwo/'], { encoding: 'utf8' }).split(/\s+/);
-      console.log('BOM FTP warnings-like files: ' + names.filter(n => /IDZ|warn|IDV2/i.test(n)).slice(0, 200).join(' '));
-    } catch (e2) { /* listing failed too */ }
-    throw e;
+  const names = execFileSync('curl', ['-sS', '-l', '--max-time', '60', FTP], { encoding: 'utf8' }).split(/\s+/)
+    .filter(n => /^IDV\d+\.cap\.xml$/.test(n));
+  const re = new RegExp('\\b(' + W.warningWords.join('|') + ')\\b', 'i');
+  const tag = (x, t) => { const m = x.match(new RegExp('<(?:cap:)?' + t + '[^>]*>([\\s\\S]*?)</(?:cap:)?' + t + '>')); return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : ''; };
+  const items = [];
+  for (const n of names) {
+    let x;
+    try { x = curl(FTP + n); } catch (e) { continue; }
+    if (/<(cap:)?msgType>\s*Cancel/i.test(x)) continue;
+    const event = tag(x, 'event'), head = tag(x, 'headline') || event, area = (x.match(/<(?:cap:)?areaDesc>([\s\S]*?)<\/(?:cap:)?areaDesc>/g) || []).join(' ').replace(/<[^>]+>/g, ' ');
+    const txt = head + ' ' + event;
+    const kind = /thunderstorm/i.test(txt) ? 'thunderstorm' : /severe weather/i.test(txt) ? 'severe' : /fire weather/i.test(txt) ? 'fire'
+      : /flood/i.test(txt) ? 'flood' : /sheep graziers/i.test(txt) ? 'graziers' : 'other';
+    items.push({ id: n.replace('.cap.xml', ''), title: head, link: tag(x, 'web') || 'https://www.bom.gov.au/vic/warnings/', date: tag(x, 'sent'), kind,
+      relevant: re.test(head + ' ' + area + ' ' + tag(x, 'description').slice(0, 3000)) });
   }
-  if (!/<rss|<channel/i.test(xml)) throw new Error('Unexpected reply from the BOM warnings feed');
-  return { updated: NOW, items: WX.parseWarnings(xml, W.warningWords) };
+  return { updated: NOW, items };
 }
 
 // Past weather (ERA5 reanalysis) on the race dates of earlier years, for the simulator before forecasts reach the race.
@@ -248,9 +257,9 @@ async function alerts(tr, state, warnings) {
   }
   if (live && warnings && warnings.items) {
     state.warnings = state.warnings || [];
-    for (const w of warnings.items.filter(x => x.relevant && !state.warnings.includes(x.title))) {
+    for (const w of warnings.items.filter(x => x.relevant && !state.warnings.includes(x.id + x.title))) {
       await notify('BOM warning near the course', w.title + (w.link ? '\n' + w.link : ''), 4, 'warning');
-      state.warnings.push(w.title);
+      state.warnings.push(w.id + w.title);
     }
     state.warnings = state.warnings.slice(-50);
   }

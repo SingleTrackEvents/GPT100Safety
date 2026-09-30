@@ -138,18 +138,6 @@
     return out;
   }
 
-  // BOM Victorian warnings RSS. relevant = names a district or river near the course.
-  function parseWarnings(xml, words) {
-    const re = new RegExp('\\b(' + words.join('|') + ')\\b', 'i');
-    return items(xml).map(it => {
-      const title = tag(it, 'title');
-      const kind = /thunderstorm/i.test(title) ? 'thunderstorm' : /severe weather/i.test(title) ? 'severe'
-        : /fire weather/i.test(title) ? 'fire' : /flood/i.test(title) ? 'flood'
-          : /sheep graziers/i.test(title) ? 'graziers' : 'other';
-      return { title, link: tag(it, 'link'), date: tag(it, 'pubDate'), kind, relevant: re.test(title + ' ' + tag(it, 'description')) };
-    }).filter(w => w.title && !/^cancellation|cancelled/i.test(w.title));
-  }
-
   // ---------- triggers ----------
   const RANK = { nodata: -1, ok: 0, close: 1, met: 2 };
   const LABELS = {
@@ -346,6 +334,6 @@
   return {
     TZ, HOUR, parseLocal, localHour, fmtTime, fmtDay, localDate, parts, offsetMin,
     median, max, min, r1, r0, wbgt, codeText, modelName, MODEL_NAMES,
-    passTime, kmAt, runnersAt, parseCFA, parseWarnings, evaluate, cellStatus, RANK, LABELS, ORDER, ruleText, titleCase
+    passTime, kmAt, runnersAt, parseCFA, evaluate, cellStatus, RANK, LABELS, ORDER, ruleText, titleCase
   };
 });
