@@ -80,6 +80,7 @@ Drive times come from three places, in this order of trust:
 
 - **Race team times**, entered by hand for gated and 4WD access. Used exactly.
 - **Checked routes** from Valhalla, an open-source router that allows for gravel and winding roads. Used exactly. `tools/drive_routes.py` fetches them and `tools/apply_drive_routes.py` applies reviewed results.
+  Where a route has to use a gated or forestry track the routers won't drive, `tools/extend_routes.py` follows the track from OpenStreetMap to the access point.
 - **Older automatic times** from OSRM, which is optimistic on gravel, so the app adds 20% (the drive factor in `config.js`).
 
 These are planning estimates. Always check access, gates and closures on the day.
