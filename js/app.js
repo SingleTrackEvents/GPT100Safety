@@ -1,6 +1,8 @@
 // GPT100 Safety staff app: Find (incident finder) and Run sheet tabs.
 (function () {
-  const G = window.GPT, C = G.config, route = G.route;
+  // G is the engine for the course being viewed (GPT100 by default); the picker switches it.
+  let G = window.GPT, route = G.route;
+  const C = G.config;
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const baseOf = k => G.BASES.find(b => b.key === k);
@@ -38,8 +40,8 @@
 
   // ---------- Map ----------
   // The map is optional: if Leaflet can't load (no signal on first open), answers and the run sheet still work.
-  const courseLL = route.map(p => [p[0], p[1]]);
-  let map = null, resultLayer = null, pin = null;
+  let courseLL = route.map(p => [p[0], p[1]]);
+  let map = null, resultLayer = null, courseLayer = null, pin = null;
   if (window.L) initMap();
   else {
     $('map').innerHTML = '<p class="map-off">Map unavailable without signal. Answers and the run sheet still work.</p>';
@@ -49,28 +51,9 @@
   function initMap() {
   map = L.map('map', { preferCanvas: true, zoomControl: true });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenStreetMap' }).addTo(map);
-  const dangerLayer = L.layerGroup().addTo(map);
-  const courseLine = L.polyline(courseLL, { color: '#d9531e', weight: 4, opacity: .95 }).addTo(map);
-  map.fitBounds(courseLine.getBounds().pad(0.05));
-
-  // Red wash where the fastest team takes longer than the red threshold.
-  (function drawDanger() {
-    const all = G.bestAtAll(); let seg = null;
-    for (let i = 0; i < route.length; i++) {
-      if (all[i] && all[i].total > C.redMin) { if (!seg) seg = []; seg.push(courseLL[i]); }
-      else if (seg) { if (seg.length > 1) L.polyline(seg, { color: '#e00000', weight: 12, opacity: .35, interactive: false }).addTo(dangerLayer); seg = null; }
-    }
-    if (seg && seg.length > 1) L.polyline(seg, { color: '#e00000', weight: 12, opacity: .35, interactive: false }).addTo(dangerLayer);
-  })();
-
   pin = (color, size) => L.divIcon({ className: '', html: `<div class="pin" style="background:${color};width:${size}px;height:${size}px"></div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
-  G.ACCESS.forEach(a => {
-    if (a.aid) return;
-    L.marker([a.lat, a.lon], { icon: pin(G.isGated(a) ? '#6d3b8e' : '#888', 10) })
-      .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m to course' : ''}<br>${w3wLink(a.w3w)}`)
-      .addTo(map);
-  });
-  G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>${/water point/i.test(a.name) ? 'Staffed water point' : 'Aid station'}, ${kmTxt(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(map));
+  courseLayer = L.layerGroup().addTo(map);
+  drawCourse(true);
   G.BASES.forEach(b => L.marker([b.lat, b.lon], { icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b><br>${w3wLink(G.data.bases_w3w && G.data.bases_w3w[b.key])}`).addTo(map));
 
   const legend = L.control({ position: 'bottomleft' });
@@ -89,6 +72,54 @@
     setMsg('');
     findLL(e.latlng.lat, e.latlng.lng, 'map');
   });
+  }
+
+  // Everything on the map that depends on the course being viewed.
+  function drawCourse(fit) {
+    if (!map) return;
+    courseLayer.clearLayers();
+    G.courses.filter(c => c !== G).forEach(c => L.polyline(c.route.map(p => [p[0], p[1]]), { color: '#8a8a8a', weight: 2, opacity: .6, dashArray: '4,6', interactive: false }).addTo(courseLayer));
+    // Red wash where the fastest team takes longer than the red threshold.
+    const all = G.bestAtAll(); let seg = null;
+    const wash = s => { if (s.length > 1) L.polyline(s, { color: '#e00000', weight: 12, opacity: .35, interactive: false }).addTo(courseLayer); };
+    for (let i = 0; i < route.length; i++) {
+      if (all[i] && all[i].total > C.redMin) { if (!seg) seg = []; seg.push(courseLL[i]); }
+      else if (seg) { wash(seg); seg = null; }
+    }
+    if (seg) wash(seg);
+    const line = L.polyline(courseLL, { color: '#d9531e', weight: 4, opacity: .95 }).addTo(courseLayer);
+    G.ACCESS.forEach(a => {
+      if (G.main && a.aid) return;
+      L.marker([a.lat, a.lon], { icon: pin(G.isGated(a) ? '#6d3b8e' : '#888', 10) })
+        .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m to course' + (a.straight ? ' (estimate)' : '') : ''}<br>${w3wLink(a.w3w)}`)
+        .addTo(courseLayer);
+    });
+    G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>${stopKind(a)}, ${kmTxt(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(courseLayer));
+    if (fit) map.fitBounds(line.getBounds().pad(0.05));
+  }
+  function stopKind(a) {
+    if (a.kind) return { start: 'Start', finish: 'Finish', aid: 'Aid station', water: 'Water point', checkpoint: 'Checkpoint' }[a.kind] || 'Checkpoint';
+    return /water point/i.test(a.name) ? 'Staffed water point' : 'Aid station';
+  }
+
+  // ---------- Course picker ----------
+  const EMPTY = $('result').innerHTML;
+  function setCourse(id) {
+    const next = window.GPT.course(id);
+    if (next === G) return;
+    G = next; route = G.route; courseLL = route.map(p => [p[0], p[1]]);
+    document.querySelectorAll('.course-pick button').forEach(b => b.classList.toggle('on', b.dataset.c === G.id));
+    document.querySelectorAll('.course-note').forEach(n => n.textContent = G.note);
+    last = null; $('result').innerHTML = EMPTY; setMsg('');
+    if (map) { resultLayer.clearLayers(); drawCourse(true); }
+    sheetBuilt = false;
+    if ($('tab-sheet').classList.contains('on')) buildSheet();
+  }
+  if (G.courses.length > 1) {
+    const html = `<div class="course-pick" role="group" aria-label="Course">${G.courses.map(c => `<button type="button" data-c="${c.id}"${c === G ? ' class="on"' : ''}>${esc(c.label)}</button>`).join('')}</div><p class="course-note"></p>`;
+    $('findForm').insertAdjacentHTML('afterbegin', html);
+    document.querySelector('.sheet-head').insertAdjacentHTML('afterend', html);
+    document.querySelectorAll('.course-pick button').forEach(b => b.addEventListener('click', () => setCourse(b.dataset.c)));
   }
 
   // ---------- Find ----------
@@ -252,7 +283,7 @@
       ? `between ${r.aid.prev.a.name} and ${r.aid.next.a.name}` : '';
     const pos = r.q.lat != null ? `${r.q.lat.toFixed(5)}, ${r.q.lon.toFixed(5)}` : `${r.lat.toFixed(5)}, ${r.lon.toFixed(5)}`;
     const also = r.alsoKm.length ? ` (course passes here again at ${r.alsoKm.map(kmTxt).join(', ')})` : '';
-    let s = `${C.event} medical. Casualty at ${kmTxt(r.km)}${also}${where ? ', ' + where : ''}.\n` +
+    let s = `${G.name} medical. Casualty at ${kmTxt(r.km)}${also}${where ? ', ' + where : ''}.\n` +
       (r.casW3w ? `Casualty what3words ///${r.casW3w}.\n` : '') +
       `Send ${b.base.name} team. Drive to ${G.cleanName(a)}${a.w3w ? ' ///' + a.w3w : ''}${G.isGated(a) ? ' (gated, take keys)' : ''}, about ${G.fmt(b.drive)}. ` +
       `Walk in ${one(b.walkKm)} km, about ${G.fmt(b.walk)}.\n` +
@@ -301,7 +332,7 @@
       <div class="eta"><span class="eyebrow">ETA</span><b>${G.fmt(b.total)}</b></div></div>
       <ol class="steps">
         <li><span><b>Drive</b> to ${esc(G.cleanName(a))}${gated ? '<span class="tag gated">Gated</span>' : ''}${a.aid ? `<span class="tag aid">${/water point/i.test(a.name) ? 'Water pt' : 'Aid stn'}</span>` : ''}
-          <span class="sub">${kmTxt(b.joinKm)}${a.conn_m > 50 ? ', ' + a.conn_m + ' m track to the course' : ''}${a.w3w ? ' &middot; ' + w3wLink(a.w3w) : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
+          <span class="sub">${kmTxt(b.joinKm)}${b.straight ? ', about ' + b.connM + ' m walk to the course (no mapped track, estimate)' : (b.connM > 50 ? ', ' + b.connM + ' m track to the course' : '')}${a.w3w ? ' &middot; ' + w3wLink(a.w3w) : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
         <li><span><b>Walk in</b> ${one(b.walkKm)} km${b.climb >= 5 ? ', ' + Math.round(b.climb) + ' m climb' : ''}
           <span class="sub">${b.joinKm > r.km ? 'Along the course, against race direction' : (b.joinKm < r.km ? 'Along the course, in race direction' : 'Straight to the course')}</span></span><span class="t">${G.fmt(b.walk)}</span></li>
       </ol>
@@ -333,11 +364,11 @@
     $('result').innerHTML = h;
 
     const sh = $('btnShare');
-    if (navigator.share) sh.addEventListener('click', () => navigator.share({ title: `${C.event} casualty ${kmTxt(r.km)}`, text: radioScript(r) }).catch(() => { }));
+    if (navigator.share) sh.addEventListener('click', () => navigator.share({ title: `${G.name} casualty ${kmTxt(r.km)}`, text: radioScript(r) }).catch(() => { }));
     else sh.addEventListener('click', () => copy(location.href, sh, 'Link copied'));
 
     drawResult(r);
-    const hash = q.lat != null ? `#ll=${q.lat.toFixed(5)},${q.lon.toFixed(5)}` : `#km=${one(r.km)}`;
+    const hash = (q.lat != null ? `#ll=${q.lat.toFixed(5)},${q.lon.toFixed(5)}` : `#km=${one(r.km)}`) + (G.main ? '' : '&c=' + G.id);
     history.replaceState(null, '', hash);
     refreshMessage(r);
     // Look up the casualty's what3words when there's signal (the spot they were found at, else the course point).
@@ -382,7 +413,7 @@
     const lo = Math.min(b.idx, r.ic), hi = Math.max(b.idx, r.ic);
     const along = courseLL.slice(lo, hi + 1);
     if (b.idx > r.ic) along.reverse();
-    const walk = (a.conn_geom && a.conn_geom.length > 1 ? a.conn_geom : [accLL]).concat(along);
+    const walk = (a.conn_geom && a.conn_geom.length > 1 && !b.straight ? a.conn_geom : [accLL]).concat(along);
     L.polyline(walk, { color: '#1666c9', weight: 6, opacity: .95, dashArray: '1,8', lineCap: 'round' }).addTo(resultLayer);
     L.marker(accLL, { icon: pin(b.base.color, 16), zIndexOffset: 800 }).bindPopup(`<b>Park here</b><br>${esc(G.cleanName(a))}<br>${w3wLink(a.w3w)}`).addTo(resultLayer);
     if (r.q.lat != null && r.q.offM > 60) L.polyline([[r.q.lat, r.q.lon], ll], { color: '#111', weight: 1.5, dashArray: '3,4' }).addTo(resultLayer);
@@ -454,7 +485,7 @@
   function openInFinder(km) { showTab('find'); $('q').value = one(km); setMsg(''); findKm(km); }
   // Used by the Medical tab: open a km in Find, and refresh the "Medical on duty" card when the plan time changes.
   window.GPT_UI = {
-    openKm: openInFinder,
+    openKm: km => { setCourse(window.GPT.id); openInFinder(km); },
     map: () => map,
     refresh: () => { if (last && $('medNear') && window.MedPlan) $('medNear').innerHTML = window.MedPlan.nearbyHTML(last); }
   };
@@ -484,6 +515,8 @@
     if (h === 'sheet') { showTab('sheet'); return; }
     if (h === 'medical') { showTab('med'); return; }
     showTab('find');
+    const cm = /[&?]c=([\w-]+)/.exec(h);
+    setCourse(cm ? cm[1] : window.GPT.id);
     let m;
     if ((m = h.match(/^km=([\d.]+)/))) { $('q').value = m[1]; findKm(+m[1]); }
     else if ((m = h.match(/^ll=(-?[\d.]+),(-?[\d.]+)/))) { $('q').value = m[1] + ', ' + m[2]; findLL(+m[1], +m[2], 'shared link'); }

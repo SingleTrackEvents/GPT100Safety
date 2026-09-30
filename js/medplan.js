@@ -327,13 +327,15 @@
     P.stations.forEach(s => {
       const staff = staffAt(s.name, h).filter(p => MEDICAL.includes(p.grade));
       if (!staff.length) return;
-      list.push({ s, staff, d: s.ckm - km });
+      // On another course (e.g. the 14k) km don't line up with the plan, so use distance on the ground.
+      const d = r.course && r.course !== G.id ? G.metres([s.lat, s.lon], [r.lat, r.lon]) / 1000 : s.ckm - km;
+      list.push({ s, staff, d, ground: r.course && r.course !== G.id });
     });
     list.sort((a, b) => Math.abs(a.d) - Math.abs(b.d));
     let html = `<div class="card"><h3>Medical on duty</h3><p class="details">${isLive() ? 'Now' : 'Plan time ' + fmtH(h) + ' (set in the Medical tab)'}</p>`;
     if (!list.length) html += '<p class="muted">No medical staff on duty at this time.</p>';
     list.slice(0, 3).forEach(x => {
-      const where = Math.abs(x.d) < 0.3 ? 'at this spot' : `${Math.abs(x.d).toFixed(1)} km ${x.d < 0 ? 'back' : 'ahead'} on course`;
+      const where = Math.abs(x.d) < 0.3 ? 'at this spot' : x.ground ? `${x.d.toFixed(1)} km away` : `${Math.abs(x.d).toFixed(1)} km ${x.d < 0 ? 'back' : 'ahead'} on course`;
       const until = Math.min(...x.staff.map(p => p.z));
       html += `<div class="row"><span>${x.staff.map(p => `<span class="dot" style="background:${col(p.grade)}"></span><b>${esc(p.grade)}</b>${p.status === 'call' ? ' on call' : ''}`).join(' ')}
         <span class="sub">${esc(x.s.name)}, ${where}. Until ${timeOnly(until)}</span></span></div>`;

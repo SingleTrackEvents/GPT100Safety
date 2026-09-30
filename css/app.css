@@ -58,6 +58,15 @@ a { color: inherit; }
   body.on-find .foot { display: none; }
 }
 
+/* Course picker */
+.course-pick { display: flex; gap: 0; margin-bottom: 10px; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden; }
+.course-pick button { flex: 1; min-height: 40px; border: 0; background: #fff; font-weight: 600; font-size: 13px; cursor: pointer; padding: 0 8px; }
+.course-pick button + button { border-left: 2px solid var(--ink); }
+.course-pick button.on { background: var(--ink); color: #fff; }
+.course-note { margin: -4px 0 10px; font-size: 12px; color: var(--muted); }
+.course-note:empty { display: none; }
+.sheet .course-pick { max-width: 420px; }
+
 /* Search */
 .search { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
 .search-label { display: block; font-family: var(--head); font-size: 24px; margin-bottom: 8px; }

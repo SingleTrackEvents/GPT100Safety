@@ -6,6 +6,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 ## What's in it
 
+**Courses:** a picker at the top of Find and the Run sheet switches between the GPT100 course (which the 50k, 33k and stage races also run on) and the 14k (the 6k runs on part of it). Each course has its own km, sections and checkpoints, and shares the same access points and drive routes.
+
 **Find** (for whoever takes the call)
 
 - Type a km (`87.3`), coordinates (`-37.294, 142.601`) or what3words (`///word.word.word`). You can also use your phone's GPS or tap the map.
@@ -74,6 +76,14 @@ Then run `python3 tools/add_w3w.py` to give any new points a what3words address.
 The update script replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check the Run sheet afterwards and commit `data/course.js`.
 
 Where the course passes the same spot twice, such as the out and back to Jimmy Creek Camp, the app works that out automatically and shows both km.
+
+## Adding a course
+
+```
+python3 tools/add_course.py path/to/course.gpx 14k GPT14k "14k and 6k" "The 6k runs on part of this course."
+```
+
+The GPX waypoints (aid stations, water points, checkpoints) become the course's sections, with what3words addresses. Access points join the course where their mapped walking track meets it. Where there's no mapped track, the app estimates a straight-line walk (plus 25% and any climb) from car parks within 1.5 km, and says it's an estimate. Running it again with the same ID replaces that course.
 
 ## Updating the medical plan or its password
 
