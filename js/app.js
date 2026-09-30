@@ -91,7 +91,7 @@
     G.ACCESS.forEach(a => {
       if (G.main && a.aid) return;
       L.marker([a.lat, a.lon], { icon: pin(G.isGated(a) ? '#6d3b8e' : '#888', 10) })
-        .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m to course' + (a.straight ? ' (estimate)' : '') : ''}<br>${w3wLink(a.w3w)}`)
+        .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m walk to course' : ''}<br>${w3wLink(a.w3w)}`)
         .addTo(courseLayer);
     });
     G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>${stopKind(a)}, ${kmTxt(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(courseLayer));
@@ -332,7 +332,7 @@
       <div class="eta"><span class="eyebrow">ETA</span><b>${G.fmt(b.total)}</b></div></div>
       <ol class="steps">
         <li><span><b>Drive</b> to ${esc(G.cleanName(a))}${gated ? '<span class="tag gated">Gated</span>' : ''}${a.aid ? `<span class="tag aid">${/water point/i.test(a.name) ? 'Water pt' : 'Aid stn'}</span>` : ''}
-          <span class="sub">${kmTxt(b.joinKm)}${b.straight ? ', about ' + b.connM + ' m walk to the course (no mapped track, estimate)' : (b.connM > 50 ? ', ' + b.connM + ' m track to the course' : '')}${a.w3w ? ' &middot; ' + w3wLink(a.w3w) : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
+          <span class="sub">${kmTxt(b.joinKm)}${b.connM > 50 ? ', ' + b.connM + ' m walk to the course' : ''}${a.w3w ? ' &middot; ' + w3wLink(a.w3w) : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
         <li><span><b>Walk in</b> ${one(b.walkKm)} km${b.climb >= 5 ? ', ' + Math.round(b.climb) + ' m climb' : ''}
           <span class="sub">${b.joinKm > r.km ? 'Along the course, against race direction' : (b.joinKm < r.km ? 'Along the course, in race direction' : 'Straight to the course')}</span></span><span class="t">${G.fmt(b.walk)}</span></li>
       </ol>
@@ -413,7 +413,8 @@
     const lo = Math.min(b.idx, r.ic), hi = Math.max(b.idx, r.ic);
     const along = courseLL.slice(lo, hi + 1);
     if (b.idx > r.ic) along.reverse();
-    const walk = (a.conn_geom && a.conn_geom.length > 1 && !b.straight ? a.conn_geom : [accLL]).concat(along);
+    // The walk to the course: this course's mapped walking route, else the access point's own track.
+    const walk = (b.connGeom || (a.conn_geom && a.conn_geom.length > 1 ? a.conn_geom : [accLL])).concat(along);
     L.polyline(walk, { color: '#1666c9', weight: 6, opacity: .95, dashArray: '1,8', lineCap: 'round' }).addTo(resultLayer);
     L.marker(accLL, { icon: pin(b.base.color, 16), zIndexOffset: 800 }).bindPopup(`<b>Park here</b><br>${esc(G.cleanName(a))}<br>${w3wLink(a.w3w)}`).addTo(resultLayer);
     if (r.q.lat != null && r.q.offM > 60) L.polyline([[r.q.lat, r.q.lon], ll], { color: '#111', weight: 1.5, dashArray: '3,4' }).addTo(resultLayer);

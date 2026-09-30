@@ -83,7 +83,7 @@ Where the course passes the same spot twice, such as the out and back to Jimmy C
 python3 tools/add_course.py path/to/course.gpx 14k GPT14k "14k and 6k" "The 6k runs on part of this course."
 ```
 
-The GPX waypoints (aid stations, water points, checkpoints) become the course's sections, with what3words addresses. Access points join the course where their mapped walking track meets it. Where there's no mapped track, the app estimates a straight-line walk (plus 25% and any climb) from car parks within 1.5 km, and says it's an estimate. Running it again with the same ID replaces that course.
+The GPX waypoints (aid stations, water points, checkpoints) become the course's sections, with what3words addresses. For every access point near the course, the tool works out the real walk to the course along OpenStreetMap footpaths, tracks and streets (up to 2.5 km), once for each time the course passes nearby. No straight-line guesses. Running it again with the same ID replaces that course.
 
 ## Updating the medical plan or its password
 

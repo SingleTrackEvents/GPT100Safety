@@ -100,11 +100,9 @@
     }
 
     // Where each access point joins this course ("joins": one per pass of the course nearby).
-    // The main course uses the measured trail_km. Other courses join where the access point's mapped
-    // track meets them, or else take a straight line to the course on each pass within 1.5 km
-    // (with a 25% allowance for winding; flagged as an estimate).
-    const JOIN_MAX = 1500;
-    // Each place the course comes closest to a point (closer than anything within 0.5 km either side).
+    // The main course uses the measured trail_km and walking track. Other courses use real walks along
+    // OpenStreetMap paths, worked out by tools/add_course.py; a point without one only joins if it is
+    // right beside the course.
     function passes(lat, lon, maxM) {
       const d = route.map(p => metres([lat, lon], [p[0], p[1]])), out = [];
       for (let i = 0; i < N; i++) {
@@ -126,23 +124,13 @@
     } else {
       ACCESS = [];
       ALL_ACCESS.forEach(a => {
-        const g = a.conn_geom && a.conn_geom.length > 1 ? a.conn_geom : null;
-        let joins = [], track = false;
-        if (g) {
-          const e = g[g.length - 1];
-          joins = passes(e[0], e[1], 60).map(p => ({ idx: p.i, conn_m: a.conn_m || 0, conn_ascent: a.conn_ascent || 0 }));
-          track = joins.length > 0;
-        }
-        if (!joins.length) {
-          joins = passes(a.lat, a.lon, JOIN_MAX).map(p => p.d <= 60
-            ? { idx: p.i, conn_m: Math.round(p.d), conn_ascent: 0 }
-            : { idx: p.i, conn_m: Math.round(p.d * 1.25), conn_ascent: a.ele != null ? Math.max(0, route[p.i][3] - a.ele) : 0, straight: true });
-        }
+        const pre = def.joins && def.joins[a.name + '|' + a.lat + '|' + a.lon];
+        const joins = pre ? pre.map(j => ({ idx: j.idx, conn_m: j.conn_m, conn_ascent: j.conn_ascent, geom: j.geom }))
+          : passes(a.lat, a.lon, 60).map(p => ({ idx: p.i, conn_m: Math.round(p.d), conn_ascent: 0 }));
         if (!joins.length) return;
         const first = joins.slice().sort((x, y) => x.conn_m - y.conn_m)[0];
         ACCESS.push(Object.assign(Object.create(a), {
-          joins, idx: first.idx, trail_km: route[first.idx][2], conn_m: first.conn_m,
-          conn_geom: track ? g : null, conn_ascent: first.conn_ascent, straight: !!first.straight
+          joins, idx: first.idx, trail_km: route[first.idx][2], conn_m: first.conn_m, conn_geom: null, conn_ascent: first.conn_ascent
         }));
       });
     }
@@ -173,7 +161,7 @@
           const walk = (conn + along) * C.walkPace + up * C.climbPenalty;
           const total = drive + walk;
           if (!best || total < best.total) {
-            best = { key, a, idx: j, joinKm: route[j][2], drive, walk, total, walkKm: conn + along, climb: up, connM: jn.conn_m, straight: !!jn.straight };
+            best = { key, a, idx: j, joinKm: route[j][2], drive, walk, total, walkKm: conn + along, climb: up, connM: jn.conn_m, connGeom: jn.geom || null };
           }
         }
       }
