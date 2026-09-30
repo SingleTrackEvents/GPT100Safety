@@ -188,7 +188,7 @@ try{const h=localStorage.getItem(LS_H);if(h!=null)hidden=new Set(JSON.parse(h));
 function saveCustom(){try{localStorage.setItem(LS_C,JSON.stringify(custom));}catch(e){}}
 function saveHidden(){try{localStorage.setItem(LS_H,JSON.stringify([...hidden]));}catch(e){}}
 function bkey(a){return a.name+'|'+a.trail_km;}
-function buildACCESS(){ACCESS=BUILTIN.filter(a=>!hidden.has(bkey(a))).concat(custom);ACCESS.forEach(a=>{a.idx=idxAtKm(a.trail_km);});}
+function buildACCESS(){ACCESS=BUILTIN.filter(a=>!hidden.has(bkey(a))&&(!a.courses||a.courses.includes('100'))).concat(custom);ACCESS.forEach(a=>{a.idx=idxAtKm(a.trail_km);});}
 buildACCESS();
 let editState={mode:null,pending:null};
 let accMarkers=[],aidMarkers=[],crossMarkers=[];

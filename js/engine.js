@@ -114,16 +114,18 @@
       }
       return out;
     }
+    // An access point can be limited to some courses ("courses": ["14k"]); otherwise it serves them all.
+    const serves = a => !a.courses || a.courses.includes(def.id);
     let ACCESS;
     if (def.main) {
-      ACCESS = ALL_ACCESS;
+      ACCESS = ALL_ACCESS.filter(serves);
       ACCESS.forEach(a => {
         a.idx = idxAtKm(a.trail_km);
         a.joins = [a.idx].concat(revisits(a.idx)).map(idx => ({ idx, conn_m: a.conn_m || 0, conn_ascent: a.conn_ascent || 0 }));
       });
     } else {
       ACCESS = [];
-      ALL_ACCESS.forEach(a => {
+      ALL_ACCESS.filter(serves).forEach(a => {
         const pre = def.joins && def.joins[a.name + '|' + a.lat + '|' + a.lon];
         const joins = pre ? pre.map(j => ({ idx: j.idx, conn_m: j.conn_m, conn_ascent: j.conn_ascent, geom: j.geom }))
           : passes(a.lat, a.lon, 60).map(p => ({ idx: p.i, conn_m: Math.round(p.d), conn_ascent: 0 }));
