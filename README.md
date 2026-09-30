@@ -66,7 +66,13 @@ The what3words API key lives in `config.js`, so every device can look up what3wo
 
 ## How the estimates work
 
-For each base (Halls Gap, Jimmy Creek, Dunkeld), the app checks every access point: the measured drive time (x 1.2 for access roads), plus the walk from the car park to the course and along the course to the casualty (12 min/km, plus 0.1 min for every metre climbed). It picks the fastest option for each base, then ranks the bases.
+For each base (Halls Gap, Jimmy Creek, Dunkeld), the app checks every access point: the drive time, plus the walk from the car park to the course and along the course to the casualty (12 min/km, plus 0.1 min for every metre climbed). It picks the fastest option for each base, then ranks the bases.
+
+Drive times come from three places, in this order of trust:
+
+- **Race team times**, entered by hand for gated and 4WD access. Used exactly.
+- **Checked routes** from Valhalla, an open-source router that allows for gravel and winding roads. Used exactly. `tools/drive_routes.py` fetches them and `tools/apply_drive_routes.py` applies reviewed results.
+- **Older automatic times** from OSRM, which is optimistic on gravel, so the app adds 20% (the drive factor in `config.js`).
 
 These are planning estimates. Always check access, gates and closures on the day.
 
