@@ -186,7 +186,16 @@ async function fetchFire() {
 
 // BOM warnings come from the Bureau's free anonymous FTP service (their website blocks automated access).
 function fetchWarnings() {
-  const xml = execFileSync('curl', ['-sS', '--max-time', '60', 'ftp://ftp.bom.gov.au/anon/gen/fwo/IDZ00059.warnings_vic.xml'], { encoding: 'utf8' });
+  let xml;
+  try { xml = execFileSync('curl', ['-sS', '--max-time', '60', 'ftp://ftp.bom.gov.au/anon/gen/fwo/IDZ00059.warnings_vic.xml'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
+  catch (e) {
+    // Show what the feed folder holds, to find the file if the Bureau renames it.
+    try {
+      const names = execFileSync('curl', ['-sS', '-l', '--max-time', '60', 'ftp://ftp.bom.gov.au/anon/gen/fwo/'], { encoding: 'utf8' }).split(/\s+/);
+      console.log('BOM FTP warnings-like files: ' + names.filter(n => /IDZ|warn|IDV2/i.test(n)).slice(0, 200).join(' '));
+    } catch (e2) { /* listing failed too */ }
+    throw e;
+  }
   if (!/<rss|<channel/i.test(xml)) throw new Error('Unexpected reply from the BOM warnings feed');
   return { updated: NOW, items: WX.parseWarnings(xml, W.warningWords) };
 }
