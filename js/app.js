@@ -23,10 +23,11 @@
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
     document.body.classList.toggle('on-find', name === 'find');
     if (name === 'sheet' && !sheetBuilt) buildSheet();
+    if (name === 'med' && window.MedPlan) window.MedPlan.onShow();
     if (name === 'find' && map) setTimeout(() => map.invalidateSize(), 0);
   }
   document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
-    history.replaceState(null, '', b.dataset.tab === 'sheet' ? '#sheet' : location.pathname + location.search);
+    history.replaceState(null, '', b.dataset.tab === 'sheet' ? '#sheet' : b.dataset.tab === 'med' ? '#medical' : location.pathname + location.search);
     showTab(b.dataset.tab);
   }));
 
@@ -319,6 +320,7 @@
       });
       h += '</div>';
     }
+    h += `<div id="medNear">${window.MedPlan ? window.MedPlan.nearbyHTML(r) : ''}</div>`;
     h += '<div class="card"><h3>Nearest aid and water points</h3>';
     [['Back', prev], ['Ahead', next]].forEach(([label, x]) => {
       if (!x) return;
@@ -449,6 +451,11 @@
   }
 
   function openInFinder(km) { showTab('find'); $('q').value = one(km); setMsg(''); findKm(km); }
+  // Used by the Medical tab: open a km in Find, and refresh the "Medical on duty" card when the plan time changes.
+  window.GPT_UI = {
+    openKm: openInFinder,
+    refresh: () => { if (last && $('medNear') && window.MedPlan) $('medNear').innerHTML = window.MedPlan.nearbyHTML(last); }
+  };
 
   $('jumpForm').addEventListener('submit', e => {
     e.preventDefault();
@@ -473,6 +480,7 @@
   function fromHash() {
     const h = decodeURIComponent(location.hash.slice(1));
     if (h === 'sheet') { showTab('sheet'); return; }
+    if (h === 'medical') { showTab('med'); return; }
     showTab('find');
     let m;
     if ((m = h.match(/^km=([\d.]+)/))) { $('q').value = m[1]; findKm(+m[1]); }

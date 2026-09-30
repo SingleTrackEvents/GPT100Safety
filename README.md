@@ -27,6 +27,13 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - Open a section to see its access points and a km by km table. Tap any row to open it in Find.
 - **Print** gives a clean A4 paper backup for vehicles and aid stations.
 
+**Medical** (password protected, for the medical team and race control)
+
+- The race medical plan: who is on duty at each station, runner numbers per hour, where the medical vehicles are, and the movements in the next 2 hours.
+- Follows the clock live during the event (Thu 5 to Sun 8 November, Melbourne time). Before or after, it shows a sample time; "View another time" picks any moment.
+- Once unlocked, Find also shows the nearest medics on duty to the casualty, and the vehicles.
+- The plan is stored encrypted, so it can't be read from the public site without the password. Each device asks once and remembers until someone taps Lock.
+
 **Admin** (`admin.html`, for the Race Director or safety lead)
 
 - The original planning map, with the access point editor and adjustable assumptions.
@@ -65,6 +72,14 @@ Then run `python3 tools/add_w3w.py` to give any new points a what3words address.
 The update script replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check the Run sheet afterwards and commit `data/course.js`.
 
 Where the course passes the same spot twice, such as the out and back to Jimmy Creek Camp, the app works that out automatically and shows both km.
+
+## Updating the medical plan or its password
+
+```
+MEDPLAN_PASSWORD='new password' node tools/encrypt_medplan.mjs path/to/GPT100_MedicalPlan_Interactive.html
+```
+
+This replaces `data/medplan.enc.js`. Commit that file only, never the plan itself (`.gitignore` blocks it). Changing the password asks every device for the new one.
 
 ## Settings
 

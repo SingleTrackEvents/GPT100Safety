@@ -21,6 +21,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab-btn on" data-tab="find" role="tab" aria-selected="true">Find</button>
     <button class="tab-btn" data-tab="sheet" role="tab" aria-selected="false">Run sheet</button>
+    <button class="tab-btn" data-tab="med" role="tab" aria-selected="false">Medical</button>
   </nav>
   <span id="net" class="net" hidden>Offline</span>
 </header>
@@ -75,6 +76,11 @@
       <div id="sections"></div>
     </div>
   </section>
+
+
+  <section id="tab-med" class="tab" role="tabpanel">
+    <div class="sheet" id="medBody"></div>
+  </section>
 </main>
 
 <footer class="foot">
@@ -87,6 +93,8 @@
 <script src="data/course.js"></script>
 <script src="data/access-edits.js"></script>
 <script src="js/engine.js"></script>
+<script src="data/medplan.enc.js"></script>
+<script src="js/medplan.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
