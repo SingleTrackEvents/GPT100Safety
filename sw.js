@@ -1,6 +1,6 @@
 // Offline support. App files use network first (so updates land), falling back to the cache.
 // Leaflet, fonts and map tiles are cached as they're used.
-const VERSION = 'gpt100-v5';
+const VERSION = 'gpt100-v6';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'js/engine.js', 'js/app.js',
   'data/config.js', 'data/course.js', 'data/access-edits.js', 'data/medplan.enc.js', 'js/medplan.js',
@@ -43,7 +43,8 @@ self.addEventListener('fetch', e => {
   }
 
   if (url.origin === location.origin) {
-    e.respondWith(fetch(req).then(res => {
+    // Ask the server each time (it answers "not modified" when nothing changed), so updates land straight away.
+    e.respondWith(fetch(req, req.mode === 'navigate' ? undefined : { cache: 'no-cache' }).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));

@@ -5,42 +5,62 @@
   const G = window.GPT, ENC = window.GPT100_MEDPLAN_ENC;
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const LS = 'gpt100_medplan_key';
+  const LS = 'gpt100_medplan_pw';
+  try { localStorage.removeItem('gpt100_medplan_key'); } catch (e) { } // older versions saved a key, not the password
   const DAYS = { Thu: 0, Fri: 1, Sat: 2, Sun: 3 };
   const MEDICAL = ['Doctor', 'CCRN', 'Nurse', 'Paramedic', 'FAO'];
 
   let P = null;          // the decrypted plan
   let T0 = null;         // plan start (Melbourne wall clock)
   let pick = null;       // chosen time in hours from T0, or null to follow the live clock
-  let liveTimer = null;
+  let liveTimer = null, lockNote = '';
 
   // ---------- Unlocking ----------
   const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-  const b64e = u => btoa(String.fromCharCode(...new Uint8Array(u)));
   async function keyFromPassword(pw) {
     const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
     return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64d(ENC.salt), iterations: ENC.iter, hash: 'SHA-256' },
-      base, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+      base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
   }
   async function decrypt(key) {
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(ENC.iv) }, key, b64d(ENC.ct));
     return JSON.parse(new TextDecoder().decode(pt));
   }
+  // The device remembers the password (not a key), so a plan update with the same password stays unlocked,
+  // while a new password asks everyone again.
   async function unlock(pw) {
-    const key = await keyFromPassword(pw);
-    P = await decrypt(key); // throws on a wrong password
-    try { localStorage.setItem(LS, b64e(await crypto.subtle.exportKey('raw', key))); } catch (e) { }
-    init();
+    P = await decrypt(await keyFromPassword(pw)); // throws on a wrong password
+    try { localStorage.setItem(LS, pw); } catch (e) { }
+    lockNote = ''; init();
   }
   async function unlockStored() {
-    let raw = null;
-    try { raw = localStorage.getItem(LS); } catch (e) { }
-    if (!raw || !ENC || !window.crypto || !crypto.subtle) return false;
-    try {
-      const key = await crypto.subtle.importKey('raw', b64d(raw), 'AES-GCM', false, ['decrypt']);
-      P = await decrypt(key); init(); return true;
-    } catch (e) { try { localStorage.removeItem(LS); } catch (x) { } return false; } // plan re-encrypted: ask again
+    let pw = null;
+    try { pw = localStorage.getItem(LS); } catch (e) { }
+    if (!pw || !ENC || !window.crypto || !crypto.subtle) return false;
+    try { P = await decrypt(await keyFromPassword(pw)); init(); return true; }
+    catch (e) { try { localStorage.removeItem(LS); } catch (x) { } return false; } // password changed: ask again
   }
+
+  // Pick up a new version of the plan (or a new password) without waiting for a restart.
+  async function checkForNewPlan() {
+    if (!ENC || !navigator.onLine || !location.protocol.startsWith('http')) return;
+    try {
+      const t = await (await fetch('data/medplan.enc.js', { cache: 'no-cache' })).text();
+      const m = /window\.GPT100_MEDPLAN_ENC = (\{.*\});/.exec(t);
+      if (!m) return;
+      const next = JSON.parse(m[1]);
+      if (next.salt === ENC.salt && next.ct === ENC.ct) return;
+      const wasOpen = !!P;
+      Object.assign(ENC, next);
+      P = null; stopPlay();
+      const ok = await unlockStored();
+      if (!ok && wasOpen) lockNote = 'The medical plan password has changed. Enter the new password.';
+      render(); refreshFind();
+    } catch (e) { }
+  }
+  setTimeout(checkForNewPlan, 4000);
+  setInterval(checkForNewPlan, 5 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForNewPlan(); });
   function lock() {
     try { localStorage.removeItem(LS); } catch (e) { }
     P = null; stopLive(); stopPlay();
@@ -115,7 +135,7 @@
         <h3>Medical plan</h3>
         <p>Who is on duty where, runner numbers and medical vehicles, live during the event. Enter the password from the Race Director. This device remembers it until you lock the tab.</p>
         <div class="search-row"><input id="medPw" type="password" placeholder="Password" autocomplete="current-password"><button class="btn primary" type="submit">Unlock</button></div>
-        <p class="msg" id="medMsg" role="status"></p></form></div>`;
+        <p class="msg" id="medMsg" role="status">${esc(lockNote)}</p></form></div>`;
       $('medUnlock').addEventListener('submit', async e => {
         e.preventDefault(); const pw = $('medPw').value; if (!pw) return;
         $('medMsg').classList.add('ok'); $('medMsg').textContent = 'Unlocking...';
