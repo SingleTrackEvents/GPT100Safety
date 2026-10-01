@@ -44,7 +44,7 @@ window.GPT100_CONFIG = {
     triggers: {
       heat: { met: 36, close: 32, wbgtMet: 30, wbgtClose: 28 },
       wind: { met: 60, close: 50, proposed: true },       // gusts km/h on ridges
-      rain: { met: 40, close: 30 },                       // mm in 24 hours
+      rain: { met: 40, close: 20 },                       // mm in 24 hours
       cold: { met: 0, close: 3, rainMm: 1, windKmh: 40, hours: 3, proposed: true }, // feels-like °C on ridges overnight
       storm: { capeClose: 800, proposed: true },          // thunderstorm in the model forecasts
       smoke: { met: 150, close: 100, proposed: true },    // PM2.5 air quality index
