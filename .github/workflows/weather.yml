@@ -47,6 +47,7 @@ jobs:
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           OPEN_METEO_KEY: ${{ secrets.OPEN_METEO_KEY }}
+          EPA_KEY: ${{ secrets.EPA_KEY }}
           TZ: Australia/Melbourne
         run: node tools/weather_watch.mjs --prev wx-prev --out wx-out ${{ inputs.force_models && '--force-models' || '' }} ${{ inputs.test_alert && '--test-alert' || '' }}
 

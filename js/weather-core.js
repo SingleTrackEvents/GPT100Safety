@@ -300,6 +300,45 @@
         bump('rain', ['flood'], 'close');
         bump('fire', ['fire'], 'close');
       }
+      // Ensembles: the chance of each trigger being met. Enough of a chance makes a clear trigger "getting close".
+      const E = ctx.ens;
+      if (E && E.v) {
+        const e0 = Math.max(0, Math.ceil((sc.from - E.t0) / HOUR)), e1 = Math.min(E.n - 1, Math.floor((sc.to - E.t0) / HOUR));
+        const close = (W.ensembles && W.ensembles.closeChance) || 30;
+        const chance = (key, k, filter) => {
+          let b = null;
+          for (let h = e0; h <= e1; h++) for (let j = 0; j < E.points.length; j++) {
+            if (filter && !filter(E.points[j], h)) continue;
+            const p = E.v[k][h] && E.v[k][h][j];
+            if (p != null && (!b || p > b.p)) b = { p, at: E.t0 + h * HOUR, km: E.points[j].km, place: E.points[j].name || '' };
+          }
+          const r = res[key];
+          if (!b || !r) return;
+          r.chance = b;
+          if (b.p >= close && r.status === 'ok') {
+            r.status = 'close';
+            r.text = (r.text ? r.text + '. ' : '') + b.p + '% of ensemble forecasts reach the trigger';
+            r.worst = Object.assign({}, r.worst || {}, { at: b.at, km: b.km, place: b.place, runners: runnersAt(pace, b.km, b.at, ctx.shift) });
+          }
+        };
+        const nightAt = h => { const lh = E.lh ? E.lh[h] : localHour(E.t0 + h * HOUR); return lh >= 18 || lh < 8; };
+        if (e1 >= e0) {
+          chance('heat', 'hm');
+          chance('wind', 'wm', p => p.ridge);
+          chance('rain', 'rm');
+          chance('cold', 'cm', (p, h) => p.ridge && nightAt(h));
+        }
+      }
+
+      // VicEmergency: a bushfire near the course meets the fire trigger; a planned burn nearby makes smoke getting close.
+      if (sk === 'next48' && ctx.incidents && ctx.incidents.items) {
+        const near = W.fireNearKm || 20;
+        const fireIt = ctx.incidents.items.find(x => x.kind === 'fire' && x.dist <= near);
+        const burn = ctx.incidents.items.find(x => x.kind === 'burn' && x.dist <= near);
+        if (fireIt) { const r = res.fire; r.status = 'met'; r.text = 'Bushfire ' + fireIt.dist + ' km from the course: ' + (fireIt.location || fireIt.title); r.incident = fireIt; r.worst = { at: now, km: fireIt.km, place: '', runners: false }; }
+        if (burn && RANK[res.smoke.status] < RANK.close) { const r = res.smoke; r.status = 'close'; r.text = 'Planned burn ' + burn.dist + ' km from the course' + (burn.location ? ': ' + burn.location : ''); r.incident = burn; r.note = ''; r.worst = { at: now, km: burn.km, place: '', runners: false }; }
+      }
+
       let worst = 'nodata';
       for (const r of Object.values(res)) if (RANK[r.status] > RANK[worst]) worst = r.status;
       out[sk] = { label: sc.label, from: sc.from, to: sc.to, status: worst, note, triggers: res };

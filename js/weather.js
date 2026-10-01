@@ -33,12 +33,14 @@
     pp: { label: 'Chance of rain', unit: '%', dp: 0, col: ramp([[0, '#f5f5f0'], [50, '#8cc1e6'], [100, '#173f8a']]), key: [['0%', '#f5f5f0'], ['50%', '#8cc1e6'], ['100% of models', '#173f8a']] },
     wbgt: { label: 'WBGT (heat stress)', unit: '', dp: 1, col: ramp([[10, '#eef3ee'], [20, '#ece5a3'], [25, '#f4a259'], [28, '#e4572e'], [30, '#a4161a']]), key: [['20', '#ece5a3'], ['28', '#e4572e'], ['30', '#a4161a']] },
     storm: { label: 'Thunderstorm', unit: 'models', dp: 0, col: v => v == null ? '#ececec' : v >= 2 ? STATUS_COL.met : v === 1 ? STATUS_COL.close : '#f5f5f0', key: [['1 model', STATUS_COL.close], ['2 or more', STATUS_COL.met]] },
-    cc: { label: 'Cloud', unit: '%', dp: 0, col: ramp([[0, '#fdf6d8'], [100, '#8a8a8a']]), key: [['Clear', '#fdf6d8'], ['Overcast', '#8a8a8a']] }
+    cc: { label: 'Cloud', unit: '%', dp: 0, col: ramp([[0, '#fdf6d8'], [100, '#8a8a8a']]), key: [['Clear', '#fdf6d8'], ['Overcast', '#8a8a8a']] },
+    uv: { label: 'UV index', unit: '', dp: 1, col: ramp([[0, '#eef3ee'], [3, '#ece5a3'], [6, '#f4a259'], [8, '#e4572e'], [11, '#7b1fa2']]), key: [['3 moderate', '#ece5a3'], ['6 high', '#f4a259'], ['8 very high', '#e4572e'], ['11 extreme', '#7b1fa2']] }
   };
   VARS.t.col = VARS.at.col; VARS.t.key = VARS.at.key;
   function fmtV(k, v) { const d = VARS[k]; return v == null ? 'n/a' : (d.dp ? v.toFixed(d.dp) : Math.round(v)) + (d.unit && d.unit !== 'models' ? (d.unit === '°C' ? '°C' : ' ' + d.unit) : ''); }
 
   // ---------- state ----------
+  let obs = null, ens = null;           // live BOM observations; ensemble ranges (loaded for the Models view)
   let latest = null, history = [], grid = null, replayYears = [], loadErr = null, built = false, view = 'triggers';
   const replays = {}, modelFiles = {};
   let dsKey = null, ds = null;          // dataset for the timeline and simulator: { grid, shift, label, forecast }
@@ -59,6 +61,8 @@
       latest = await getJSON('latest.json');
       loadErr = null;
       getJSON('history.json').then(h => { history = h; if (view === 'triggers') renderView(); }).catch(() => { });
+      getJSON('obs.json').then(o => { obs = o; drawLive(); if (view === 'triggers') renderView(); }).catch(() => { });
+      drawLive();
       getJSON('replay/index.json').then(y => { replayYears = y; }).catch(() => { });
     } catch (e) { loadErr = e.message; }
   }
@@ -75,7 +79,7 @@
   // temperatures adjusted for the height difference (6.5°C per km).
   function valueAt(g, k, km, t) {
     const h = hourIdx(g, t);
-    if (h < 0 || h >= g.n) return null;
+    if (h < 0 || h >= g.n || !g.cons[k]) return null;
     const P = g.points;
     let j = P.findIndex(p => p.km >= km);
     if (j < 0) j = P.length - 1;
@@ -183,7 +187,7 @@
     const warn = [];
     if (age > W.staleHours) warn.push(`<p class="notice danger">This weather is ${age.toFixed(1)} hours old. The hourly watch may have stopped: check the Weather watch in GitHub Actions. ${navigator.onLine ? '' : 'You\'re offline.'}</p>`);
     const bad = Object.entries(latest.sources || {}).filter(([k, s]) => !s.ok && k !== 'bom_access_global');
-    if (bad.length) warn.push(`<p class="notice warn">Not updating: ${bad.map(([k]) => esc(k === 'warnings' ? 'BOM warnings' : k === 'fire' ? 'CFA ratings' : k === 'air' ? 'air quality' : WX.modelName(k))).join(', ')}. See Sources below.</p>`);
+    if (bad.length) warn.push(`<p class="notice warn">Not updating: ${bad.map(([k]) => esc(srcName(k).replace(/ \(.*\)$/, ''))).join(', ')}. See Sources below.</p>`);
     $('wxWarn').innerHTML = warn.join('');
   }
   function renderView() {
@@ -200,6 +204,10 @@
       else if (view === 'models') renderModels();
     }).catch(e => { V.innerHTML = `<p class="notice danger">Couldn't load the forecast (${esc(e.message)}).</p>`; });
   }
+
+  const SRC = { warnings: 'BOM warnings (anonymous FTP)', fire: 'CFA fire ratings', air: 'Air quality forecast (CAMS via Open-Meteo)', ensembles: 'Ensembles: ECMWF and GFS (Open-Meteo)',
+    obs: 'BOM observations (anonymous FTP)', precis: 'BOM town forecasts (anonymous FTP)', incidents: 'VicEmergency', epa: 'EPA AirWatch' };
+  const srcName = k => SRC[k] || WX.modelName(k) + ' (Open-Meteo)';
 
   // ---------- Triggers ----------
   const WORD = { met: 'Met', close: 'Getting close', ok: 'Clear', nodata: 'No data' };
@@ -222,6 +230,7 @@
         L.fire.days.map(d => `<tr><td>${WX.fmtDay(WX.parseLocal(d.date))}</td>${W.districts.map(k => { const r = d.districts[k] || {}; return `<td><span class="fdr fdr-${(r.rating || '').replace(/\s/g, '').toLowerCase()}">${esc(WX.titleCase(r.rating || 'n/a'))}</span>${r.tfb ? ' <b class="tfb">Total Fire Ban</b>' : ''}</td>`; }).join('')}</tr>`).join('') +
         '</tbody></table><p class="wx-note"><a href="https://www.cfa.vic.gov.au/warnings-restrictions/total-fire-bans-and-ratings" target="_blank" rel="noopener">CFA fire ratings</a> · <a href="https://www.epa.vic.gov.au/for-community/airwatch" target="_blank" rel="noopener">EPA AirWatch</a> · <a href="https://www.bom.gov.au/products/IDR023.loop.shtml" target="_blank" rel="noopener">Radar</a></p>';
     }
+    h += incidentsHTML() + obsHTML() + precisHTML();
 
     for (const [sk, s] of Object.entries(tr)) {
       h += `<h2 class="wx-h" id="wxs-${sk}">${esc(s.label)} <span class="wx-when">${WX.fmtTime(s.from)} to ${WX.fmtTime(s.to)}</span></h2>`;
@@ -234,15 +243,61 @@
           ${r.text ? `<p>${esc(r.text)}</p>` : ''}
           ${where && r.status !== 'nodata' ? `<p class="wx-where">${where}${w.runners ? ' <span class="chip">Runners on course</span>' : ''}</p>` : ''}
           ${r.status === 'nodata' && r.note ? `<p class="wx-where">${esc(r.note)}</p>` : ''}
+          ${r.chance && r.status !== 'nodata' ? `<p class="wx-where">Ensembles: ${r.chance.p ? 'up to ' + r.chance.p + '% chance' + (r.chance.p ? ` (km ${r.chance.km}, ${WX.fmtTime(r.chance.at)})` : '') : 'none of 82 forecasts reach it'}</p>` : ''}
           <p class="wx-rule">${esc(r.rule)}${r.proposed ? ' <em>(proposed trigger)</em>' : ''}</p>
         </button>`;
       }).join('') + '</div>';
     }
     h += trendHTML();
     h += `<details class="wx-src"><summary>Sources</summary><ul>${Object.entries(L.sources || {}).map(([k, s]) =>
-      `<li><b>${esc(k === 'warnings' ? 'BOM warnings (anonymous FTP)' : k === 'fire' ? 'CFA fire ratings' : k === 'air' ? 'Air quality (CAMS via Open-Meteo)' : WX.modelName(k) + ' (Open-Meteo)')}</b>: ${s.ok ? (s.hours ? s.hours + ' hours' : 'OK') : 'not working: ' + esc(s.error)}</li>`).join('')}</ul>
+      `<li><b>${esc(srcName(k))}</b>: ${s.ok ? (s.hours ? s.hours + ' hours' : s.stations != null ? s.stations + ' stations' : 'OK') : 'not working: ' + esc(s.error)}</li>`).join('')}</ul>
       <p class="wx-note">Consensus = the middle value of all models (median). "Getting close" also flags when any single model reaches a trigger. Temperatures are adjusted to the height of each point. Phone alerts go to the ntfy app when a trigger gets closer, plus a 6 am summary from ${WX.fmtDay(WX.parseLocal(W.alertsFrom))}.</p></details>`;
     return h;
+  }
+
+  // Fires, planned burns, incidents and warnings near the course (VicEmergency).
+  const INC_COL = { fire: '#c62828', burn: '#e8710a', warning: '#b87700', incident: '#666' };
+  function incidentsHTML() {
+    const I = latest.incidents;
+    let h = '<h2 class="wx-h">Fires, burns and incidents</h2>';
+    if (!I || !I.items) return h + '<p class="notice warn">VicEmergency isn\'t coming through. Check <a href="https://emergency.vic.gov.au/respond/" target="_blank" rel="noopener">emergency.vic.gov.au</a>.</p>';
+    if (!I.items.length) return h + `<p class="wx-ok">Nothing on VicEmergency within ${W.incidentKm} km of the course.</p>`;
+    return h + I.items.map(it => `<a class="wx-inc" style="border-color:${INC_COL[it.kind]}" href="https://emergency.vic.gov.au/respond/" target="_blank" rel="noopener">
+      <b>${esc(it.title || it.name)}</b>${it.status ? ` <span class="wx-pill">${esc(it.status)}</span>` : ''}
+      <span>${esc(it.location || it.name)} · ${it.dist} km from the course (near km ${it.km})${it.size ? ' · ' + esc(it.size) : ''}</span></a>`).join('') +
+      '<p class="wx-note">From VicEmergency. Bushfires within ' + W.fireNearKm + ' km meet the fire trigger; planned burns that close make smoke getting close.</p>';
+  }
+  // Live BOM observations from weather stations near the course.
+  function obsHTML() {
+    const st = obs && obs.stations ? Object.values(obs.stations).sort((a, b) => a.fromCourseKm - b.fromCourseKm) : [];
+    let h = '<h2 class="wx-h">Live observations</h2>';
+    if (!st.length) return h + '<p class="wx-note">' + (latest.sources && latest.sources.obs && !latest.sources.obs.ok ? 'BOM observations aren\'t coming through.' : 'Loading…') + ' <a href="https://www.bom.gov.au/vic/observations/vicall.shtml" target="_blank" rel="noopener">BOM observations</a></p>';
+    const now = nowS();
+    h += '<div class="wx-scroll"><table class="wx-fire wx-obs"><thead><tr><th>Station</th><th>Time</th><th>Temp</th><th>Feels</th><th>Wind, gust</th><th>Rain</th></tr></thead><tbody>' + st.map(s => {
+      const r = s.series[s.series.length - 1], old = now - r.t > 2 * HOUR;
+      const prev = s.series.find(x => x.t >= r.t - 3 * HOUR && x.temp != null);
+      const trend = prev && r.temp != null && prev !== r ? r.temp - prev.temp : null;
+      return `<tr class="${old ? 'muted' : ''}"><td><b>${esc(s.name)}</b><br><span class="wx-where">${s.height != null ? Math.round(s.height) + ' m, ' : ''}${s.fromCourseKm} km from course</span></td>
+        <td>${WX.fmtTime(r.t, false)}${old ? '<br><span class="wx-where">old</span>' : ''}</td>
+        <td>${r.temp != null ? r.temp.toFixed(1) + '°' : 'n/a'}${trend != null && Math.abs(trend) >= 1 ? `<br><span class="wx-where">${trend > 0 ? '+' : ''}${trend.toFixed(1)} in 3 h</span>` : ''}</td>
+        <td>${r.at != null ? r.at.toFixed(1) + '°' : 'n/a'}</td><td>${r.wind != null ? Math.round(r.wind) : '-'}, ${r.gust != null ? Math.round(r.gust) : '-'} km/h ${esc(r.dir || '')}</td>
+        <td>${r.rain != null ? r.rain + ' mm' : '-'}</td></tr>`;
+    }).join('') + '</tbody></table></div><p class="wx-note">BOM weather stations within ' + W.obsRadiusKm + ' km. Rain is since 9 am. Also on the map.</p>';
+    const E = latest.epa;
+    if (E && E.sites && E.sites.length) h += '<p class="wx-note"><b>EPA air monitors:</b> ' + E.sites.map(x => `${esc(x.name)} PM2.5 ${x.pm25 != null ? Math.round(x.pm25) + ' ' + esc(x.unit) : 'n/a'}${x.advice ? ' (' + esc(x.advice) + ')' : ''}, ${x.dist} km from course`).join('; ') + '.</p>';
+    return h;
+  }
+  // The Bureau's own forecasts for towns near the course.
+  function precisHTML() {
+    const P = latest.precis;
+    if (!P || !P.places || !P.places.length) return '';
+    const days = [...new Set(P.places.flatMap(p => p.days.map(d => d.date)))].filter(Boolean).slice(0, 5);
+    return '<h2 class="wx-h">BOM forecast</h2><div class="wx-scroll"><table class="wx-fire wx-precis"><thead><tr><th></th>' + days.map(d => `<th>${WX.fmtDay(WX.parseLocal(d))}</th>`).join('') + '</tr></thead><tbody>' +
+      P.places.map(p => `<tr><td><b>${esc(p.name)}</b></td>` + days.map(d => {
+        const x = p.days.find(y => y.date === d);
+        if (!x) return '<td></td>';
+        return `<td>${x.max != null ? '<b>' + x.max + '°</b>' : ''}${x.min != null ? ' / ' + x.min + '°' : ''}<br>${esc(x.precis || '')}${x.rain ? '<br><span class="wx-where">Rain ' + esc(x.rain) + (x.range ? ', ' + esc(x.range) : '') + '</span>' : ''}</td>`;
+      }).join('') + '</tr>').join('') + '</tbody></table></div><p class="wx-note">The Bureau of Meteorology\'s official forecasts. <a href="https://www.bom.gov.au/vic/forecasts/wimmera.shtml" target="_blank" rel="noopener">Wimmera</a> · <a href="https://www.bom.gov.au/vic/forecasts/southwest.shtml" target="_blank" rel="noopener">South West</a></p>';
   }
   function trendHTML() {
     const pts = history.filter(x => x.race && x.race.heat != null);
@@ -339,7 +394,7 @@
       const a = p ? (P[p - 1].km + P[p].km) / 2 : 0, b = p < P.length - 1 ? (P[p].km + P[p + 1].km) / 2 : TOTAL;
       const y0 = yk(a), y1 = yk(b);
       for (let h = h0; h <= h1; h++) {
-        const v = tlVar === 'status' ? WX.cellStatus(g, h, p, T).status : g.cons[tlVar][h][p];
+        const v = tlVar === 'status' ? WX.cellStatus(g, h, p, T).status : g.cons[tlVar] ? g.cons[tlVar][h][p] : null;
         x.fillStyle = col(v);
         x.fillRect(xh(h), y0, L.cw + 0.6, y1 - y0 + 0.6);
       }
@@ -396,7 +451,7 @@
     const h = hourIdx(g, t), p = nearestPoint(g, km);
     if (v('t') == null) return null;
     return { t: v('t'), at: v('at'), wbgt: v('wbgt'), g: v('g'), gmax: v('gmax'), w: v('w'), p: v('p'), pp: v('pp'), p24: v('p24'), cc: v('cc'),
-      code: g.cons.code[h][p], storm: g.cons.storm[h][p], n: g.cons.n[h][p], cape: v('cape'), status: statusAt(g, km, t) };
+      code: g.cons.code[h][p], storm: g.cons.storm[h][p], n: g.cons.n[h][p], cape: v('cape'), uv: v('uv'), status: statusAt(g, km, t) };
   }
   function condLine(c) {
     return `<b>${c.t.toFixed(1)}°C</b>, feels ${c.at.toFixed(1)}°C · gusts ${Math.round(c.g)} km/h${c.gmax > c.g + 5 ? ' (up to ' + Math.round(c.gmax) + ')' : ''} · ` +
@@ -411,7 +466,7 @@
     R.innerHTML = `<div class="wx-read">
       <div class="eyebrow">km ${sel.km.toFixed(1)} ${esc(placeAt(sel.km))} · ${Math.round(eleAt(sel.km))} m</div>
       <h3>${WX.fmtTime(sel.t)}</h3>
-      ${c ? `<p>${condLine(c)}</p><p>Rain in the last 24 hours: ${c.p24.toFixed(1)} mm · WBGT ${c.wbgt.toFixed(1)} · cloud ${Math.round(c.cc)}%</p><p>${hitsHTML(c.status)}</p>` : '<p class="muted">No forecast for this time.</p>'}
+      ${c ? `<p>${condLine(c)}</p><p>Rain in the last 24 hours: ${c.p24.toFixed(1)} mm · WBGT ${c.wbgt.toFixed(1)} · cloud ${Math.round(c.cc)}%${c.uv != null ? ' · UV ' + c.uv.toFixed(0) : ''}</p><p>${hitsHTML(c.status)}</p>` : '<p class="muted">No forecast for this time.</p>'}
       ${f ? `<p class="wx-note">Runners pass here from ${WX.fmtTime(f + ds.shift)} (fastest) to ${WX.fmtTime(s + ds.shift)} (cut-off).${WX.runnersAt(PACE, sel.km, sel.t, ds.shift) ? ' <b>Runners are likely here at this time.</b>' : ''}</p>` : ''}
       <div class="wx-btns">${ds.forecast ? '<button class="btn small" id="wxCmp">Compare models here</button>' : ''}<button class="btn small" id="wxFind">Open in Find</button></div>
     </div>`;
@@ -549,7 +604,7 @@
 
   // ---------- Models ----------
   const MCOL = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#a65628', '#f781bf', '#17becf', '#999999', '#bcbd22'];
-  const MVARS = { t: ['Temperature', '°C', 1], at: ['Feels like', '°C', 1], g: ['Wind gusts', 'km/h', 0], w: ['Wind speed', 'km/h', 0], p: ['Rain', 'mm/h', 1], cc: ['Cloud', '%', 0], cape: ['Storm energy (CAPE)', 'J/kg', 0], rh: ['Humidity', '%', 0] };
+  const MVARS = { t: ['Temperature', '°C', 1], at: ['Feels like', '°C', 1], g: ['Wind gusts', 'km/h', 0], w: ['Wind speed', 'km/h', 0], p: ['Rain', 'mm/h', 1], cc: ['Cloud', '%', 0], cape: ['Storm energy (CAPE)', 'J/kg', 0], rh: ['Humidity', '%', 0], uv: ['UV index', '', 1] };
   const LINES = { t: [[T.heat.close, 'close'], [T.heat.met, 'met']], at: [[T.cold.close, 'close'], [T.cold.met, 'met']], g: [[T.wind.close, 'close'], [T.wind.met, 'met']], cape: [[T.storm.capeClose, 'close']] };
   async function renderModels() {
     const g = await loadGrid();
@@ -565,6 +620,7 @@
     V.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => { mdRange = b.dataset.r; renderModels(); }));
     markSel(g.points[mdPoint].km);
     colourMap(mdT || nowS());
+    if (!ens || ens.run !== latest.ensRun) { try { ens = await getJSON('ens.json'); } catch (e) { ens = null; } }
     let f = modelFiles[g.modelsRun + '/' + mdPoint];
     try { if (!f) f = modelFiles[g.modelsRun + '/' + mdPoint] = await getJSON('models/p' + mdPoint + '.json'); }
     catch (e) { $('wxChart').innerHTML = `<p class="notice danger">Couldn't load the models (${esc(e.message)}).</p>`; return; }
@@ -577,9 +633,15 @@
     if (mdRange === 'race') { h0 = Math.max(0, hourIdx(g, WX.parseLocal(W.event.start))); h1 = Math.min(last, hourIdx(g, WX.parseLocal(W.event.end))); }
     if (h1 <= h0) { $('wxChart').innerHTML = '<p class="notice warn">The forecast doesn\'t reach race weekend yet.</p>'; $('wxMtab').innerHTML = ''; return; }
     const val = (m, h) => { const a = f.models[m][mdVar]; return a && h < a.length ? a[h] : null; };
+    // Ensemble range: 80% of the 82 ensemble forecasts fall inside the band.
+    const band = ens && { t: ['t10', 't90'], g: ['g10', 'g90'] }[mdVar];
+    let ej = -1;
+    if (band) { ej = ens.gi.indexOf(mdPoint); if (ej < 0) { let bd = 1e9; ens.points.forEach((p, j) => { const d = Math.abs(p.km - g.points[mdPoint].km); if (d < bd) { bd = d; ej = j; } }); } }
+    const ensAt = (k, h) => { if (ej < 0) return null; const hh = h - (ens.t0 - g.t0) / HOUR; return hh >= 0 && hh < ens.n ? ens.v[k][hh][ej] : null; };
     const med = []; for (let h = h0; h <= h1; h++) med.push(WX.median(ids.filter(m => !mdHidden[m]).map(m => val(m, h))));
     let lo = Infinity, hi = -Infinity;
     for (const m of ids) if (!mdHidden[m]) for (let h = h0; h <= h1; h++) { const v = val(m, h); if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+    if (band) for (let h = h0; h <= h1; h++) { const a = ensAt(band[0], h), b = ensAt(band[1], h); if (a != null) lo = Math.min(lo, a); if (b != null) hi = Math.max(hi, b); }
     if (!isFinite(lo)) { lo = 0; hi = 1; }
     if (mdVar === 'p' || mdVar === 'cc' || mdVar === 'cape' || mdVar === 'g' || mdVar === 'w') lo = 0;
     (LINES[mdVar] || []).forEach(([v]) => { if (v <= hi * 1.3 && v >= lo - 5) { hi = Math.max(hi, v); lo = Math.min(lo, v); } });
@@ -597,6 +659,11 @@
     }
     for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4; svg += `<text x="32" y="${Y(v) + 4}" text-anchor="end">${v.toFixed(MVARS[mdVar][2] && hi - lo < 10 ? 1 : 0)}</text><line x1="36" x2="${Wd - 8}" y1="${Y(v)}" y2="${Y(v)}" stroke="#eee"/>`; }
     (LINES[mdVar] || []).forEach(([v, st]) => { if (v >= lo && v <= hi) svg += `<line x1="36" x2="${Wd - 8}" y1="${Y(v)}" y2="${Y(v)}" stroke="${STATUS_COL[st]}" stroke-width="1.5" stroke-dasharray="6 4"/>`; });
+    if (band) {
+      const top = [], bot = [];
+      for (let h = h0; h <= h1; h++) { const a = ensAt(band[0], h), b = ensAt(band[1], h); if (a != null && b != null) { top.push(X(h).toFixed(1) + ',' + Y(b).toFixed(1)); bot.unshift(X(h).toFixed(1) + ',' + Y(a).toFixed(1)); } }
+      if (top.length > 1) svg += `<polygon points="${top.concat(bot).join(' ')}" fill="rgba(217,83,30,.16)" stroke="none"/>`;
+    }
     ids.forEach((m, i) => {
       if (mdHidden[m]) return;
       let d = '', on = false;
@@ -610,7 +677,7 @@
     const hs = hourIdx(g, mdT);
     svg += `<line x1="${X(hs)}" x2="${X(hs)}" y1="10" y2="${Ht - 30}" stroke="#d9531e" stroke-width="2"/>`;
     $('wxChart').innerHTML = `<svg id="wxMsvg" class="wx-models" viewBox="0 0 ${Wd} ${Ht}">${svg}<rect id="wxMhit" x="36" y="10" width="${Wd - 44}" height="${Ht - 40}" fill="transparent"/></svg>
-      <div class="wx-legend">${ids.map((m, i) => `<button data-m="${m}" class="${mdHidden[m] ? 'off' : ''}"><i style="background:${MCOL[i % MCOL.length]}"></i>${esc(WX.modelName(m))}</button>`).join('')}<span><i style="background:#111"></i>Consensus</span></div>`;
+      <div class="wx-legend">${ids.map((m, i) => `<button data-m="${m}" class="${mdHidden[m] ? 'off' : ''}"><i style="background:${MCOL[i % MCOL.length]}"></i>${esc(WX.modelName(m))}</button>`).join('')}<span><i style="background:#111"></i>Consensus</span>${band && ej >= 0 ? '<span><i style="background:rgba(217,83,30,.35)"></i>Ensemble range (80% of 82 forecasts)</span>' : ''}</div>`;
     $('wxChart').querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => { mdHidden[b.dataset.m] = !mdHidden[b.dataset.m]; drawModels(g, f); }));
     $('wxMhit').addEventListener('click', e => {
       const svgEl = $('wxMsvg'), r = svgEl.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * Wd;
@@ -641,6 +708,9 @@
     runMarks.fast = L.marker([0, 0], { zIndexOffset: 1000, icon: L.divIcon({ className: '', html: '<div class="wx-rm">F</div>', iconSize: [24, 24], iconAnchor: [12, 12] }) }).bindTooltip('Fastest');
     runMarks.slow = L.marker([0, 0], { zIndexOffset: 1000, icon: L.divIcon({ className: '', html: '<div class="wx-rm slow">S</div>', iconSize: [24, 24], iconAnchor: [12, 12] }) }).bindTooltip('Slowest');
     trigLayer = L.layerGroup().addTo(map);
+    liveLayer = L.layerGroup().addTo(map);
+    addRadar();
+    drawLive();
     map.on('click', e => {
       const s = G.snap(e.latlng.lat, e.latlng.lng);
       if (s.offM > 2000) return;
@@ -650,6 +720,62 @@
       select(km, sel ? sel.t : nowS());
     });
     fitMap();
+  }
+
+  // Live layer: BOM weather stations and VicEmergency incidents, on every view.
+  let liveLayer = null;
+  function drawLive() {
+    if (!liveLayer) return;
+    liveLayer.clearLayers();
+    if (latest && latest.incidents && latest.incidents.items) latest.incidents.items.forEach(it => {
+      const c = INC_COL[it.kind];
+      if (it.poly && it.poly.length > 2) L.polygon(it.poly, { color: c, weight: 2, fillOpacity: .25 }).addTo(liveLayer);
+      L.circleMarker([it.lat, it.lon], { radius: 7, color: '#fff', weight: 2, fillColor: c, fillOpacity: 1 })
+        .bindTooltip(`<b>${esc(it.title || it.name)}</b><br>${esc(it.location || '')}<br>${it.dist} km from the course${it.status ? '<br>' + esc(it.status) : ''}`).addTo(liveLayer);
+    });
+    if (obs && obs.stations) Object.values(obs.stations).forEach(s => {
+      const r = s.series[s.series.length - 1];
+      const label = (r.temp != null ? Math.round(r.temp) + '°' : '') + (r.gust != null ? ' ' + Math.round(r.gust) : '');
+      L.marker([s.lat, s.lon], { icon: L.divIcon({ className: '', html: `<div class="wx-obs-mark">${label}</div>`, iconSize: null, iconAnchor: [14, 10] }) })
+        .bindTooltip(`<b>${esc(s.name)}</b> (BOM), ${WX.fmtTime(r.t, false)}<br>${r.temp != null ? r.temp + '°C, feels ' + r.at + '°C' : ''}<br>Wind ${r.wind ?? '-'} km/h, gusts ${r.gust ?? '-'} km/h ${esc(r.dir || '')}<br>Rain since 9 am ${r.rain ?? '-'} mm`).addTo(liveLayer);
+    });
+  }
+  // Rain radar (RainViewer): the last hour, looping.
+  let radarOn = false, radarLayers = [], radarTimer = null, radarCtl = null;
+  function addRadar() {
+    const Ctl = L.Control.extend({
+      onAdd() {
+        const d = L.DomUtil.create('div', 'wx-radar-ctl');
+        d.innerHTML = '<button type="button">Radar</button><span></span>';
+        L.DomEvent.disableClickPropagation(d);
+        d.querySelector('button').addEventListener('click', () => radarOn ? radarStop() : radarStart());
+        return d;
+      }
+    });
+    radarCtl = new Ctl({ position: 'topright' }).addTo(map);
+  }
+  async function radarStart() {
+    const ctl = radarCtl.getContainer(), lab = ctl.querySelector('span');
+    radarOn = true; ctl.classList.add('on'); lab.textContent = 'Loading…';
+    try {
+      const j = await (await fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-cache' })).json();
+      const frames = j.radar.past.slice(-7);
+      radarLayers = frames.map(f => ({ t: f.time, layer: L.tileLayer(j.host + f.path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0, maxNativeZoom: 7, maxZoom: 17, zIndex: 300, attribution: 'Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>' }).addTo(map) }));
+      let i = 0;
+      const show = () => {
+        if (!radarOn) return;
+        radarLayers.forEach((r, k) => r.layer.setOpacity(k === i ? 0.65 : 0));
+        lab.textContent = WX.fmtTime(radarLayers[i].t, false);
+        i = (i + 1) % radarLayers.length;
+      };
+      show();
+      radarTimer = setInterval(show, 700);
+    } catch (e) { lab.textContent = 'Radar unavailable'; radarOn = false; ctl.classList.remove('on'); }
+  }
+  function radarStop() {
+    radarOn = false; clearInterval(radarTimer); radarTimer = null;
+    radarLayers.forEach(r => r.layer.remove()); radarLayers = [];
+    const ctl = radarCtl.getContainer(); ctl.classList.remove('on'); ctl.querySelector('span').textContent = '';
   }
   function fitMap() {
     if (!map || !$('wxMap').offsetWidth) return;
@@ -673,7 +799,7 @@
     ensureSegs(g);
     const k = view === 'timeline' ? tlVar : view === 'models' ? 'status' : mapVar, h = hourIdx(g, t);
     segs.forEach((s, p) => {
-      const v = h < 0 || h >= g.n ? null : k === 'status' ? WX.cellStatus(g, h, p, T).status : g.cons[k][h][p];
+      const v = h < 0 || h >= g.n ? null : k === 'status' ? WX.cellStatus(g, h, p, T).status : g.cons[k] ? g.cons[k][h][p] : null;
       s.setStyle({ color: k === 'status' && v === 'ok' ? '#3c9a5f' : VARS[k].col(v) });
       const pt = g.points[p], c = h >= 0 && h < g.n && g.cons.t[h][p] != null;
       s.bindTooltip(`<b>km ${pt.km}${pt.name ? ' ' + esc(pt.name) : ''}</b> (${pt.ele} m)<br>` + (c ? `${g.cons.t[h][p]}°C, feels ${g.cons.at[h][p]}°C<br>Gusts ${g.cons.g[h][p]} km/h, rain ${g.cons.p[h][p]} mm/h` : 'No forecast'), { sticky: true });
@@ -748,10 +874,12 @@
     const age = (t - latest.updated) / HOUR;
     const warn = latest.warnings && latest.warnings.items ? latest.warnings.items.filter(w => w.relevant) : [];
     const hits = c.status.hits.filter(x => x.status !== 'ok');
+    const inc = latest.incidents && latest.incidents.items ? latest.incidents.items.filter(x => x.kind !== 'warning' && G.metres([lat, lon], [x.lat, x.lon]) < 15000) : [];
     return `<div class="wx-near"><b>Weather now:</b> ${(c.t + dz).toFixed(0)}°C, feels ${(c.at + dz).toFixed(0)}°C, gusts ${Math.round(c.g)} km/h, ${esc(WX.codeText(c.code).toLowerCase())}.
       Next 3 hours: ${rain >= 0.2 ? rain.toFixed(1) + ' mm rain' : 'dry'}, gusts to ${Math.round(gust)} km/h${storm ? ', <b>thunderstorm possible</b>' : ''}.
       ${hits.map(x => `<span class="wx-pill st-${x.status}">${WX.LABELS[x.key]}: ${WORD[x.status]}</span>`).join(' ')}
       ${warn.map(w => `<br><a class="wx-near-warn" href="${esc(w.link)}" target="_blank" rel="noopener">BOM: ${esc(w.title)}</a>`).join('')}
+      ${inc.map(x => `<br><a class="wx-near-warn" href="https://emergency.vic.gov.au/respond/" target="_blank" rel="noopener">${esc(x.title)} ${(G.metres([lat, lon], [x.lat, x.lon]) / 1000).toFixed(0)} km away${x.location ? ': ' + esc(x.location) : ''}</a>`).join('')}
       ${age > W.staleHours ? `<br><span class="muted">Weather data is ${age.toFixed(0)} hours old.</span>` : ''}
       <a class="lnk" href="#weather">Weather tab</a></div>`;
   }

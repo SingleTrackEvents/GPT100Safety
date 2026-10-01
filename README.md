@@ -40,6 +40,13 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Models:** every forecast model for any point on the course (ECMWF, ECMWF AI, GFS, ICON, UK Met Office, Météo-France, GEM and JMA), the consensus, trigger lines, and how well the models agree.
 - The consensus is the middle value of all the models. "Getting close" also lights up when any single model reaches a trigger. Temperatures are adjusted for the height of each point.
 - **Phone alerts:** the hourly weather watch sends a phone notification (ntfy app) when a trigger gets closer or eases, when a BOM warning is issued near the course, and a 6 am summary each day from 30 October to the end of the race. Race weekend alerts start as soon as the forecast reaches it.
+- **Ensembles:** about 80 versions of the ECMWF and GFS forecasts give the chance of each trigger (for example "25% chance of gusts over 60 km/h"). When 30% or more of them reach a trigger, it shows as getting close. The Models view shows the ensemble range as a shaded band.
+- **Live observations:** BOM weather stations within 60 km of the course (temperature, feels like, wind, gusts, rain since 9 am), in a table and on the map.
+- **Fires, burns and incidents:** VicEmergency within 40 km of the course, on the map. A bushfire within 20 km meets the fire trigger, and a planned burn that close makes smoke getting close. New ones send a phone alert. Find also shows any within 15 km of the casualty.
+- **BOM forecast:** the Bureau's own forecasts for Halls Gap, Stawell, Ararat, Horsham, Dunkeld and Hamilton.
+- **Rain radar:** tap Radar on the Weather map for the last hour of rain radar, looping (RainViewer).
+- **UV index** in the Timeline and readouts.
+- **EPA AirWatch** live smoke readings, once a free EPA API key is added as the `EPA_KEY` secret.
 - Lightning isn't included yet (it needs a paid lightning feed).
 
 **Medical** (password protected, for the medical team and race control)

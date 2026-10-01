@@ -15,6 +15,7 @@ import vm from 'node:vm';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { fetchEnsembles, fetchObs, fetchPrecis, fetchIncidents, fetchEPA } from './weather_extra.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..');
@@ -35,8 +36,9 @@ const win = {};
 for (const f of ['data/config.js', 'data/course.js', 'data/pacing.js']) vm.runInNewContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), { window: win });
 const CFG = win.GPT100_CONFIG, W = CFG.weather, D = win.GPT100_DATA, PACE = win.GPT100_PACING.miler;
 const MODELS = W.models;
-const VARS = ['temperature_2m', 'relative_humidity_2m', 'apparent_temperature', 'precipitation', 'wind_speed_10m', 'wind_gusts_10m', 'weather_code', 'cape', 'cloud_cover'];
-const SHORT = { temperature_2m: 't', relative_humidity_2m: 'rh', apparent_temperature: 'at', precipitation: 'p', wind_speed_10m: 'w', wind_gusts_10m: 'g', weather_code: 'code', cape: 'cape', cloud_cover: 'cc' };
+const VARS = ['temperature_2m', 'relative_humidity_2m', 'apparent_temperature', 'precipitation', 'wind_speed_10m', 'wind_gusts_10m', 'weather_code', 'cape', 'cloud_cover', 'uv_index'];
+const REPLAY_VARS = VARS.filter(v => v !== 'uv_index'); // not in the ERA5 archive
+const SHORT = { temperature_2m: 't', relative_humidity_2m: 'rh', apparent_temperature: 'at', precipitation: 'p', wind_speed_10m: 'w', wind_gusts_10m: 'g', weather_code: 'code', cape: 'cape', cloud_cover: 'cc', uv_index: 'uv' };
 
 // ---------- forecast points along the course ----------
 // The highest point in every 5 km (the worst case for wind and cold), plus every aid station.
@@ -82,6 +84,7 @@ async function get(url, type = 'json', tries = 3) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const KEY = process.env.OPEN_METEO_KEY;
 const OM = KEY ? 'https://customer-api.open-meteo.com' : 'https://api.open-meteo.com';
+const ENS = KEY ? 'https://customer-ensemble-api.open-meteo.com' : 'https://ensemble-api.open-meteo.com';
 const AQ = KEY ? 'https://customer-air-quality-api.open-meteo.com' : 'https://air-quality-api.open-meteo.com';
 const ARCHIVE = KEY ? 'https://customer-archive-api.open-meteo.com' : 'https://archive-api.open-meteo.com';
 const keyParam = KEY ? '&apikey=' + encodeURIComponent(KEY) : '';
@@ -122,7 +125,7 @@ function consensus(models, points) {
   ids.forEach(m => { models[m].data.p24 = rolling24(models[m].data.p); });
   const at = (m, k, h, p) => { const M = models[m], hh = h - (M.t0 - t0) / HOUR; return hh >= 0 && hh < M.n ? M.data[k][hh][p] : null; };
   const out = {};
-  const keys = ['t', 'tmax', 'at', 'atmin', 'wbgt', 'wbgtmax', 'g', 'gmax', 'w', 'p', 'pmax', 'pp', 'p24', 'p24max', 'cape', 'storm', 'n', 'cc', 'code'];
+  const keys = ['t', 'tmax', 'at', 'atmin', 'wbgt', 'wbgtmax', 'g', 'gmax', 'w', 'p', 'pmax', 'pp', 'p24', 'p24max', 'cape', 'storm', 'n', 'cc', 'code', 'uv'];
   keys.forEach(k => { out[k] = []; });
   for (let h = 0; h < n; h++) {
     keys.forEach(k => out[k].push(new Array(P)));
@@ -146,6 +149,7 @@ function consensus(models, points) {
       out.storm[h][p] = codes.filter(c => c >= 95).length;
       out.n[h][p] = live.filter(Boolean).length;
       set('cc', WX.median(pick(v('cc'))), WX.r0);
+      set('uv', models[ids[0]].data.uv ? WX.median(pick(v('uv'))) : null, WX.r1);
       // Most common weather code (ties go to the more severe one).
       const cnt = {}; codes.forEach(c => { cnt[c] = (cnt[c] || 0) + 1; });
       const best = Object.keys(cnt).map(Number).sort((a, b) => cnt[b] - cnt[a] || b - a)[0];
@@ -212,11 +216,11 @@ function fetchWarnings() {
 // Past weather (ERA5 reanalysis) on the race dates of earlier years, for the simulator before forecasts reach the race.
 async function fetchReplay(year, points) {
   const s = W.event.start.slice(5, 10), e = W.event.end.slice(5, 10);
-  const url = `${ARCHIVE}/v1/archive?${locParams(points)}&start_date=${year}-${s}&end_date=${year}-${e}&hourly=${VARS.join(',')}&timeformat=unixtime&timezone=${encodeURIComponent(WX.TZ)}${keyParam}`;
+  const url = `${ARCHIVE}/v1/archive?${locParams(points)}&start_date=${year}-${s}&end_date=${year}-${e}&hourly=${REPLAY_VARS.join(',')}&timeformat=unixtime&timezone=${encodeURIComponent(WX.TZ)}${keyParam}`;
   const js = await get(url);
   const arr = Array.isArray(js) ? js : [js];
   const time = arr[0].hourly.time, data = {};
-  for (const v of VARS) data[SHORT[v]] = time.map((_, h) => arr.map(l => l.hourly[v] ? l.hourly[v][h] : null));
+  for (const v of REPLAY_VARS) data[SHORT[v]] = time.map((_, h) => arr.map(l => l.hourly[v] ? l.hourly[v][h] : null));
   const g = consensus({ era5: { t0: time[0], n: time.length, data } }, points);
   return Object.assign({ year, source: 'era5', points, lh: localHours(g.t0, g.n) }, g);
 }
@@ -236,7 +240,7 @@ async function notify(title, body, priority, tags) {
 }
 const WORD = { met: 'MET', close: 'getting close', ok: 'clear', nodata: 'no data' };
 
-async function alerts(tr, state, warnings) {
+async function alerts(tr, state, warnings, incidents) {
   const from = WX.parseLocal(W.alertsFrom), end = WX.parseLocal(W.event.end) + 24 * HOUR;
   const live = NOW >= from && NOW <= end;
   state.notified = state.notified || {};
@@ -262,6 +266,17 @@ async function alerts(tr, state, warnings) {
       state.warnings.push(w.id + w.title);
     }
     state.warnings = state.warnings.slice(-50);
+  }
+  // New fires and planned burns near the course.
+  if (live && incidents && incidents.items) {
+    state.incidents = state.incidents || [];
+    for (const it of incidents.items.filter(x => (x.kind === 'fire' || x.kind === 'burn') && x.dist <= W.fireNearKm * 1.5 && !state.incidents.includes(x.id))) {
+      await notify(`${it.kind === 'fire' ? 'Bushfire' : 'Planned burn'} ${it.dist} km from the course`,
+        `${it.title}${it.location ? ', ' + it.location : ''}${it.status ? ' (' + it.status + ')' : ''}. Nearest course point km ${it.km}.\nhttps://emergency.vic.gov.au/respond/`,
+        it.kind === 'fire' ? 5 : 4, it.kind === 'fire' ? 'fire' : 'warning');
+      state.incidents.push(it.id);
+    }
+    state.incidents = state.incidents.slice(-100);
   }
   // Morning summary at 6 am each day from course marking to the end of the race.
   const today = WX.localDate(NOW);
@@ -304,7 +319,7 @@ async function main() {
         const o = { t0: grid.t0, n: grid.n, point: pt, models: {} };
         for (const [m, M] of Object.entries(perModel)) {
           const off = (M.t0 - grid.t0) / HOUR, d = {};
-          for (const k of ['t', 'at', 'rh', 'p', 'w', 'g', 'code', 'cape', 'cc']) {
+          for (const k of ['t', 'at', 'rh', 'p', 'w', 'g', 'code', 'cape', 'cc', 'uv']) {
             d[k] = Array.from({ length: grid.n }, (_, h) => { const hh = h - off; return hh >= 0 && hh < M.n ? M.data[k][hh][i] : null; });
             while (d[k].length && d[k][d[k].length - 1] == null) d[k].pop();
           }
@@ -320,7 +335,7 @@ async function main() {
   } else {
     console.log('Models fetched ' + Math.round((NOW - grid.modelsRun) / 60) + ' min ago; reusing them.');
     Object.assign(sources, (prevLatest && prevLatest.sources) || {});
-    for (const k of ['air', 'fire', 'warnings']) delete sources[k];
+    for (const k of ['air', 'fire', 'warnings', 'ensembles', 'obs', 'precis', 'incidents', 'epa']) delete sources[k];
     copyDir(path.join(PREV, 'models'), path.join(OUT, 'models'));
   }
   if (grid) writeJSON(path.join(OUT, 'grid.json'), grid);
@@ -331,8 +346,35 @@ async function main() {
   try { warnings = fetchWarnings(); sources.warnings = { ok: true }; } catch (e) { sources.warnings = { ok: false, error: String(e.message).slice(0, 200) }; }
   console.log('air quality: ' + (sources.air.ok ? aq.n + ' hours' : sources.air.error) + '; CFA: ' + (sources.fire.ok ? fire.days.length + ' days' : sources.fire.error) + '; BOM warnings: ' + (sources.warnings.ok ? warnings.items.length + ' in Victoria, ' + warnings.items.filter(w => w.relevant).length + ' near the course' : sources.warnings.error));
 
-  const triggers = WX.evaluate(grid, { config: CFG, now: NOW, pace: PACE, fire, warnings, aq });
-  const latest = { v: 1, updated: NOW, modelsRun: grid && grid.modelsRun, models: grid ? grid.models : [], sources, fire, warnings, aq, triggers, hours: grid ? { t0: grid.t0, n: grid.n } : null };
+  // Ensembles every few hours (they update a few times a day); kept from the last run in between.
+  let ens = readJSON(path.join(PREV, 'ens.json'), null);
+  const ensPts = ens && JSON.stringify(ens.points) === JSON.stringify(points.filter((p, i) => i % 2 === 0 || p.name).map(p => ({ km: p.km, ele: p.ele, ridge: p.ridge, name: p.name })));
+  if (flag('--force-models') || !ens || !ensPts || NOW - (ens.run || 0) > W.ensembles.everyHours * HOUR - 600) {
+    try {
+      const e = await fetchEnsembles({ get, base: ENS, keyParam, tz: WX.TZ, points, W, sleep });
+      if (e) { ens = Object.assign({ run: NOW, lh: localHours(e.t0, e.n) }, e); sources.ensembles = { ok: true, hours: e.n, members: e.members }; }
+    } catch (err) { sources.ensembles = { ok: false, error: err.message.slice(0, 200) }; if (!ensPts) ens = null; }
+  } else sources.ensembles = (prevLatest && prevLatest.sources && prevLatest.sources.ensembles) || { ok: true };
+  if (ens) writeJSON(path.join(OUT, 'ens.json'), ens);
+
+  let obs = null, precis = null, incidents = null, epa = null;
+  const prevObs = readJSON(path.join(PREV, 'obs.json'), null);
+  try { obs = fetchObs({ route: D.route, W, prev: prevObs, now: NOW }); sources.obs = { ok: true, stations: Object.keys(obs.stations).length }; }
+  catch (e) { sources.obs = { ok: false, error: String(e.message).slice(0, 300) }; obs = prevObs; }
+  if (obs) writeJSON(path.join(OUT, 'obs.json'), obs);
+  try { precis = fetchPrecis({ W, now: NOW }); sources.precis = { ok: true }; }
+  catch (e) { sources.precis = { ok: false, error: String(e.message).slice(0, 300) }; precis = prevLatest && prevLatest.precis; }
+  try { incidents = await fetchIncidents({ get, route: D.route, W, now: NOW }); sources.incidents = { ok: true }; }
+  catch (e) { sources.incidents = { ok: false, error: e.message.slice(0, 200) }; incidents = prevLatest && prevLatest.incidents; }
+  if (process.env.EPA_KEY) {
+    try { epa = await fetchEPA({ route: D.route, W, now: NOW, key: process.env.EPA_KEY }); sources.epa = { ok: true }; }
+    catch (e) { sources.epa = { ok: false, error: e.message.slice(0, 200) }; epa = prevLatest && prevLatest.epa; }
+  }
+  console.log('ensembles: ' + JSON.stringify(sources.ensembles) + '; observations: ' + JSON.stringify(sources.obs) + '; BOM forecasts: ' + JSON.stringify(sources.precis) +
+    '; VicEmergency: ' + (incidents ? incidents.items.length + ' near the course' : JSON.stringify(sources.incidents)) + (sources.epa ? '; EPA: ' + JSON.stringify(sources.epa) : ''));
+
+  const triggers = WX.evaluate(grid, { config: CFG, now: NOW, pace: PACE, fire, warnings, aq, ens, incidents });
+  const latest = { v: 1, updated: NOW, modelsRun: grid && grid.modelsRun, ensRun: ens && ens.run, models: grid ? grid.models : [], sources, fire, warnings, aq, precis, incidents, epa, triggers, hours: grid ? { t0: grid.t0, n: grid.n } : null };
   writeJSON(path.join(OUT, 'latest.json'), latest);
 
   // History: how the race weekend forecast has moved, one entry per run.
@@ -357,7 +399,7 @@ async function main() {
   writeJSON(path.join(OUT, 'replay', 'index.json'), W.replayYears.filter(y => fs.existsSync(path.join(OUT, 'replay', y + '.json'))));
 
   const state = readJSON(path.join(PREV, 'state.json'), {});
-  await alerts(triggers, state, warnings);
+  await alerts(triggers, state, warnings, incidents);
   if (flag('--test-alert')) {
     const s = triggers.next48;
     await notify('GPT100 weather: test alert', 'Phone alerts are working. Next 48 hours: ' + (WX.ORDER.map(k => s.triggers[k]).filter(r => r.status === 'met' || r.status === 'close')

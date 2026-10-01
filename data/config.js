@@ -39,6 +39,14 @@ window.GPT100_CONFIG = {
       'meteofrance_seamless', 'gem_seamless', 'jma_seamless', 'bom_access_global'],
     modelEveryHours: 3,  // the models update a few times a day, so fetch them every 3 hours
     replayYears: [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],  // past race dates for the simulator
+    // Ensemble forecasts (80 versions of the ECMWF and GFS forecasts) give the chance of each trigger.
+    // A trigger shows "getting close" when at least closeChance % of them reach it.
+    ensembles: { models: ['ecmwf_ifs025', 'gfs025'], everyHours: 6, closeChance: 30 },
+    obsRadiusKm: 60,        // live BOM observations from weather stations this close to the course
+    incidentKm: 40,         // VicEmergency fires, burns and incidents this close to the course
+    fireNearKm: 20,         // a bushfire this close counts as the fire trigger met; a planned burn as smoke getting close
+    bomForecastPlaces: ['Halls Gap', 'Stawell', 'Ararat', 'Horsham', 'Dunkeld', 'Hamilton'],
+    epaSites: 3,            // nearest EPA AirWatch monitors (needs the EPA_KEY secret)
     // BOM warnings that name any of these count as near the course.
     warningWords: ['Wimmera', 'South West', 'Grampians', 'Glenelg', 'Wannon', 'Halls Gap', 'Dunkeld', 'Stawell', 'Horsham', 'Hamilton', 'Ararat'],
     triggers: {
