@@ -406,6 +406,13 @@ async function main() {
       .map(r => r.label + ' ' + WORD[r.status]).join(', ') || 'all clear') + '.', 3, 'white_check_mark');
     if (!NTFY) console.log('No NTFY_TOPIC secret set, so nothing was sent.');
   }
+  // Race week: the draft of the 10 am weather update, to the phone at 9 am, ready to check and send.
+  const U = W.dailyUpdate, today = WX.localDate(NOW);
+  if (U && (NOW >= WX.parseLocal(U.from) && NOW <= WX.parseLocal(W.event.end) + 24 * HOUR && WX.localHour(NOW) >= U.hour && state.updateDraft !== today || flag('--test-update'))) {
+    const text = WX.updateText({ grid, triggers, fire, warnings, incidents, config: CFG, now: NOW, url: APP });
+    await notify('Draft 10 am weather update', text.replace(/\*/g, '') + '\n\nTap to open the Weather tab, then Share weather update to edit and send it.', 3, 'memo');
+    if (!flag('--test-update')) state.updateDraft = today;
+  }
   writeJSON(path.join(OUT, 'state.json'), state);
 
   for (const [sk, s] of Object.entries(triggers)) console.log(`${s.label}: ${s.status}${s.note ? ' (' + s.note + ')' : ''}  ` + WX.ORDER.map(k => k + '=' + s.triggers[k].status).join(' '));

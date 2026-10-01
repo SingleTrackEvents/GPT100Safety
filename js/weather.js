@@ -196,7 +196,13 @@
     $('wxBody').querySelectorAll('.wx-views button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
     const V = $('wxView');
     if (!latest) { V.innerHTML = ''; return; }
-    if (view === 'triggers') { V.innerHTML = triggersHTML(); bindTriggers(); drawMapTriggers(); return; }
+    if (view === 'triggers') {
+      // Keep a half-written weather update when the page refreshes its data.
+      const draft = $('wxShareText') ? $('wxShareText').value : null;
+      V.innerHTML = triggersHTML(); bindTriggers(); drawMapTriggers();
+      if (draft != null) openShare().then(() => { $('wxShareText').value = draft; $('wxShareText').dispatchEvent(new Event('input')); });
+      return;
+    }
     V.innerHTML = '<p class="muted">Loading the forecast…</p>';
     (ds ? Promise.resolve() : setDataset(null)).then(() => {
       if (view === 'timeline') renderTimeline();
@@ -214,7 +220,8 @@
   function pill(st) { return `<span class="wx-pill st-${st}">${WORD[st]}</span>`; }
   function triggersHTML() {
     const L = latest, tr = L.triggers;
-    let h = '<div class="wx-overall">' + Object.entries(tr).map(([k, s]) =>
+    let h = '<button class="btn primary wx-share-btn" id="wxShare" type="button">Share weather update</button><div id="wxSharePanel"></div>';
+    h += '<div class="wx-overall">' + Object.entries(tr).map(([k, s]) =>
       `<button class="wx-scope st-${s.status}${trigScope === k ? ' on' : ''}" data-scope="${k}"><span>${esc(s.label)}</span><b>${WORD[s.status]}</b></button>`).join('') + '</div>';
 
     // Official sources first.
@@ -312,7 +319,32 @@
       return `<div><span>${lab}: <b>${v[v.length - 1].race[k].toFixed(k === 'wind' ? 0 : 1)}</b></span><svg viewBox="0 0 200 40" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg></div>`;
     }).join('') + `</div><p class="wx-note">Race weekend peaks from each run since ${WX.fmtDay(t0)}.</p>`;
   }
+  // Daily weather update: written from the latest data, editable, then sent by WhatsApp or copied.
+  async function openShare() {
+    const P = $('wxSharePanel');
+    P.innerHTML = '<p class="muted">Writing the update…</p>';
+    let g = null;
+    try { g = await loadGrid(); } catch (e) { }
+    const text = WX.updateText({ grid: g, triggers: latest.triggers, fire: latest.fire, warnings: latest.warnings, incidents: latest.incidents, config: C, now: nowS(),
+      url: location.origin + location.pathname + '#weather' });
+    P.innerHTML = `<div class="wx-share"><p class="wx-note">Check it and add your own call at the top before sending. WhatsApp shows *words* in bold.</p>
+      <textarea id="wxShareText" rows="16">${esc(text)}</textarea>
+      <div class="wx-btns"><a class="btn primary small" id="wxShareWa" href="#" target="_blank" rel="noopener">WhatsApp</a>
+        <button class="btn small" id="wxShareCopy" type="button">Copy</button>${navigator.share ? '<button class="btn small" id="wxShareSys" type="button">Share</button>' : ''}
+        <button class="btn small" id="wxShareClose" type="button">Close</button></div></div>`;
+    const ta = $('wxShareText'), wa = $('wxShareWa');
+    const sync = () => { wa.href = 'https://wa.me/?text=' + encodeURIComponent(ta.value); };
+    ta.addEventListener('input', sync); sync();
+    $('wxShareCopy').addEventListener('click', async e => {
+      try { await navigator.clipboard.writeText(ta.value); } catch (err) { ta.select(); document.execCommand('copy'); }
+      e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy'; }, 1500);
+    });
+    if ($('wxShareSys')) $('wxShareSys').addEventListener('click', () => navigator.share({ title: 'GPT100 weather update', text: ta.value }).catch(() => { }));
+    $('wxShareClose').addEventListener('click', () => { P.innerHTML = ''; });
+    ta.focus(); ta.setSelectionRange(0, 0);
+  }
   function bindTriggers() {
+    $('wxShare').addEventListener('click', openShare);
     $('wxView').querySelectorAll('.wx-scope').forEach(b => b.addEventListener('click', () => {
       trigScope = b.dataset.scope; renderView();
       const el = $('wxs-' + trigScope); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });

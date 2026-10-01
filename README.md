@@ -47,6 +47,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Rain radar:** tap Radar on the Weather map for the last hour of rain radar, looping (RainViewer).
 - **UV index** in the Timeline and readouts.
 - **EPA AirWatch** live smoke readings, once a free EPA API key is added as the `EPA_KEY` secret.
+- **Share weather update:** the button at the top of Triggers writes the daily update (race weekend day by day, triggers, the next 48 hours, BOM warnings, CFA ratings, fires and burns) ready to edit and send by WhatsApp. In race week (from 29 October) the watch also sends the draft to your phone at 9 am, ready for a 10 am update. To try it now: Actions, Weather watch, Run workflow, tick "Send a draft weather update".
 - Lightning isn't included yet (it needs a paid lightning feed).
 
 **Medical** (password protected, for the medical team and race control)

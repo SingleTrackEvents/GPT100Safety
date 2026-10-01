@@ -31,6 +31,7 @@ window.GPT100_CONFIG = {
     dataUrl: 'https://raw.githubusercontent.com/SingleTrackEvents/GPT100Safety/weather-data/',
     event: { start: '2026-11-05T06:00', end: '2026-11-08T17:00' },  // first start to last cut-off
     alertsFrom: '2026-10-30T00:00',  // phone alerts from course marking onwards
+    dailyUpdate: { from: '2026-10-29', hour: 9 },  // a draft of the 10 am weather update to your phone each morning, race week
     districts: ['Wimmera', 'South West'],  // CFA fire districts and BOM warning areas for the course
     ridgeMinEle: 600,  // course points at or above this height (m) count as ridges and high ground
     staleHours: 3,     // warn when the latest data is older than this

@@ -367,10 +367,79 @@
     hit.forEach(x => { if (RANK[x.status] > RANK[st]) st = x.status; });
     return { status: st, hits: hit };
   }
+
+  // The daily weather update for WhatsApp: race weekend day by day, triggers, official warnings and fire ratings.
+  // d: { grid, triggers, fire, warnings, incidents, config, now, url }
+  function updateText(d) {
+    const W = d.config.weather, g = d.grid, tr = d.triggers, now = d.now;
+    const WORD = { met: 'MET', close: 'getting close', ok: 'clear', nodata: 'no forecast yet' };
+    const out = [`*GPT100 weather update, ${fmtDay(now)} ${fmtTime(now, false)}*`, ''];
+    const s0 = parseLocal(W.event.start), s1 = parseLocal(W.event.end);
+    const race = tr && tr.race, n48 = tr && tr.next48;
+    const flagged = s => ORDER.map(k => s.triggers[k]).filter(r => r.status === 'met' || r.status === 'close');
+    out.push(`*Race weekend (${fmtDay(s0)} to ${fmtDay(s1)})*`);
+    if (!race || race.status === 'nodata') out.push('The forecast models don\'t reach race weekend yet.');
+    else {
+      // Day by day across the course, from the model consensus.
+      if (g) {
+        const days = [];
+        for (let t = s0; t <= s1; t += 24 * HOUR) { const k = localDate(t); if (!days.includes(k)) days.push(k); }
+        for (const day of days) {
+          let tmax = null, tmin = null, atmin = null, gmax = null, rain = 0, storm = 0, wetModels = 0, any = false;
+          const rainAt = new Array(g.points.length).fill(0);
+          for (let h = 0; h < g.n; h++) {
+            const t = g.t0 + h * HOUR;
+            if (localDate(t) !== day || t < s0 - 6 * HOUR || t > s1) continue;
+            for (let p = 0; p < g.points.length; p++) {
+              const C = g.cons, x = C.t[h][p];
+              if (x == null) continue;
+              any = true;
+              tmax = tmax == null ? x : Math.max(tmax, x); tmin = tmin == null ? x : Math.min(tmin, x);
+              if (g.points[p].ridge) {
+                if (C.at[h][p] != null) atmin = atmin == null ? C.at[h][p] : Math.min(atmin, C.at[h][p]);
+                if (C.g[h][p] != null) gmax = gmax == null ? C.g[h][p] : Math.max(gmax, C.g[h][p]);
+              }
+              rainAt[p] += C.p[h][p] || 0;
+              storm = Math.max(storm, C.storm[h][p] || 0);
+              wetModels = Math.max(wetModels, C.pp[h][p] || 0);
+            }
+          }
+          rain = Math.max(...rainAt);
+          if (!any) { out.push(`${fmtDay(parseLocal(day))}: beyond the forecast for now.`); continue; }
+          out.push(`${fmtDay(parseLocal(day))}: ${Math.round(tmin)} to ${Math.round(tmax)}°C. Ridges feel like ${Math.round(atmin)}°C at the coldest, gusts to ${Math.round(gmax)} km/h. ` +
+            (rain >= 1 ? `Up to ${Math.round(rain)} mm of rain.` : wetModels >= 30 ? 'Showers possible.' : 'Mostly dry.') + (storm ? ` Thunderstorm in ${storm} model${storm > 1 ? 's' : ''}.` : ''));
+        }
+      }
+      const f = flagged(race);
+      out.push(f.length ? 'Triggers:\n' + f.map(r => `${r.label} ${WORD[r.status]}: ${r.text}`).join('\n') : 'Triggers: all clear.');
+      if (race.note) out.push(race.note);
+    }
+    out.push('');
+    if (n48 && n48.status !== 'nodata') {
+      const f = flagged(n48);
+      out.push('*Next 48 hours*');
+      out.push(f.length ? f.map(r => `${r.label} ${WORD[r.status]}: ${r.text}`).join('\n') : 'All triggers clear.');
+      out.push('');
+    }
+    const warn = d.warnings && d.warnings.items ? d.warnings.items.filter(w => w.relevant) : null;
+    out.push('*Official*');
+    out.push(warn ? (warn.length ? warn.map(w => 'BOM: ' + w.title).join('\n') : 'No BOM warnings near the course.') : 'BOM warnings: check bom.gov.au.');
+    const fd = d.fire && d.fire.days ? d.fire.days.slice(0, 4) : [];
+    const ratings = [...new Set(fd.flatMap(x => Object.values(x.districts).map(r => r.rating)))];
+    if (fd.length && ratings.length === 1 && !fd.some(x => Object.values(x.districts).some(r => r.tfb)))
+      out.push(`CFA: ${titleCase(ratings[0])} in ${W.districts.join(' and ')}, no Total Fire Ban, to ${fmtDay(parseLocal(fd[fd.length - 1].date))}.`);
+    else if (fd.length) out.push('CFA: ' + fd.map(x => fmtDay(parseLocal(x.date)).replace(/ \w+$/, '') + ' ' + Object.entries(x.districts).map(([k, r]) => `${k} ${titleCase(r.rating)}${r.tfb ? ' TOTAL FIRE BAN' : ''}`).join(', ')).join('; ') + '.');
+    const inc = d.incidents && d.incidents.items ? d.incidents.items.filter(x => x.kind === 'fire' || x.kind === 'burn') : [];
+    if (inc.length) out.push(inc.map(x => `${x.title} ${x.dist} km from the course${x.location ? ' (' + x.location + ')' : ''}`).join('\n'));
+    out.push('');
+    if (d.url) out.push('Full detail: ' + d.url);
+    return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
   function titleCase(s) { return String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
   const ORDER = ['fire', 'wind', 'storm', 'heat', 'rain', 'cold', 'smoke'];
 
   return {
+    updateText,
     TZ, HOUR, parseLocal, localHour, fmtTime, fmtDay, localDate, parts, offsetMin,
     median, max, min, r1, r0, wbgt, codeText, modelName, MODEL_NAMES,
     passTime, kmAt, runnersAt, parseCFA, evaluate, cellStatus, RANK, LABELS, ORDER, ruleText, titleCase
