@@ -201,3 +201,49 @@ export async function fetchEPA({ route, W, now, key }) {
   // The nearest monitor, plus any others close enough to tell us about smoke on the course.
   return { updated: now, sites: sites.filter((x, i) => i === 0 || x.dist <= (W.epaMaxKm || 60)).slice(0, W.epaSites || 3) };
 }
+
+// ---------- cloud on the high ground ----------
+// Is the course in cloud? From each model's humidity at fixed heights (925, 900 and 850 hPa, about 800 to
+// 1,500 m), read at the height of each high-ground point; fog in the model or very low visibility also count.
+// Returns per model { t0, n, inCloud: [hour][point] (1/0), base: [hour][point] (cloud base m) }.
+const LEVELS = [925, 900, 850];
+export async function fetchCloud({ get, base, keyParam, tz, models, pts, rh, sleep }) {
+  const loc = 'latitude=' + pts.map(p => p.lat).join(',') + '&longitude=' + pts.map(p => p.lon).join(',') + '&elevation=' + pts.map(p => p.ele).join(',');
+  const vars = LEVELS.flatMap(l => [`relative_humidity_${l}hPa`, `geopotential_height_${l}hPa`]).concat(['visibility', 'weather_code']);
+  const out = {};
+  for (const m of models) {
+    try {
+      const js = await get(`${base}/v1/forecast?${loc}&hourly=${vars.join(',')}&models=${m}&forecast_days=16&past_hours=6&timeformat=unixtime&timezone=${encodeURIComponent(tz)}${keyParam}`);
+      const arr = Array.isArray(js) ? js : [js];
+      const time = arr[0].hourly.time;
+      const inCloud = [], cb = [];
+      let any = false;
+      for (let h = 0; h < time.length; h++) {
+        inCloud.push(pts.map(() => null)); cb.push(pts.map(() => null));
+        arr.forEach((l, j) => {
+          const H = l.hourly;
+          const lev = LEVELS.map(L => ({ r: H[`relative_humidity_${L}hPa`] && H[`relative_humidity_${L}hPa`][h], z: H[`geopotential_height_${L}hPa`] && H[`geopotential_height_${L}hPa`][h] }))
+            .filter(x => x.r != null && x.z != null).sort((a, b) => a.z - b.z);
+          if (lev.length < 2) return;
+          any = true;
+          const e = pts[j].ele;
+          // Humidity at this point's height, between the levels either side.
+          let r;
+          if (e <= lev[0].z) r = lev[0].r;
+          else if (e >= lev[lev.length - 1].z) r = lev[lev.length - 1].r;
+          else for (let k = 1; k < lev.length; k++) if (e <= lev[k].z) { const f = (e - lev[k - 1].z) / (lev[k].z - lev[k - 1].z); r = lev[k - 1].r + f * (lev[k].r - lev[k - 1].r); break; }
+          const code = H.weather_code && H.weather_code[h], vis = H.visibility && H.visibility[h];
+          inCloud[h][j] = r >= rh || code === 45 || code === 48 || (vis != null && vis < 1000) ? 1 : 0;
+          // Cloud base: the lowest height where humidity reaches the threshold.
+          let b = null;
+          if (lev[0].r >= rh) b = Math.round(lev[0].z);
+          else for (let k = 1; k < lev.length; k++) if (lev[k].r >= rh) { const f = (rh - lev[k - 1].r) / (lev[k].r - lev[k - 1].r); b = Math.round(lev[k - 1].z + f * (lev[k].z - lev[k - 1].z)); break; }
+          cb[h][j] = b;
+        });
+      }
+      if (any) out[m] = { t0: time[0], n: time.length, inCloud, base: cb };
+    } catch (e) { console.log('cloud ' + m + ': ' + e.message); }
+    await sleep(1200);
+  }
+  return out;
+}

@@ -15,7 +15,7 @@ import vm from 'node:vm';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { fetchEnsembles, fetchObs, fetchPrecis, fetchIncidents, fetchEPA } from './weather_extra.mjs';
+import { fetchEnsembles, fetchObs, fetchPrecis, fetchIncidents, fetchEPA, fetchCloud } from './weather_extra.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..');
@@ -301,6 +301,7 @@ async function main() {
   const samePoints = grid && JSON.stringify(grid.points) === JSON.stringify(points);
   const due = flag('--force-models') || !grid || !samePoints || NOW - (grid.modelsRun || 0) > W.modelEveryHours * HOUR - 600;
 
+  let cloudByModel = null;
   if (due) {
     const models = {}, perModel = {};
     for (const m of MODELS) {
@@ -314,6 +315,23 @@ async function main() {
     if (Object.keys(models).length >= 2) {
       const g = consensus(models, points);
       grid = Object.assign({ v: 1, modelsRun: NOW, models: Object.keys(models), points, lh: localHours(g.t0, g.n) }, g);
+      // Cloud on the high ground: share of models in cloud, and the median cloud base, at each high point.
+      const CL = W.triggers.cloud, hi = points.map((p, i) => i).filter(i => points[i].km >= CL.fromKm && points[i].km <= CL.toKm && points[i].ele >= CL.minEle);
+      const cloud = await fetchCloud({ get, base: OM, keyParam, tz: WX.TZ, models: Object.keys(models), pts: hi.map(i => points[i]), rh: CL.rh, sleep });
+      grid.cons.cloud = grid.cons.t.map(() => points.map(() => null));
+      grid.cons.cbase = grid.cons.t.map(() => points.map(() => null));
+      for (let h = 0; h < grid.n; h++) hi.forEach((pi, j) => {
+        const ins = [], bs = [];
+        for (const C of Object.values(cloud)) {
+          const hh = h - (C.t0 - grid.t0) / HOUR;
+          if (hh < 0 || hh >= C.n || C.inCloud[hh][j] == null) continue;
+          ins.push(C.inCloud[hh][j]);
+          bs.push(C.base[hh][j] == null ? 3000 : C.base[hh][j]); // no cloud below 1,500 m counts as a high base
+        }
+        if (ins.length) { grid.cons.cloud[h][pi] = Math.round(100 * ins.reduce((a, b) => a + b, 0) / ins.length); grid.cons.cbase[h][pi] = WX.median(bs); }
+      });
+      cloudByModel = { hi, cloud };
+      console.log('cloud: ' + Object.keys(cloud).length + ' models at ' + hi.length + ' high points');
       // One file per point with every model, for the model comparison.
       points.forEach((pt, i) => {
         const o = { t0: grid.t0, n: grid.n, point: pt, models: {} };
@@ -322,6 +340,12 @@ async function main() {
           for (const k of ['t', 'at', 'rh', 'p', 'w', 'g', 'code', 'cape', 'cc', 'uv']) {
             d[k] = Array.from({ length: grid.n }, (_, h) => { const hh = h - off; return hh >= 0 && hh < M.n ? M.data[k][hh][i] : null; });
             while (d[k].length && d[k][d[k].length - 1] == null) d[k].pop();
+          }
+          const j = cloudByModel ? cloudByModel.hi.indexOf(i) : -1, CM = j >= 0 && cloudByModel.cloud[m];
+          if (CM) {
+            const off2 = (CM.t0 - grid.t0) / HOUR;
+            d.cbase = Array.from({ length: grid.n }, (_, h) => { const hh = h - off2; return hh >= 0 && hh < CM.n ? CM.base[hh][j] : null; });
+            while (d.cbase.length && d.cbase[d.cbase.length - 1] == null) d.cbase.pop();
           }
           o.models[m] = d;
         }

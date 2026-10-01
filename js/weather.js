@@ -34,6 +34,7 @@
     wbgt: { label: 'WBGT (heat stress)', unit: '', dp: 1, col: ramp([[10, '#eef3ee'], [20, '#ece5a3'], [25, '#f4a259'], [28, '#e4572e'], [30, '#a4161a']]), key: [['20', '#ece5a3'], ['28', '#e4572e'], ['30', '#a4161a']] },
     storm: { label: 'Thunderstorm', unit: 'models', dp: 0, col: v => v == null ? '#ececec' : v >= 2 ? STATUS_COL.met : v === 1 ? STATUS_COL.close : '#f5f5f0', key: [['1 model', STATUS_COL.close], ['2 or more', STATUS_COL.met]] },
     cc: { label: 'Cloud', unit: '%', dp: 0, col: ramp([[0, '#fdf6d8'], [100, '#8a8a8a']]), key: [['Clear', '#fdf6d8'], ['Overcast', '#8a8a8a']] },
+    cloud: { label: 'In cloud (high ground)', unit: '%', dp: 0, col: v => v == null ? '#f5f5f0' : ramp([[0, '#f5f5f0'], [49, '#dfe3e8'], [50, '#9aa5b1'], [100, '#4a5560']])(v), key: [['Some models', '#dfe3e8'], ['Half the models', '#9aa5b1'], ['All models', '#4a5560']] },
     uv: { label: 'UV index', unit: '', dp: 1, col: ramp([[0, '#eef3ee'], [3, '#ece5a3'], [6, '#f4a259'], [8, '#e4572e'], [11, '#7b1fa2']]), key: [['3 moderate', '#ece5a3'], ['6 high', '#f4a259'], ['8 very high', '#e4572e'], ['11 extreme', '#7b1fa2']] }
   };
   VARS.t.col = VARS.at.col; VARS.t.key = VARS.at.key;
@@ -217,7 +218,7 @@
 
   // ---------- Triggers ----------
   const WORD = { met: 'Met', close: 'Getting close', ok: 'Clear', nodata: 'No data' };
-  function pill(st) { return `<span class="wx-pill st-${st}">${WORD[st]}</span>`; }
+  function pill(st, advisory) { return `<span class="wx-pill st-${st}">${advisory && st === 'close' ? 'Advisory' : WORD[st]}</span>`; }
   function triggersHTML() {
     const L = latest, tr = L.triggers;
     let h = '<button class="btn primary wx-share-btn" id="wxShare" type="button">Share weather update</button><div id="wxSharePanel"></div>';
@@ -246,11 +247,12 @@
         const r = s.triggers[k], w = r.worst;
         const where = w && w.at ? (w.km != null ? `km ${w.km}${w.place ? ' ' + esc(w.place) : ''}, ` : '') + (k === 'fire' ? '' : WX.fmtTime(w.at)) : '';
         return `<button class="wx-card st-${r.status}" data-key="${k}" ${w && w.km != null ? `data-km="${w.km}" data-t="${w.at}"` : ''}>
-          <div class="wx-card-top"><b>${esc(r.label)}</b>${pill(r.status)}</div>
+          <div class="wx-card-top"><b>${esc(r.label)}</b>${pill(r.status, r.advisory)}</div>
           ${r.text ? `<p>${esc(r.text)}</p>` : ''}
           ${where && r.status !== 'nodata' ? `<p class="wx-where">${where}${w.runners ? ' <span class="chip">Runners on course</span>' : ''}</p>` : ''}
           ${r.status === 'nodata' && r.note ? `<p class="wx-where">${esc(r.note)}</p>` : ''}
           ${r.chance && r.status !== 'nodata' ? `<p class="wx-where">Ensembles: ${r.chance.p ? 'up to ' + r.chance.p + '% chance' + (r.chance.p ? ` (km ${r.chance.km}, ${WX.fmtTime(r.chance.at)})` : '') : 'none of 82 forecasts reach it'}</p>` : ''}
+          ${k === 'cloud' ? liveCloudHTML() : ''}
           <p class="wx-rule">${esc(r.rule)}${r.proposed ? ' <em>(proposed trigger)</em>' : ''}</p>
         </button>`;
       }).join('') + '</div>';
@@ -305,6 +307,13 @@
         if (!x) return '<td></td>';
         return `<td>${x.max != null ? '<b>' + x.max + '°</b>' : ''}${x.min != null ? ' / ' + x.min + '°' : ''}<br>${esc(x.precis || '')}${x.rain ? '<br><span class="wx-where">Rain ' + esc(x.rain) + (x.range ? ', ' + esc(x.range) : '') + '</span>' : ''}</td>`;
       }).join('') + '</tr>').join('') + '</tbody></table></div><p class="wx-note">The Bureau of Meteorology\'s official forecasts. <a href="https://www.bom.gov.au/vic/forecasts/wimmera.shtml" target="_blank" rel="noopener">Wimmera</a> · <a href="https://www.bom.gov.au/vic/forecasts/southwest.shtml" target="_blank" rel="noopener">South West</a></p>';
+  }
+  // Live check: the BOM Mount William station (1,150 m, beside the course). Near 100% humidity means it's in cloud.
+  function liveCloudHTML() {
+    const st = obs && obs.stations ? Object.values(obs.stations).find(x => /william/i.test(x.name)) : null;
+    const r = st && st.series[st.series.length - 1];
+    if (!r || r.rh == null || nowS() - r.t > 2 * HOUR) return '';
+    return `<p class="wx-where">Live, ${esc(st.name)} station ${WX.fmtTime(r.t, false)}: humidity ${Math.round(r.rh)}%${r.rh >= 97 ? ', <b>likely in cloud now</b>' : ''}.</p>`;
   }
   function trendHTML() {
     const pts = history.filter(x => x.race && x.race.heat != null);
@@ -443,7 +452,9 @@
       const lh = g.lh[h];
       if (lh === 0) {
         x.fillStyle = '#111'; x.fillRect(xh(h), L.top - 4, 1, L.h + 4);
-        x.fillText(WX.fmtDay(g.t0 + h * HOUR), xh(h) + 3, 9);
+        // Day labels: full where there's room, shorter on long ranges.
+        const lab = L.cw * 24 > 70 ? WX.fmtDay(g.t0 + h * HOUR) : WX.fmtDay(g.t0 + h * HOUR).split(' ').slice(0, 2).join(' ');
+        if (L.cw * 24 > 34 || g.lh[h] === 0 && Math.round((h - h0) / 24) % 2 === 0) x.fillText(lab, xh(h) + 3, 9);
       } else if (lh === 12 && nh < 100) { x.fillStyle = '#625c53'; x.fillText('12:00', xh(h) + 2, L.top + L.h + 12); }
     }
     if (nh <= 100 && g.lh[h0] !== 0) { x.fillStyle = '#111'; x.fillText(WX.fmtDay(g.t0 + h0 * HOUR), L.left + 2, 9); }
@@ -483,11 +494,12 @@
     const h = hourIdx(g, t), p = nearestPoint(g, km);
     if (v('t') == null) return null;
     return { t: v('t'), at: v('at'), wbgt: v('wbgt'), g: v('g'), gmax: v('gmax'), w: v('w'), p: v('p'), pp: v('pp'), p24: v('p24'), cc: v('cc'),
-      code: g.cons.code[h][p], storm: g.cons.storm[h][p], n: g.cons.n[h][p], cape: v('cape'), uv: v('uv'), status: statusAt(g, km, t) };
+      code: g.cons.code[h][p], storm: g.cons.storm[h][p], n: g.cons.n[h][p], cape: v('cape'), uv: v('uv'), status: statusAt(g, km, t),
+      cloud: g.cons.cloud ? g.cons.cloud[h][p] : null, cbase: g.cons.cbase ? g.cons.cbase[h][p] : null };
   }
   function condLine(c) {
     return `<b>${c.t.toFixed(1)}°C</b>, feels ${c.at.toFixed(1)}°C · gusts ${Math.round(c.g)} km/h${c.gmax > c.g + 5 ? ' (up to ' + Math.round(c.gmax) + ')' : ''} · ` +
-      `rain ${c.p.toFixed(1)} mm/h${c.n > 1 ? ' (' + Math.round(c.pp) + '% of models)' : ''} · ${esc(WX.codeText(c.code))}${c.storm ? ` · <b>thunderstorm in ${c.storm} of ${c.n} models</b>` : ''}`;
+      `rain ${c.p.toFixed(1)} mm/h${c.n > 1 ? ' (' + Math.round(c.pp) + '% of models)' : ''} · ${esc(WX.codeText(c.code))}${c.cloud != null && c.cloud >= T.cloud.agree ? ' · <b>in cloud</b>' : ''}${c.storm ? ` · <b>thunderstorm in ${c.storm} of ${c.n} models</b>` : ''}`;
   }
   function hitsHTML(st) { return st.hits.length ? st.hits.map(x => `<span class="wx-pill st-${x.status}">${WX.LABELS[x.key]}: ${WORD[x.status]}</span>`).join(' ') : '<span class="wx-pill st-ok">No triggers</span>'; }
   function readout() {
@@ -498,7 +510,7 @@
     R.innerHTML = `<div class="wx-read">
       <div class="eyebrow">km ${sel.km.toFixed(1)} ${esc(placeAt(sel.km))} · ${Math.round(eleAt(sel.km))} m</div>
       <h3>${WX.fmtTime(sel.t)}</h3>
-      ${c ? `<p>${condLine(c)}</p><p>Rain in the last 24 hours: ${c.p24.toFixed(1)} mm · WBGT ${c.wbgt.toFixed(1)} · cloud ${Math.round(c.cc)}%${c.uv != null ? ' · UV ' + c.uv.toFixed(0) : ''}</p><p>${hitsHTML(c.status)}</p>` : '<p class="muted">No forecast for this time.</p>'}
+      ${c ? `<p>${condLine(c)}</p><p>Rain in the last 24 hours: ${c.p24.toFixed(1)} mm · WBGT ${c.wbgt.toFixed(1)} · cloud ${Math.round(c.cc)}%${c.uv != null ? ' · UV ' + c.uv.toFixed(0) : ''}</p>${c.cloud != null ? `<p>In cloud in ${c.cloud}% of models${c.cbase == null || c.cbase >= 3000 ? ', cloud base above 1,500 m' : c.cbase <= 860 ? ', cloud base at or below about 850 m' : `, cloud base about ${Math.round(c.cbase / 50) * 50} m`}.</p>` : ''}<p>${hitsHTML(c.status)}</p>` : '<p class="muted">No forecast for this time.</p>'}
       ${f ? `<p class="wx-note">Runners pass here from ${WX.fmtTime(f + ds.shift)} (fastest) to ${WX.fmtTime(s + ds.shift)} (cut-off).${WX.runnersAt(PACE, sel.km, sel.t, ds.shift) ? ' <b>Runners are likely here at this time.</b>' : ''}</p>` : ''}
       <div class="wx-btns">${ds.forecast ? '<button class="btn small" id="wxCmp">Compare models here</button>' : ''}<button class="btn small" id="wxFind">Open in Find</button></div>
     </div>`;
@@ -636,7 +648,7 @@
 
   // ---------- Models ----------
   const MCOL = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#a65628', '#f781bf', '#17becf', '#999999', '#bcbd22'];
-  const MVARS = { t: ['Temperature', '°C', 1], at: ['Feels like', '°C', 1], g: ['Wind gusts', 'km/h', 0], w: ['Wind speed', 'km/h', 0], p: ['Rain', 'mm/h', 1], cc: ['Cloud', '%', 0], cape: ['Storm energy (CAPE)', 'J/kg', 0], rh: ['Humidity', '%', 0], uv: ['UV index', '', 1] };
+  const MVARS = { t: ['Temperature', '°C', 1], at: ['Feels like', '°C', 1], g: ['Wind gusts', 'km/h', 0], w: ['Wind speed', 'km/h', 0], p: ['Rain', 'mm/h', 1], cc: ['Cloud', '%', 0], cape: ['Storm energy (CAPE)', 'J/kg', 0], rh: ['Humidity', '%', 0], uv: ['UV index', '', 1], cbase: ['Cloud base (high ground)', 'm', 0] };
   const LINES = { t: [[T.heat.close, 'close'], [T.heat.met, 'met']], at: [[T.cold.close, 'close'], [T.cold.met, 'met']], g: [[T.wind.close, 'close'], [T.wind.met, 'met']], cape: [[T.storm.capeClose, 'close']] };
   async function renderModels() {
     const g = await loadGrid();
@@ -664,7 +676,8 @@
     if (mdRange === 'week') { h0 = Math.max(0, hourIdx(g, nowS()) - 3); h1 = Math.min(last, h0 + 7 * 24); }
     if (mdRange === 'race') { h0 = Math.max(0, hourIdx(g, WX.parseLocal(W.event.start))); h1 = Math.min(last, hourIdx(g, WX.parseLocal(W.event.end))); }
     if (h1 <= h0) { $('wxChart').innerHTML = '<p class="notice warn">The forecast doesn\'t reach race weekend yet.</p>'; $('wxMtab').innerHTML = ''; return; }
-    const val = (m, h) => { const a = f.models[m][mdVar]; return a && h < a.length ? a[h] : null; };
+    const val = (m, h) => { const a = f.models[m][mdVar]; const v = a && h < a.length ? a[h] : null; return mdVar === 'cbase' && v == null && a ? (h < a.length ? 2000 : null) : v; };
+    if (mdVar === 'cbase' && !ids.some(m => f.models[m].cbase)) { $('wxChart').innerHTML = '<p class="notice warn">Cloud base is only worked out for the high ground (km ' + T.cloud.fromKm + ' to ' + T.cloud.toKm + '). Pick a point there, such as Mt William.</p>'; $('wxMtab').innerHTML = ''; return; }
     // Ensemble range: 80% of the 82 ensemble forecasts fall inside the band.
     const band = ens && { t: ['t10', 't90'], g: ['g10', 'g90'] }[mdVar];
     let ej = -1;
@@ -677,6 +690,7 @@
     if (!isFinite(lo)) { lo = 0; hi = 1; }
     if (mdVar === 'p' || mdVar === 'cc' || mdVar === 'cape' || mdVar === 'g' || mdVar === 'w') lo = 0;
     (LINES[mdVar] || []).forEach(([v]) => { if (v <= hi * 1.3 && v >= lo - 5) { hi = Math.max(hi, v); lo = Math.min(lo, v); } });
+    if (mdVar === 'cbase') { lo = Math.min(lo, 600); hi = Math.max(hi, g.points[mdPoint].ele + 100); }
     hi += (hi - lo) * 0.06 || 1;
     const Wd = 640, Ht = 260, X = h => 36 + (Wd - 44) * (h - h0) / (h1 - h0), Y = v => 10 + (Ht - 40) * (1 - (v - lo) / (hi - lo));
     let svg = '';
@@ -690,6 +704,7 @@
       if (lh === 0) svg += `<line x1="${X(h)}" x2="${X(h)}" y1="10" y2="${Ht - 30}" stroke="#bbb"/><text x="${X(h) + 3}" y="${Ht - 16}">${WX.fmtDay(g.t0 + h * HOUR)}</text>`;
     }
     for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4; svg += `<text x="32" y="${Y(v) + 4}" text-anchor="end">${v.toFixed(MVARS[mdVar][2] && hi - lo < 10 ? 1 : 0)}</text><line x1="36" x2="${Wd - 8}" y1="${Y(v)}" y2="${Y(v)}" stroke="#eee"/>`; }
+    if (mdVar === 'cbase') { const e = g.points[mdPoint].ele; svg += `<line x1="36" x2="${Wd - 8}" y1="${Y(e)}" y2="${Y(e)}" stroke="${STATUS_COL.close}" stroke-width="2" stroke-dasharray="6 4"/><text x="${Wd - 10}" y="${Y(e) - 4}" text-anchor="end">This point, ${e} m: cloud base below the line means in cloud</text>`; }
     (LINES[mdVar] || []).forEach(([v, st]) => { if (v >= lo && v <= hi) svg += `<line x1="36" x2="${Wd - 8}" y1="${Y(v)}" y2="${Y(v)}" stroke="${STATUS_COL[st]}" stroke-width="1.5" stroke-dasharray="6 4"/>`; });
     if (band) {
       const top = [], bot = [];
@@ -724,7 +739,7 @@
       <table class="wx-mt"><thead><tr><th>Model</th><th>${MVARS[mdVar][0]}</th><th>Sky</th></tr></thead><tbody>${rows.map(r =>
         `<tr><td><i style="background:${MCOL[r.i % MCOL.length]}"></i>${esc(WX.modelName(r.m))}</td><td>${r.v == null ? '<span class="muted">n/a</span>' : r.v.toFixed(dp) + ' ' + unit}</td><td>${esc(WX.codeText(r.c))}</td></tr>`).join('')}
       <tr class="med"><td>Consensus</td><td>${vals.length ? WX.median(vals).toFixed(dp) + ' ' + unit : 'n/a'}</td><td></td></tr></tbody></table>
-      <p class="wx-note">${vals.length > 1 ? `The models range from ${Math.min(...vals).toFixed(dp)} to ${Math.max(...vals).toFixed(dp)} ${unit}: ${spreadWord(mdVar, Math.max(...vals) - Math.min(...vals))}.` : ''} Short range models (UK Met Office, Météo-France, ICON) drop out after a few days. Tap the chart to choose a time.</p>`;
+      <p class="wx-note">${vals.length > 1 ? `The models range from ${Math.min(...vals).toFixed(dp)} to ${Math.max(...vals).toFixed(dp)} ${unit}: ${spreadWord(mdVar, Math.max(...vals) - Math.min(...vals))}.` : ''} Short range models (UK Met Office, Météo-France, ICON) drop out after a few days. Tap the chart to choose a time.${mdVar === 'cbase' ? ' A line along the top means no cloud below about 1,500 m in that model.' : ''}</p>`;
   }
   function spreadWord(k, s) {
     const lim = { t: [2, 5], at: [2, 5], g: [10, 25], w: [8, 20], p: [0.5, 2], cc: [25, 60], cape: [200, 600], rh: [10, 25] }[k] || [1, 2];
