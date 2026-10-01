@@ -371,6 +371,9 @@ a.w3w:hover { text-decoration: underline; }
 .wx-mt th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; padding: 4px 8px; border-bottom: 2px solid var(--ink); }
 .wx-mt td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
 .wx-mt tr.med td { font-weight: 700; }
+.wx-near { background: var(--paper); border: 1px solid var(--line); border-left: 6px solid #2f7fc1; border-radius: var(--radius); padding: 8px 12px; margin-bottom: 10px; font-size: 13px; line-height: 1.6; }
+.wx-near .lnk { font-size: 12px; padding: 0 0 0 6px; text-decoration: none; }
+.wx-near-warn { color: var(--red); font-weight: 600; }
 .wx-rm { width: 24px; height: 24px; border-radius: 50%; background: #111; color: #fff; font: 800 12px/20px var(--body); text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
 .wx-rm.slow { background: var(--course); }
 .wx-tm { display: inline-block; white-space: nowrap; font: 700 11px var(--body); padding: 2px 7px; border-radius: 12px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }

@@ -391,6 +391,7 @@
       <button class="btn" id="btnShare" type="button">Share</button>
       <a class="btn" href="${dir}" target="_blank" rel="noopener">Directions</a></div>`;
     h += `<div class="card"><h3>Message</h3><p class="script" id="script">${esc(radioScript(r))}</p></div>`;
+    h += '<div id="wxNear"></div>';
     if (r.results.length > 1) {
       h += '<div class="card"><h3>Other teams</h3>';
       r.results.slice(1).forEach(o => {
@@ -415,6 +416,7 @@
     else sh.addEventListener('click', () => copy(location.href, sh, 'Link copied'));
 
     drawResult(r);
+    if (window.WeatherTab) window.WeatherTab.nearHTML(r.lat, r.lon, r.ele).then(x => { if (last === r && $('wxNear')) $('wxNear').innerHTML = x; });
     const hash = (q.lat != null ? `#ll=${q.lat.toFixed(5)},${q.lon.toFixed(5)}` : `#km=${one(r.km)}`) + (G.main ? '' : '&c=' + G.id) + (isSub() ? '&r=' + race.id : '');
     history.replaceState(null, '', hash);
     refreshMessage(r);

@@ -725,5 +725,35 @@
     }, 10 * 60 * 1000);
   }
   function onHide() { stopPlay(); }
-  window.WeatherTab = { onShow, onHide, valueAt: (km, t) => grid && conditions(grid, km, t || nowS()), loadGrid: () => load().then(loadGrid) };
+  // Small weather line for a Find result: conditions now at the casualty, the next 3 hours and any BOM warning.
+  let nearLoad = null;
+  async function nearHTML(lat, lon, ele) {
+    try {
+      if (!nearLoad) nearLoad = (latest ? Promise.resolve() : load()).then(loadGrid);
+      await nearLoad;
+    } catch (e) { nearLoad = null; return ''; }
+    if (!latest || !grid) return '';
+    const s = G.snap(lat, lon);
+    if (s.offM > 3000) return '';
+    const km = G.route[s.ic][2], t = nowS();
+    const c = conditions(grid, km, t);
+    if (!c) return '';
+    // Adjust temperatures to the casualty's height (the 14k and off course spots differ from the GPT100 course).
+    const dz = ele != null ? -0.0065 * (ele - eleAt(km)) : 0;
+    let gust = c.g, rain = 0, storm = 0;
+    for (let k = 1; k <= 3; k++) {
+      const n = conditions(grid, km, t + k * HOUR);
+      if (n) { gust = Math.max(gust, n.g); rain += n.p; storm = Math.max(storm, n.storm); }
+    }
+    const age = (t - latest.updated) / HOUR;
+    const warn = latest.warnings && latest.warnings.items ? latest.warnings.items.filter(w => w.relevant) : [];
+    const hits = c.status.hits.filter(x => x.status !== 'ok');
+    return `<div class="wx-near"><b>Weather now:</b> ${(c.t + dz).toFixed(0)}°C, feels ${(c.at + dz).toFixed(0)}°C, gusts ${Math.round(c.g)} km/h, ${esc(WX.codeText(c.code).toLowerCase())}.
+      Next 3 hours: ${rain >= 0.2 ? rain.toFixed(1) + ' mm rain' : 'dry'}, gusts to ${Math.round(gust)} km/h${storm ? ', <b>thunderstorm possible</b>' : ''}.
+      ${hits.map(x => `<span class="wx-pill st-${x.status}">${WX.LABELS[x.key]}: ${WORD[x.status]}</span>`).join(' ')}
+      ${warn.map(w => `<br><a class="wx-near-warn" href="${esc(w.link)}" target="_blank" rel="noopener">BOM: ${esc(w.title)}</a>`).join('')}
+      ${age > W.staleHours ? `<br><span class="muted">Weather data is ${age.toFixed(0)} hours old.</span>` : ''}
+      <a class="lnk" href="#weather">Weather tab</a></div>`;
+  }
+  window.WeatherTab = { onShow, onHide, nearHTML, valueAt: (km, t) => grid && conditions(grid, km, t || nowS()), loadGrid: () => load().then(loadGrid) };
 })();
