@@ -53,6 +53,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 **Admin** (`admin.html`, for the Race Director or safety lead)
 
+- Password protected. Each device asks once. To change the password, follow the note at the top of `admin.html`.
+
 - The original planning map, with the access point editor and adjustable assumptions.
 - Staff never see this. Edits stay on your device until you publish them (see below).
 

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GPT100 Safety Admin</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600;700&display=swap">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root{ --ink:#1c1c1c; --paper:#f7f5f0; --line:#dcd7cc; --hg:#c0392b; --dk:#1f6f4a; --accent:#b5651d; --muted:#6b6459; --walk:#1666c9; --jc:#1b6ca8;}
@@ -42,9 +43,51 @@
   @media(max-width:820px){#wrap{flex-direction:column}#panel{flex:0 0 auto;height:auto;border-left:none;border-top:2px solid var(--line)}#map{height:52vh}}
 .ebtn{font-size:12px;padding:3px 8px;margin:2px 2px 0 0;border:1px solid #b9a2cf;background:#fff;border-radius:5px;cursor:pointer}
   #editPanel input[type=text],#editPanel input[type=number]{font-size:12px;padding:3px 5px;border:1px solid #cbb8dd;border-radius:4px}
+  #gate{position:fixed;inset:0;z-index:100000;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-family:Montserrat,-apple-system,Segoe UI,Arial,sans-serif;padding:16px}
+  #gate form{width:100%;max-width:340px}
+  #gate h1{font-family:'Bebas Neue',Impact,sans-serif;font-weight:400;font-size:40px;letter-spacing:1px;margin:0 0 4px}
+  #gate p{color:#bbb;font-size:13px;margin:0 0 14px}
+  #gate input{width:100%;box-sizing:border-box;font-size:16px;padding:12px;border:2px solid #fff;border-radius:8px;margin-bottom:10px}
+  #gate button{width:100%;font-size:15px;font-weight:700;padding:12px;border:0;border-radius:8px;background:#d9531e;color:#fff;cursor:pointer}
+  #gate .err{color:#ff8a80;font-weight:600;min-height:18px}
+  #gate a{color:#bbb}
 </style>
 </head>
 <body>
+<div id="gate"><form id="gateForm" autocomplete="off">
+  <h1>GPT100 Admin</h1>
+  <p>For the Race Director and safety lead. Enter the admin password.</p>
+  <input id="gatePw" type="password" placeholder="Password" autocomplete="current-password" autofocus>
+  <button type="submit">Unlock</button>
+  <p class="err" id="gateErr"></p>
+  <p><a href="index.html">Back to the staff app</a></p>
+</form></div>
+<script>
+// Admin password check. It keeps casual visitors out; the course data itself is public in the app.
+// To change the password: node -e "const c=require('crypto'),s=c.randomBytes(16);console.log(s.toString('base64'),c.pbkdf2Sync('NEW PASSWORD',s,200000,32,'sha256').toString('hex'))"
+// and paste the two values below. Every device then asks for the new password.
+(function () {
+  const SALT = 'iz/enYHAl48BBWtoV03kKA==', HASH = '0845561bea9f987e9b64508e0a33ee0dfe8780ed272b1fec45f08cafb9ba2d18', LS = 'gpt100_admin_ok';
+  const gate = document.getElementById('gate');
+  try { if (localStorage.getItem(LS) === HASH) { gate.remove(); return; } } catch (e) { }
+  async function check(pw) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: Uint8Array.from(atob(SALT), c => c.charCodeAt(0)), iterations: 200000, hash: 'SHA-256' }, base, 256);
+    return [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, '0')).join('') === HASH;
+  }
+  document.getElementById('gateForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = document.getElementById('gateErr');
+    if (!window.crypto || !crypto.subtle) { err.textContent = 'Open this page over https.'; return; }
+    err.textContent = 'Checking…';
+    if (await check(document.getElementById('gatePw').value)) {
+      try { localStorage.setItem(LS, HASH); } catch (e) { }
+      gate.remove();
+      window.dispatchEvent(new Event('resize'));
+    } else err.textContent = 'That password didn\'t work.';
+  });
+})();
+</script>
 <div id="wrap">
   <div id="map"></div>
   <div id="panel">
