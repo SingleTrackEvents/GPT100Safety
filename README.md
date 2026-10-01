@@ -119,7 +119,7 @@ This replaces `data/medplan.enc.js` and `data/safety-officers.js` (the public Sa
 
 ## Weather watch
 
-`.github/workflows/weather.yml` runs `tools/weather_watch.mjs` every hour on GitHub Actions. It fetches the forecast models from Open-Meteo every 3 hours (they only update a few times a day), and the CFA fire ratings, BOM warnings (from the Bureau's anonymous FTP service) and the air quality forecast every hour. It publishes the results to the `weather-data` branch, which the Weather tab reads. The branch holds only the latest results, so it doesn't grow.
+`.github/workflows/weather.yml` runs `tools/weather_watch.mjs` on GitHub Actions, trying four times an hour because GitHub sometimes drops scheduled runs. It fetches the forecast models from Open-Meteo every 3 hours (they only update a few times a day), and the CFA fire ratings, BOM warnings (from the Bureau's anonymous FTP service) and the air quality forecast every hour. It publishes the results to the `weather-data` branch, which the Weather tab reads. The branch holds only the latest results, so it doesn't grow.
 
 - **Phone alerts:** install the ntfy app (iPhone or Android), subscribe to a private topic name only you know, then add that name as a repository secret called `NTFY_TOPIC` (Settings, Secrets and variables, Actions). Anyone who should get alerts subscribes to the same topic. To check it works: Actions, Weather watch, Run workflow, tick "Send a test phone alert".
 - **Run it now:** Actions, Weather watch, Run workflow (tick "Fetch every forecast model now" to refresh the models straight away).

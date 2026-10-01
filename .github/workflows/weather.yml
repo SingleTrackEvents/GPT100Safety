@@ -5,7 +5,9 @@ name: Weather watch
 
 on:
   schedule:
-    - cron: '7 * * * *'
+    # Four tries an hour, away from the top of the hour: GitHub sometimes delays or drops scheduled runs,
+    # so a missed one is picked up 15 minutes later. Models are still only fetched every 3 hours.
+    - cron: '4,19,34,49 * * * *'
   workflow_dispatch:
     inputs:
       force_models:
