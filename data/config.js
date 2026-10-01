@@ -46,7 +46,7 @@ window.GPT100_CONFIG = {
     incidentKm: 40,         // VicEmergency fires, burns and incidents this close to the course
     fireNearKm: 20,         // a bushfire this close counts as the fire trigger met; a planned burn as smoke getting close
     bomForecastPlaces: ['Halls Gap', 'Stawell', 'Ararat', 'Horsham', 'Dunkeld', 'Hamilton'],
-    epaSites: 3,            // nearest EPA AirWatch monitors (needs the EPA_KEY secret)
+    epaSites: 3, epaMaxKm: 60,  // EPA AirWatch monitors: the nearest, plus others within 60 km (needs the EPA_KEY secret)
     // BOM warnings that name any of these count as near the course.
     warningWords: ['Wimmera', 'South West', 'Grampians', 'Glenelg', 'Wannon', 'Halls Gap', 'Dunkeld', 'Stawell', 'Horsham', 'Hamilton', 'Ararat'],
     triggers: {

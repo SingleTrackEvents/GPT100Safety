@@ -195,8 +195,9 @@ export async function fetchEPA({ route, W, now, key }) {
     const r = series && series.readings && series.readings[0];
     if (!r) continue;
     sites.push({ name: s.siteName || s.name, lat, lon, dist: Math.round(nc.d / 100) / 10, km: Math.round(nc.km * 10) / 10,
-      pm25: r.averageValue ?? r.value ?? null, unit: r.unit || 'µg/m³', advice: r.healthAdvice || '', until: r.until || r.since || '' });
+      pm25: r.averageValue ?? r.value ?? null, unit: String(r.unit || 'µg/m³').replace(/&micro;/g, 'µ').replace(/&sup3;/g, '³').replace(/&[a-z]+;/g, ''), advice: r.healthAdvice || '', until: r.until || r.since || '' });
   }
   sites.sort((a, b) => a.dist - b.dist);
-  return { updated: now, sites: sites.slice(0, W.epaSites || 3) };
+  // The nearest monitor, plus any others close enough to tell us about smoke on the course.
+  return { updated: now, sites: sites.filter((x, i) => i === 0 || x.dist <= (W.epaMaxKm || 60)).slice(0, W.epaSites || 3) };
 }
