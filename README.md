@@ -15,6 +15,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - Type a km (`87.3`), coordinates (`-37.294, 142.601`) or what3words (`///word.word.word`). You can also use your phone's GPS or tap the map.
 - You get one clear answer: which team to send, where to park (with gated roads flagged), the walk in, and the ETA.
 - It also shows the backup team, the nearest aid stations either side, and how long a stretcher carry-out would take.
+- **Nearest Safety Officers on foot:** the two closest Safety Officer posts on duty, with their walking time along the course. When they'd beat the team, it says to send them first, and the WhatsApp message includes them. Posts marked "stays put" are shown but not sent. It works without the medical password, live during the race (an example time before it).
 - **WhatsApp** opens WhatsApp with the message ready to send. Pick the safety group or a person. It includes map links for the casualty and the parking spot. The same message shows on screen, so it can also be read out over the radio.
 - **Directions** opens Google Maps to the parking spot.
 - **Weather now** at the casualty: temperature, feels like, gusts and sky, the next 3 hours, any trigger getting close, and any BOM warning near the course.

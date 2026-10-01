@@ -330,6 +330,8 @@
       `Walk in ${one(b.walkKm)} km, about ${G.fmt(b.walk)}.\n` +
       `ETA to casualty ${G.fmt(b.total)}.`;
     if (r.backup) s += ` Backup ${r.backup.base.name} team, ${G.fmt(r.backup.total)}.`;
+    const so = window.MedPlan && window.MedPlan.soLine ? window.MedPlan.soLine(r) : '';
+    if (so) s += '\n' + so;
     s += `\nPosition ${pos}.`;
     return s;
   }
@@ -385,6 +387,7 @@
       </ol>
       <div class="carry">Carry-out back to the vehicle: about <b>${G.fmt(b.carry)}</b> at stretcher pace.</div>
     </div>`;
+    h += `<div id="soNear">${window.MedPlan && window.MedPlan.soNearHTML ? window.MedPlan.soNearHTML(r) : ''}</div>`;
     const dir = `https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lon}`;
     h += `<div class="actions">
       <a class="btn" id="btnWa" href="#" target="_blank" rel="noopener">WhatsApp</a>
@@ -537,7 +540,11 @@
   window.GPT_UI = {
     openKm: km => { setCourse(window.GPT.id); openInFinder(km); },
     map: () => map,
-    refresh: () => { if (last && $('medNear') && window.MedPlan) $('medNear').innerHTML = window.MedPlan.nearbyHTML(last); }
+    refresh: () => {
+      if (!last || !window.MedPlan) return;
+      if ($('medNear')) $('medNear').innerHTML = window.MedPlan.nearbyHTML(last);
+      if ($('soNear')) $('soNear').innerHTML = window.MedPlan.soNearHTML(last);
+    }
   };
 
   $('jumpForm').addEventListener('submit', e => {

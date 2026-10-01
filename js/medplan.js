@@ -323,6 +323,68 @@
   }
 
   // ---------- For Find: medics on duty near a casualty ----------
+  // ---------- Nearest Safety Officers on foot (public posts, no password needed) ----------
+  // Walking time from each post on duty to the casualty: along the course on the GPT100, at responder pace
+  // plus climb; on another course (the 14k) by distance on the ground, allowing 40% for the track.
+  const soKm = {};
+  function soNear(r) {
+    const src = P || SO;
+    if (!src) return null;
+    if (!T0) T0 = new Date(src.t0);
+    const h = curH(), C = window.GPT100_CONFIG, main = !r.course || r.course === G.id;
+    const posts = (src.st || src.posts).filter(p => !/passage/i.test(p.label));
+    const out = [];
+    src.stations.forEach(s => {
+      const here = posts.filter(p => p.station === s.name);
+      if (!here.length) return;
+      if (!soKm[s.name]) { const sn = G.snap(s.lat, s.lon); soKm[s.name] = { ic: sn.ic, km: G.route[sn.ic][2], off: sn.offM }; }
+      const k = soKm[s.name];
+      let distKm, walk;
+      if (main) {
+        distKm = Math.abs(k.km - r.km) + k.off / 1000;
+        walk = distKm * C.walkPace + G.climb(k.ic, r.ic) * C.climbPenalty;
+      } else {
+        distKm = G.metres([s.lat, s.lon], [r.lat, r.lon]) / 1000 * 1.4;
+        walk = distKm * C.walkPace;
+      }
+      const now = here.filter(p => on(p, h));
+      const next = here.filter(p => p.a > h).sort((a, b) => a.a - b.a)[0];
+      out.push({ s, d: main ? k.km - r.km : null, distKm, walk, now, next, ground: !main });
+    });
+    out.sort((a, b) => a.walk - b.walk);
+    return { h, list: out };
+  }
+  function soNearHTML(r) {
+    const x = soNear(r);
+    if (!x || !x.list.length) return '';
+    const onPost = x.list.filter(o => o.now.length).slice(0, 2);
+    const team = r.best ? r.best.total : Infinity;
+    const when = isLive() ? 'On post now' : `At ${fmtH(x.h)} ${P ? '(plan time, set in the Medical tab)' : '(an example race time; live during the race)'}`;
+    let html = `<div class="card so-near"><h3>Nearest Safety Officers on foot</h3><p class="details">${when}</p>`;
+    if (!onPost.length) {
+      const n = x.list[0];
+      html += `<p class="muted">No Safety Officers on post nearby at this time.${n.next ? ` Nearest post: ${esc(n.s.name)}, from ${fmtH(n.next.a)}.` : ''}</p>`;
+    }
+    onPost.forEach(o => {
+      const where = o.ground ? `about ${o.distKm.toFixed(1)} km away` : Math.abs(o.d) < 0.3 ? 'at this spot' : `${Math.abs(o.d).toFixed(1)} km ${o.d < 0 ? 'back' : 'ahead'} on course`;
+      const stays = o.now.every(p => /stays put/i.test(p.label));
+      const faster = o.walk < team && !stays;
+      html += `<div class="row${faster ? ' so-fast' : ''}"><span><span class="so-mark on" style="display:inline-block;width:22px;margin-right:6px">SO</span><b>${esc(o.s.name)}</b>
+        <span class="sub">${esc(o.now.map(p => p.label).join(', '))}. ${where}. On post until ${timeOnly(Math.max(...o.now.map(p => p.z)))}.</span>
+        ${faster ? '<span class="so-tag">Faster than the team: send them first</span>' : stays && o.walk < team ? '<span class="so-tag">Stays on post: radio for advice</span>' : ''}</span><span class="v">${G.fmt(o.walk)}</span></div>`;
+    });
+    html += '<p class="details">Walking at responder pace' + (onPost.some(o => o.ground) ? ', by distance on the ground' : ', along the course') + '. Check they can leave their post.</p></div>';
+    return html;
+  }
+  // One line for the WhatsApp message, when Safety Officers on post can get there first.
+  function soLine(r) {
+    const x = soNear(r);
+    if (!x) return '';
+    const o = x.list.find(y => y.now.length && !y.now.every(p => /stays put/i.test(p.label)));
+    if (!o || !(o.walk < (r.best ? r.best.total : Infinity))) return '';
+    return `Nearest Safety Officers on foot: ${o.s.name}, about ${G.fmt(o.walk)} away.`;
+  }
+
   function nearbyHTML(r) {
     if (!ENC) return '';
     if (!P) return '<p class="details">Unlock the Medical tab to see which medics are on duty nearby.</p>';
@@ -349,7 +411,7 @@
   }
 
   function onShow() { if (built) { fitMap(); update(); } else render(); }
-  window.MedPlan = { render, nearbyHTML, onShow, ready: unlockStored().then(ok => { if (ok) render(); refreshFind(); }) };
+  window.MedPlan = { render, nearbyHTML, soNearHTML, soLine, onShow, ready: unlockStored().then(ok => { if (ok) render(); refreshFind(); }) };
   // Keep the public Safety Officer markers in step with the clock when the plan isn't unlocked.
   setInterval(() => { if (!P) drawFindLayer(); }, 5 * 60e3);
   addEventListener('load', () => { if (!P) drawFindLayer(); });
