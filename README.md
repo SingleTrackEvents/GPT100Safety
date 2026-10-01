@@ -17,6 +17,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - It also shows the backup team, the nearest aid stations either side, and how long a stretcher carry-out would take.
 - **WhatsApp** opens WhatsApp with the message ready to send. Pick the safety group or a person. It includes map links for the casualty and the parking spot. The same message shows on screen, so it can also be read out over the radio.
 - **Directions** opens Google Maps to the parking spot.
+- **Weather now** at the casualty: temperature, feels like, gusts and sky, the next 3 hours, any trigger getting close, and any BOM warning near the course.
 - If a spot takes more than 2 hours to reach, a red warning tells you to escalate early.
 
 **what3words throughout**
