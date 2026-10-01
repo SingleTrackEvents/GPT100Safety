@@ -47,7 +47,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - The race medical plan: who is on duty at each station, runner numbers per hour, where the medical vehicles are, and the movements in the next 2 hours.
 - Follows the clock live during the event (Thu 5 to Sun 8 November, Melbourne time). Before or after, it shows a sample time. The slider, quick jumps and **Play** step through the weekend for planning.
 - On a laptop the plan and a map sit side by side. On a phone the map sits on top.
-- Safety Officer posts also appear on the Find map as SO markers, highlighted when on post.
+- Safety Officer posts appear on the Find map for everyone as SO markers, highlighted when on post. No password is needed for these: they come from `data/safety-officers.js`, which holds only the posts and shift times, no names.
 - Once unlocked, Find also shows the nearest medics on duty to the casualty, and the vehicles.
 - The plan is stored encrypted, so it can't be read from the public site without the password. Each device asks once and remembers until someone taps Lock.
 
@@ -104,7 +104,7 @@ The GPX waypoints (aid stations, water points, checkpoints) become the course's 
 MEDPLAN_PASSWORD='new password' node tools/encrypt_medplan.mjs path/to/GPT100_MedicalPlan_Interactive.html
 ```
 
-This replaces `data/medplan.enc.js`. Commit that file only, never the plan itself (`.gitignore` blocks it). Changing the password asks every device for the new one.
+This replaces `data/medplan.enc.js` and `data/safety-officers.js` (the public Safety Officer posts, no names). Commit those two files only, never the plan itself (`.gitignore` blocks it). Changing the password asks every device for the new one.
 
 ## Weather watch
 

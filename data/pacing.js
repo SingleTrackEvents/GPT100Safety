@@ -1,7 +1,7 @@
 // Runner pacing for the weather simulator and the "runners on course" checks.
 // From the GPT_2026 Course Details sheet (Miler): fastest = first runner's time of day, slowest = cut-off.
-// km is GPT100 km in this app. The sheet's km for Ridgeline Water Point (28.7) and Stockyard Track (99)
-// are placed between their neighbouring aid stations in proportion. Times are Melbourne local time.
+// km is GPT100 km in this app. The sheet's km for Stockyard Track (99)
+// is placed between its neighbouring aid stations in proportion. Times are Melbourne local time.
 window.GPT100_PACING = {
   miler: {
     label: 'GPT100 Miler',
@@ -9,7 +9,7 @@ window.GPT100_PACING = {
       { km: 0, name: 'Mt Zero', fast: '2026-11-06T08:00', slow: '2026-11-06T08:00' },
       { km: 6.45, name: 'Copper Mine', fast: '2026-11-06T08:37', slow: '2026-11-06T09:30' },
       { km: 15.62, name: 'GAR', fast: '2026-11-06T09:26', slow: '2026-11-06T12:00' },
-      { km: 28.61, name: 'Ridgeline Water Point', fast: '2026-11-06T10:56', slow: '2026-11-06T16:30' },
+      { km: 28.04, name: 'Mt Difficult Ridgeline', fast: '2026-11-06T10:56', slow: '2026-11-06T16:30' },
       { km: 35.31, name: 'Mt Difficult Rd', fast: '2026-11-06T11:35', slow: '2026-11-06T17:00' },
       { km: 49.17, name: 'Halls Gap', fast: '2026-11-06T12:50', slow: '2026-11-06T20:00' },
       { km: 58.94, name: 'Mt Rosea', fast: '2026-11-06T14:07', slow: '2026-11-06T23:00' },

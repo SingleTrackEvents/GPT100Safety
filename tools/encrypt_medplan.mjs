@@ -4,7 +4,9 @@
 // Usage: MEDPLAN_PASSWORD='the password' node tools/encrypt_medplan.mjs path/to/GPT100_MedicalPlan_Interactive.html
 //        (a .json file with the plan's DATA object also works)
 //
-// Writes data/medplan.enc.js. The plan is encrypted with AES-256-GCM, using a key derived from the
+// Writes data/medplan.enc.js, and data/safety-officers.js: the Safety Officer posts and shift times only
+// (no names), which the Find map shows without the password. Add --public-only to rewrite just that file.
+// The plan is encrypted with AES-256-GCM, using a key derived from the
 // password with PBKDF2-SHA256, the same Web Crypto the app uses to unlock it. Never commit the
 // original plan file; only the encrypted output goes in the repository.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -14,8 +16,9 @@ import { fileURLToPath } from 'node:url';
 
 const ITER = 250000;
 const src = process.argv[2];
+const publicOnly = process.argv.includes('--public-only');
 const password = process.env.MEDPLAN_PASSWORD;
-if (!src || !password) {
+if (!src || (!password && !publicOnly)) {
   console.error("Usage: MEDPLAN_PASSWORD='...' node tools/encrypt_medplan.mjs plan.html|plan.json");
   process.exit(1);
 }
@@ -31,6 +34,16 @@ else {
 for (const k of ['t0', 'n', 'arr', 'pos', 'st', 'stations', 'grades', 'races', 'mv', 'veh']) {
   if (!(k in data)) { console.error('Plan data is missing "' + k + '"'); process.exit(1); }
 }
+
+// Public Safety Officer posts: station, place and shift times. "Passage" rows are runners passing, not posts.
+const posts = data.st.filter(p => !/passage/i.test(p.label)).map(p => ({ station: p.station, a: p.a, z: p.z, label: p.label }));
+const used = new Set(posts.map(p => p.station));
+const so = { t0: data.t0, n: data.n, stations: data.stations.filter(s => used.has(s.name)).map(s => ({ name: s.name, lat: s.lat, lon: s.lon })), posts };
+const here = dirname(fileURLToPath(import.meta.url));
+writeFileSync(join(here, '..', 'data', 'safety-officers.js'), '// Safety Officer posts for the Find map (no names). Made by tools/encrypt_medplan.mjs from the medical plan.\n' +
+  'window.GPT100_SO = ' + JSON.stringify(so) + ';\n');
+console.log(`Wrote ${posts.length} Safety Officer posts at ${so.stations.length} places to data/safety-officers.js`);
+if (publicOnly) process.exit(0);
 
 const enc = new TextEncoder();
 const salt = crypto.getRandomValues(new Uint8Array(16));

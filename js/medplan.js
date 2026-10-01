@@ -2,7 +2,7 @@
 // unlocked on each device with the password. Shows who is on duty, runner numbers and vehicles,
 // live during the event or at any chosen time, and tells Find which medics are nearest.
 (function () {
-  const G = window.GPT, ENC = window.GPT100_MEDPLAN_ENC;
+  const G = window.GPT, ENC = window.GPT100_MEDPLAN_ENC, SO = window.GPT100_SO;
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const LS = 'gpt100_medplan_pw';
@@ -87,7 +87,7 @@
     const g = k => +p.find(x => x.type === k).value;
     return new Date(g('year'), g('month') - 1, g('day'), g('hour') % 24, g('minute'));
   }
-  const endH = () => P.n / 4;
+  const endH = () => (P || SO).n / 4;
   const liveH = () => (melbNow() - T0) / 3600e3;
   const inEvent = () => { const h = liveH(); return h >= 0 && h <= endH(); };
   const DEFAULT_H = 52; // Sat 09:00, a busy moment, when outside the event window
@@ -299,7 +299,10 @@
     const fmap = window.GPT_UI && window.GPT_UI.map && window.GPT_UI.map();
     if (!fmap || !window.L) return;
     if (findLayer) { findLayer.remove(); findLayer = null; }
-    if (!P) { if (soKey) { soKey.remove(); soKey = null; } return; }
+    // Safety Officer posts are public (data/safety-officers.js); the unlocked plan has the same posts.
+    const src = P || SO;
+    if (!src) { if (soKey) { soKey.remove(); soKey = null; } return; }
+    if (!T0) T0 = new Date(src.t0);
     if (!soKey) {
       soKey = L.control({ position: 'bottomright' });
       soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers on post<br><span class="so-mark" style="display:inline-block;width:22px;margin-right:5px;opacity:.5">SO</span>Not on post at this time'; return d; };
@@ -307,8 +310,8 @@
     }
     const h = curH();
     findLayer = L.layerGroup().addTo(fmap);
-    P.stations.forEach(s => {
-      const posts = P.st.filter(p => p.station === s.name && !/passage/i.test(p.label));
+    src.stations.forEach(s => {
+      const posts = (src.st || src.posts).filter(p => p.station === s.name && !/passage/i.test(p.label));
       if (!posts.length) return;
       const now = posts.filter(p => on(p, h));
       const shifts = posts.map(p => `${esc(p.label)}<br><span style="color:#625c53">${fmtH(p.a)} to ${fmtH(p.z)}</span>`).join('<br>');
@@ -346,5 +349,8 @@
   }
 
   function onShow() { if (built) { fitMap(); update(); } else render(); }
-  window.MedPlan = { render, nearbyHTML, onShow, ready: unlockStored().then(ok => { if (ok) { render(); refreshFind(); } }) };
+  window.MedPlan = { render, nearbyHTML, onShow, ready: unlockStored().then(ok => { if (ok) render(); refreshFind(); }) };
+  // Keep the public Safety Officer markers in step with the clock when the plan isn't unlocked.
+  setInterval(() => { if (!P) drawFindLayer(); }, 5 * 60e3);
+  addEventListener('load', () => { if (!P) drawFindLayer(); });
 })();
