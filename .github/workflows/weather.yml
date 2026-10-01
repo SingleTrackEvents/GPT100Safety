@@ -12,6 +12,10 @@ on:
         description: Fetch every forecast model now
         type: boolean
         default: false
+      test_alert:
+        description: Send a test phone alert
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -44,7 +48,7 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           OPEN_METEO_KEY: ${{ secrets.OPEN_METEO_KEY }}
           TZ: Australia/Melbourne
-        run: node tools/weather_watch.mjs --prev wx-prev --out wx-out ${{ inputs.force_models && '--force-models' || '' }}
+        run: node tools/weather_watch.mjs --prev wx-prev --out wx-out ${{ inputs.force_models && '--force-models' || '' }} ${{ inputs.test_alert && '--test-alert' || '' }}
 
       - name: Publish to the weather-data branch
         run: |

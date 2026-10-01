@@ -358,6 +358,12 @@ async function main() {
 
   const state = readJSON(path.join(PREV, 'state.json'), {});
   await alerts(triggers, state, warnings);
+  if (flag('--test-alert')) {
+    const s = triggers.next48;
+    await notify('GPT100 weather: test alert', 'Phone alerts are working. Next 48 hours: ' + (WX.ORDER.map(k => s.triggers[k]).filter(r => r.status === 'met' || r.status === 'close')
+      .map(r => r.label + ' ' + WORD[r.status]).join(', ') || 'all clear') + '.', 3, 'white_check_mark');
+    if (!NTFY) console.log('No NTFY_TOPIC secret set, so nothing was sent.');
+  }
   writeJSON(path.join(OUT, 'state.json'), state);
 
   for (const [sk, s] of Object.entries(triggers)) console.log(`${s.label}: ${s.status}${s.note ? ' (' + s.note + ')' : ''}  ` + WX.ORDER.map(k => k + '=' + s.triggers[k].status).join(' '));
