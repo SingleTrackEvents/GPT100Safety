@@ -151,7 +151,7 @@
     storm: T => 'Thunderstorm in two or more models, or a BOM Severe Thunderstorm Warning (close: one model, or storm energy (CAPE) ' + T.capeClose + ' J/kg)',
     rain: T => 'More than ' + T.met + ' mm in 24 hours (close from ' + T.close + ' mm)',
     cold: T => 'Feels like ' + T.met + '°C or colder on ridges overnight, or ' + T.hours + ' hours of rain with ' + T.windKmh + ' km/h wind (close from ' + T.close + '°C)',
-    cloud: T => 'Mt William and the Major Mitchell Plateau (km ' + T.fromKm + ' to ' + T.toKm + ') in cloud for ' + T.hours + ' hours or more in at least ' + T.agree + '% of models, while runners are there. Advisory, not an RMP trigger',
+    cloud: T => T.zones.map(z => z.name + ' (km ' + z.fromKm + ' to ' + z.toKm + ')').join(' or ') + ' in cloud for ' + T.hours + ' hours or more in at least ' + T.agree + '% of models, while runners are there. Advisory, not an RMP trigger',
     smoke: T => 'Air quality index over ' + T.met + ' for PM2.5 (close from ' + T.close + ')'
   };
   function ruleText(key, T) { const r = RULES[key]; return typeof r === 'function' ? r(T) : r; }
@@ -264,9 +264,9 @@
         let run = 0, start = null, night = 0, sum = 0;
         const flush = () => {
           if (run) {
-            const t = grid.t0 + start * HOUR, pt = grid.points[p];
+            const t = grid.t0 + start * HOUR, pt = grid.points[p], zone = cloudZone(T.cloud, pt.km);
             const st = run >= T.cloud.hours ? 'close' : 'ok';
-            f = better(f, { status: st, value: run, at: t, km: pt.km, place: pt.name || '', runners: sk === 'race' || runnersAt(pace, pt.km, t, ctx.shift), night: night * 2 >= run, agree: Math.round(sum / run) }, true);
+            f = better(f, { status: st, value: run, at: t, km: pt.km, place: zone ? zone.name : pt.name || '', runners: sk === 'race' || runnersAt(pace, pt.km, t, ctx.shift), night: night * 2 >= run, agree: Math.round(sum / run) }, true);
           }
           run = 0; night = 0; sum = 0;
         };
@@ -280,7 +280,7 @@
         flush();
       }
       res.cloud = Object.assign(base('cloud'), f && { worst: f, status: f.status,
-        text: f.value ? `In cloud for ${f.value} hour${f.value > 1 ? 's' : ''} from ${fmtTime(f.at)}${f.night ? ', mostly overnight' : ''} (${f.agree}% of models)` : 'No cloud forecast on the high ground' });
+        text: f.value ? `${f.place ? f.place + ' i' : 'I'}n cloud for ${f.value} hour${f.value > 1 ? 's' : ''} from ${fmtTime(f.at)}${f.night ? ', mostly overnight' : ''} (${f.agree}% of models)` : 'No cloud forecast on the high ground' });
       if (!f && covered && T.cloud && C.cloud) res.cloud.text = 'No cloud forecast on the high ground' + (sk === 'race' ? ' while runners are there' : '');
 
       // Smoke: air quality forecast (about 4 days ahead).
@@ -414,13 +414,15 @@
         const days = [];
         for (let t = s0; t <= s1; t += 24 * HOUR) { const k = localDate(t); if (!days.includes(k)) days.push(k); }
         for (const day of days) {
-          let tmax = null, tmin = null, atmin = null, gmax = null, rain = 0, storm = 0, wetModels = 0, any = false, cloudH = 0;
-          const CLT = W.triggers.cloud;
+          let tmax = null, tmin = null, atmin = null, gmax = null, rain = 0, storm = 0, wetModels = 0, any = false;
+          const CLT = W.triggers.cloud, cloudH = CLT ? CLT.zones.map(() => 0) : [];
           const rainAt = new Array(g.points.length).fill(0);
           for (let h = 0; h < g.n; h++) {
             const t = g.t0 + h * HOUR;
             if (localDate(t) !== day || t < s0 - 6 * HOUR || t > s1) continue;
-            if (CLT && g.cons.cloud && g.cons.cloud[h] && g.cons.cloud[h].some(v => v != null && v >= CLT.agree)) cloudH++;
+            if (CLT && g.cons.cloud && g.cons.cloud[h]) CLT.zones.forEach((z, zi) => {
+              if (g.points.some((pt, p) => cloudZone(CLT, pt.km) === z && g.cons.cloud[h][p] != null && g.cons.cloud[h][p] >= CLT.agree)) cloudH[zi]++;
+            });
             for (let p = 0; p < g.points.length; p++) {
               const C = g.cons, x = C.t[h][p];
               if (x == null) continue;
@@ -438,7 +440,7 @@
           rain = Math.max(...rainAt);
           if (!any) { out.push(`${fmtDay(parseLocal(day))}: beyond the forecast for now.`); continue; }
           out.push(`${fmtDay(parseLocal(day))}: ${Math.round(tmin)} to ${Math.round(tmax)}°C. Ridges feel like ${Math.round(atmin)}°C at the coldest, gusts to ${Math.round(gmax)} km/h. ` +
-            (rain >= 1 ? `Up to ${Math.round(rain)} mm of rain.` : wetModels >= 30 ? 'Showers possible.' : 'Mostly dry.') + (storm ? ` Thunderstorm in ${storm} model${storm > 1 ? 's' : ''}.` : '') + (cloudH ? ` Mt William in cloud about ${cloudH} h.` : ''));
+            (rain >= 1 ? `Up to ${Math.round(rain)} mm of rain.` : wetModels >= 30 ? 'Showers possible.' : 'Mostly dry.') + (storm ? ` Thunderstorm in ${storm} model${storm > 1 ? 's' : ''}.` : '') + cloudH.map((n, zi) => n ? ` ${CLT.zones[zi].name.replace(/ and the .*/, '')} in cloud about ${n} h.` : '').join(''));
         }
       }
       const f = flagged(race);
@@ -466,11 +468,13 @@
     if (d.url) out.push('Full detail: ' + d.url);
     return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   }
+  // Which cloud zone (high ground) a course km is in, if any.
+  function cloudZone(CL, km) { return CL && CL.zones ? CL.zones.find(z => km >= z.fromKm && km <= z.toKm) || null : null; }
   function titleCase(s) { return String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
   const ORDER = ['fire', 'wind', 'storm', 'heat', 'rain', 'cold', 'cloud', 'smoke'];
 
   return {
-    updateText,
+    updateText, cloudZone,
     TZ, HOUR, parseLocal, localHour, fmtTime, fmtDay, localDate, parts, offsetMin,
     median, max, min, r1, r0, wbgt, codeText, modelName, MODEL_NAMES,
     passTime, kmAt, runnersAt, parseCFA, evaluate, cellStatus, RANK, LABELS, ORDER, ruleText, titleCase

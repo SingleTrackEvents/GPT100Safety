@@ -57,9 +57,10 @@ window.GPT100_CONFIG = {
       cold: { met: 0, close: 3, rainMm: 1, windKmh: 40, hours: 3, proposed: true }, // feels-like °C on ridges overnight
       storm: { capeClose: 800, proposed: true },          // thunderstorm in the model forecasts
       smoke: { met: 150, close: 100, proposed: true },    // PM2.5 air quality index
-      // Advisory, not an RMP trigger: Mt William and the Major Mitchell Plateau (km 79 to 100, above 850 m) in cloud
-      // for 3 hours or more, in at least half the models, while runners are there. rh = humidity that counts as cloud.
-      cloud: { hours: 3, agree: 50, rh: 93, fromKm: 79, toKm: 100, minEle: 850, advisory: true },
+      // Advisory, not an RMP trigger: the high ground (course above 850 m in each zone) in cloud for 3 hours or more,
+      // in at least half the models, while runners are there. rh = humidity that counts as cloud.
+      cloud: { hours: 3, agree: 50, rh: 93, minEle: 850, advisory: true,
+        zones: [{ name: 'Mt Rosea', fromKm: 61, toKm: 65.5 }, { name: 'Mt William and the Major Mitchell Plateau', fromKm: 79, toKm: 100 }] },
       fire: {}                                            // Total Fire Ban, or Extreme / Catastrophic rating
     }
   },

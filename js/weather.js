@@ -677,7 +677,7 @@
     if (mdRange === 'race') { h0 = Math.max(0, hourIdx(g, WX.parseLocal(W.event.start))); h1 = Math.min(last, hourIdx(g, WX.parseLocal(W.event.end))); }
     if (h1 <= h0) { $('wxChart').innerHTML = '<p class="notice warn">The forecast doesn\'t reach race weekend yet.</p>'; $('wxMtab').innerHTML = ''; return; }
     const val = (m, h) => { const a = f.models[m][mdVar]; const v = a && h < a.length ? a[h] : null; return mdVar === 'cbase' && v == null && a ? (h < a.length ? 2000 : null) : v; };
-    if (mdVar === 'cbase' && !ids.some(m => f.models[m].cbase)) { $('wxChart').innerHTML = '<p class="notice warn">Cloud base is only worked out for the high ground (km ' + T.cloud.fromKm + ' to ' + T.cloud.toKm + '). Pick a point there, such as Mt William.</p>'; $('wxMtab').innerHTML = ''; return; }
+    if (mdVar === 'cbase' && !ids.some(m => f.models[m].cbase)) { $('wxChart').innerHTML = '<p class="notice warn">Cloud base is only worked out for the high ground: ' + T.cloud.zones.map(z => z.name + ' (km ' + z.fromKm + ' to ' + z.toKm + ')').join(' and ') + '. Pick a point there.</p>'; $('wxMtab').innerHTML = ''; return; }
     // Ensemble range: 80% of the 82 ensemble forecasts fall inside the band.
     const band = ens && { t: ['t10', 't90'], g: ['g10', 'g90'] }[mdVar];
     let ej = -1;

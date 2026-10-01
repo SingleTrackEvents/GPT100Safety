@@ -316,7 +316,7 @@ async function main() {
       const g = consensus(models, points);
       grid = Object.assign({ v: 1, modelsRun: NOW, models: Object.keys(models), points, lh: localHours(g.t0, g.n) }, g);
       // Cloud on the high ground: share of models in cloud, and the median cloud base, at each high point.
-      const CL = W.triggers.cloud, hi = points.map((p, i) => i).filter(i => points[i].km >= CL.fromKm && points[i].km <= CL.toKm && points[i].ele >= CL.minEle);
+      const CL = W.triggers.cloud, hi = points.map((p, i) => i).filter(i => points[i].ele >= CL.minEle && WX.cloudZone(CL, points[i].km));
       const cloud = await fetchCloud({ get, base: OM, keyParam, tz: WX.TZ, models: Object.keys(models), pts: hi.map(i => points[i]), rh: CL.rh, sleep });
       grid.cons.cloud = grid.cons.t.map(() => points.map(() => null));
       grid.cons.cbase = grid.cons.t.map(() => points.map(() => null));
