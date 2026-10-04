@@ -7,6 +7,7 @@
   function $(id) { return document.getElementById(id); }
   const HOUR = 3600, T = W.triggers, TOTAL = G.route[G.route.length - 1][2];
   const DATA = new URLSearchParams(location.search).get('wxdata') || W.dataUrl;
+  W.refreshUrl = new URLSearchParams(location.search).get('wxrefresh') || W.refreshUrl; // testing override
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nowS = () => Math.floor(Date.now() / 1000);
 
@@ -53,7 +54,8 @@
   let map = null, segs = [], runMarks = {}, trigLayer = null, selMark = null, fitted = false;
 
   async function getJSON(name) {
-    const r = await fetch(DATA + name, { cache: 'no-cache' });
+    // A changing ?t= gets past GitHub's 5 minute cache, so new data shows as soon as it's published.
+    const r = await fetch(DATA + name + (DATA.startsWith('http') ? '?t=' + Math.floor(Date.now() / 30000) : ''), { cache: 'no-cache' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   }
@@ -157,7 +159,7 @@
   function build() {
     $('wxBody').innerHTML = `<div class="wx-layout">
       <div class="wx-panel">
-        <div class="wx-head"><h1>Weather</h1><p id="wxUpd" class="wx-upd"></p></div>
+        <div class="wx-head"><h1>Weather</h1><p id="wxUpd" class="wx-upd"></p>${W.refreshUrl ? '<div class="wx-refresh"><button id="wxRefresh" class="btn small" type="button">Refresh now</button><span id="wxRefreshMsg" class="wx-upd" role="status"></span></div>' : ''}</div>
         <div id="wxWarn"></div>
         <div class="seg wx-views" role="tablist">
           <button data-v="triggers">Triggers</button><button data-v="timeline">Timeline</button><button data-v="sim">Simulator</button><button data-v="models">Models</button>
@@ -167,6 +169,7 @@
       <div class="wx-map"><div id="wxMap" aria-label="Weather map"></div></div>
     </div>`;
     $('wxBody').querySelectorAll('.wx-views button').forEach(b => b.addEventListener('click', () => setView(b.dataset.v)));
+    if ($('wxRefresh')) $('wxRefresh').addEventListener('click', refreshMenu);
     buildMap();
     built = true;
   }
@@ -882,6 +885,55 @@
   }
 
   // ---------- start ----------
+  // ---------- Refresh now (through the refresh relay, which holds the GitHub key) ----------
+  let refreshing = false;
+  async function relay(path, opts) {
+    const r = await fetch(W.refreshUrl.replace(/\/$/, '') + path, Object.assign({ cache: 'no-store' }, opts));
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+    return j;
+  }
+  function refreshMenu() {
+    const box = $('wxRefreshMsg');
+    if (refreshing) return;
+    box.innerHTML = '<button class="lnk" data-m="0" type="button">Quick (1 to 2 min)</button> · <button class="lnk" data-m="1" type="button">Full, with new forecast models (2 to 4 min)</button>';
+    box.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => doRefresh(b.dataset.m === '1')));
+  }
+  async function doRefresh(models) {
+    const box = $('wxRefreshMsg'), btn = $('wxRefresh');
+    const say = t => { if ($('wxRefreshMsg')) $('wxRefreshMsg').textContent = t; };
+    refreshing = true; btn.disabled = true;
+    const before = latest && latest.updated;
+    try {
+      say('Asking for fresh weather…');
+      const r = await relay('/refresh' + (models ? '?models=1' : ''), { method: 'POST' });
+      if (!r.started && r.reason === 'recent') say(`The weather was refreshed ${COOLDOWN_TXT(r)}. Checking for the new data…`);
+      else if (!r.started) say('A refresh is already running. Waiting for it…');
+      else say(r.full ? 'Fetching fresh weather and forecast models…' : models ? 'Fetching fresh weather (models were updated recently)…' : 'Fetching fresh weather…');
+      // Wait for the run to finish, then for the new data to appear (up to about 6 minutes).
+      const t0 = Date.now();
+      while (Date.now() - t0 < 6 * 60 * 1000) {
+        await new Promise(res => setTimeout(res, 15000));
+        await load();
+        if (latest && latest.updated !== before) break;
+        const s = await relay('/status').catch(() => null);
+        if (s && s.last && s.last.status === 'completed' && s.last.conclusion !== 'success' && Date.parse(s.last.updated) > t0) throw new Error('the weather watch failed this time');
+        say('Still fetching… ' + Math.round((Date.now() - t0) / 60000 * 10) / 10 + ' min');
+      }
+      if (latest && latest.updated !== before) {
+        if (latest.modelsRun !== (grid && grid.modelsRun)) { grid = null; if (ds && ds.forecast) { ds = null; dsKey = null; } }
+        renderView();
+        say('Updated just now.');
+      } else say('No new data yet. It may take a few more minutes; the tab checks again every 10 minutes.');
+    } catch (e) {
+      say('Couldn\'t refresh (' + e.message + '). The automatic updates carry on.');
+    } finally {
+      refreshing = false;
+      if ($('wxRefresh')) $('wxRefresh').disabled = false;
+    }
+  }
+  const COOLDOWN_TXT = r => r.last ? WX.fmtTime(Math.floor(Date.parse(r.last.created) / 1000), false).replace(/^/, 'at ') : 'a few minutes ago';
+
   let refresh = null;
   async function onShow() {
     if (!built) build();

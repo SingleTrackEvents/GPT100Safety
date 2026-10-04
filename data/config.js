@@ -29,6 +29,8 @@ window.GPT100_CONFIG = {
   weather: {
     // Where the hourly watch publishes its results (a separate branch, so the site isn't rebuilt every hour).
     dataUrl: 'https://raw.githubusercontent.com/SingleTrackEvents/GPT100Safety/weather-data/',
+    // The weather refresh relay (Cloudflare Worker, tools/REFRESH_WORKER.md). Blank hides the Refresh now button.
+    refreshUrl: '',
     event: { start: '2026-11-05T06:00', end: '2026-11-08T17:00' },  // first start to last cut-off
     alertsFrom: '2026-10-30T00:00',  // phone alerts from course marking onwards
     dailyUpdate: { from: '2026-10-29', hour: 9 },  // a draft of the 10 am weather update to your phone each morning, race week

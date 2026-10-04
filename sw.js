@@ -1,6 +1,6 @@
 // Offline support. App files use network first (so updates land), falling back to the cache.
 // Leaflet, fonts and map tiles are cached as they're used.
-const VERSION = 'gpt100-v15';
+const VERSION = 'gpt100-v16';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'js/engine.js', 'js/app.js',
   'data/config.js', 'data/course.js', 'data/courses.js', 'data/access-edits.js', 'data/medplan.enc.js', 'data/safety-officers.js', 'js/medplan.js',
@@ -56,9 +56,11 @@ self.addEventListener('fetch', e => {
   // Weather data from the hourly watch: network first, the last copy when offline.
   if (url.hostname === 'raw.githubusercontent.com') {
     e.respondWith(fetch(req).then(res => {
-      if (res.ok) { const copy = res.clone(); caches.open(WX_CACHE).then(c => c.put(req.url, copy)); }
+      // Stored without the ?t= cache buster, so the last copy is found offline.
+      const key = url.origin + url.pathname;
+      if (res.ok) { const copy = res.clone(); caches.open(WX_CACHE).then(c => c.put(key, copy)); }
       return res;
-    }).catch(() => caches.open(WX_CACHE).then(c => c.match(req.url)).then(r => r || new Response('', { status: 504 }))));
+    }).catch(() => caches.open(WX_CACHE).then(c => c.match(url.origin + url.pathname)).then(r => r || new Response('', { status: 504 }))));
     return;
   }
 

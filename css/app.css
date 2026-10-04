@@ -391,6 +391,9 @@ tr.muted td { color: var(--muted); }
 .wx-share-btn { width: 100%; margin: 4px 0 10px; }
 .wx-share { background: var(--paper); border: 1px solid var(--line); border-left: 6px solid #25d366; border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; }
 .wx-share textarea { width: 100%; font: 13px/1.45 var(--body); border: 1.5px solid var(--ink); border-radius: 8px; padding: 8px; resize: vertical; }
+.wx-refresh { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: 100%; }
+.wx-refresh .btn.small { min-height: 32px; padding: 0 12px; font-size: 12px; border-width: 1.5px; }
+.wx-refresh .lnk { font-size: 12px; padding: 2px 0; }
 .wx-rm { width: 24px; height: 24px; border-radius: 50%; background: #111; color: #fff; font: 800 12px/20px var(--body); text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
 .wx-rm.slow { background: var(--course); }
 .wx-tm { display: inline-block; white-space: nowrap; font: 700 11px var(--body); padding: 2px 7px; border-radius: 12px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
