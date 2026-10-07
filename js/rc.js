@@ -327,14 +327,14 @@
       ${d.note ? `<p class="notice warn">${esc(d.note)}</p>` : ''}
       <div class="rc-sevs">${Object.entries(SEV).map(([k, [l, c]]) => `<label style="--c:${c}"><input type="radio" name="sev" value="${k}"${(d.severity || 'priority') === k ? ' checked' : ''}> ${l}</label>`).join('')}</div>
       <div class="rc-grid">
-        <label>Km on ${esc((courseOf(d).name) || 'course')} <em class="rc-req">*</em><input name="km" inputmode="decimal" value="${d.km != null ? (+d.km).toFixed(1) : ''}" placeholder="e.g. 87.3"></label>
-        <label>Or where <em class="rc-req">*</em><input name="where" value="${esc(d.where || '')}" placeholder="Description or what3words"></label>
+        <label><span>Km on ${esc((courseOf(d).name) || 'course')} <em class="rc-req">*</em></span><input name="km" inputmode="decimal" value="${d.km != null ? (+d.km).toFixed(1) : ''}" placeholder="e.g. 87.3"></label>
+        <label><span>Or where <em class="rc-req">*</em></span><input name="where" value="${esc(d.where || '')}" placeholder="Description or what3words"></label>
         <label>Bib<input name="bib" value="${esc(d.bib || '')}"></label>
         <label>Runner<input name="name" value="${esc(d.name || '')}"></label>
         <label>Race<select name="race"><option></option>${races.map(x => `<option${x === d.race ? ' selected' : ''}>${esc(x)}</option>`).join('')}<option${d.race === '14k or 6k' ? ' selected' : ''}>14k or 6k</option></select></label>
         <label>Reported by<input name="reporter" value="${esc(d.reporter || '')}" placeholder="e.g. Aid station, runner, SO"></label>
       </div>
-      <label class="rc-full">What happened <em class="rc-req">*</em><textarea name="desc" rows="2" placeholder="Injury or illness, condition, what they need">${esc(d.desc || '')}</textarea></label>
+      <label class="rc-full"><span>What happened <em class="rc-req">*</em></span><textarea name="desc" rows="2" placeholder="Injury or illness, condition, what they need">${esc(d.desc || '')}</textarea></label>
       <label class="rc-full">Unit sent<select name="unit"><option value="">Not sent yet</option>${unitList().map(u => `<option value="${esc(u.id)}"${u.id === d.unit ? ' selected' : ''}>${esc(u.label)}${u.st !== 'available' ? ' (' + UNIT_ST[u.st].toLowerCase() + ')' : ''}</option>`).join('')}</select></label>
       ${best ? `<p class="rc-suggest">Suggested: <b>${esc(best.base.name)} team</b>, ETA ${G.fmt(best.total)} via ${esc(G.cleanName(best.a))}${r.results[1] ? `; backup ${esc(r.results[1].base.name)}, ${G.fmt(r.results[1].total)}` : ''}.</p>` : ''}
       <p class="rc-reqnote"><em class="rc-req">*</em> Required: a km or where, and what happened.</p>
