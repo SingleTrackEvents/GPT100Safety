@@ -26,13 +26,15 @@
     document.body.classList.toggle('on-find', name === 'find');
     document.body.classList.toggle('on-med', name === 'med');
     document.body.classList.toggle('on-wx', name === 'wx');
+    document.body.classList.toggle('on-rc', name === 'rc');
+    if (window.RaceControl) { if (name === 'rc') window.RaceControl.onShow(); else window.RaceControl.onHide(); }
     if (window.WeatherTab) { if (name === 'wx') window.WeatherTab.onShow(); else window.WeatherTab.onHide(); }
     if (name === 'sheet' && !sheetBuilt) buildSheet();
     if (name === 'med' && window.MedPlan) window.MedPlan.onShow();
     if (name === 'find' && map) setTimeout(() => map.invalidateSize(), 0);
   }
   document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
-    history.replaceState(null, '', b.dataset.tab === 'sheet' ? '#sheet' : b.dataset.tab === 'med' ? '#medical' : b.dataset.tab === 'wx' ? '#weather' : location.pathname + location.search);
+    history.replaceState(null, '', b.dataset.tab === 'sheet' ? '#sheet' : b.dataset.tab === 'med' ? '#medical' : b.dataset.tab === 'wx' ? '#weather' : b.dataset.tab === 'rc' ? '#control' : location.pathname + location.search);
     showTab(b.dataset.tab);
   }));
 
@@ -392,7 +394,8 @@
     h += `<div class="actions">
       <a class="btn" id="btnWa" href="#" target="_blank" rel="noopener">WhatsApp</a>
       <button class="btn" id="btnShare" type="button">Share</button>
-      <a class="btn" href="${dir}" target="_blank" rel="noopener">Directions</a></div>`;
+      <a class="btn" href="${dir}" target="_blank" rel="noopener">Directions</a>
+      ${window.RaceControl && window.RaceControl.available() ? '<button class="btn" id="btnRc" type="button">Log incident</button>' : ''}</div>`;
     h += `<div class="card"><h3>Message</h3><p class="script" id="script">${esc(radioScript(r))}</p></div>`;
     h += '<div id="wxNear"></div>';
     if (r.results.length > 1) {
@@ -414,6 +417,7 @@
       `${q.source && q.source !== 'km' ? 'Found from ' + esc(q.source) + '.' : ''}</p>`;
     $('result').innerHTML = h;
 
+    if ($('btnRc')) $('btnRc').addEventListener('click', () => { window.RaceControl.newFromFind(r); history.replaceState(null, '', '#control'); showTab('rc'); });
     const sh = $('btnShare');
     if (navigator.share) sh.addEventListener('click', () => navigator.share({ title: `${G.name} casualty ${kmTxt(r.km)}`, text: radioScript(r) }).catch(() => { }));
     else sh.addEventListener('click', () => copy(location.href, sh, 'Link copied'));
@@ -572,6 +576,7 @@
     if (h === 'sheet') { showTab('sheet'); return; }
     if (h === 'medical') { showTab('med'); return; }
     if (h === 'weather') { showTab('wx'); return; }
+    if (h === 'control') { showTab('rc'); return; }
     showTab('find');
     const cm = /[&?]c=([\w-]+)/.exec(h), rm = /[&?]r=([\w-]+)/.exec(h);
     setCourse(cm ? cm[1] : window.GPT.id);

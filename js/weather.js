@@ -982,5 +982,7 @@
       ${age > W.staleHours ? `<br><span class="muted">Weather data is ${age.toFixed(0)} hours old.</span>` : ''}
       <a class="lnk" href="#weather">Weather tab</a></div>`;
   }
-  window.WeatherTab = { onShow, onHide, nearHTML, valueAt: (km, t) => grid && conditions(grid, km, t || nowS()), loadGrid: () => load().then(loadGrid) };
+  // For the Race Control board: the latest triggers, loading them if this tab hasn't yet.
+  async function peek() { if (!latest || nowS() - latest.updated > 15 * 60) await load(); return latest; }
+  window.WeatherTab = { onShow, onHide, nearHTML, peek, valueAt: (km, t) => grid && conditions(grid, km, t || nowS()), loadGrid: () => load().then(loadGrid) };
 })();

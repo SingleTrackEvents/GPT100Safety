@@ -61,6 +61,15 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - Once unlocked, Find also shows the nearest medics on duty to the casualty, and the vehicles.
 - The plan is stored encrypted, so it can't be read from the public site without the password. Each device asks once and remembers until someone taps Lock.
 
+**Control** (Race Control board, unlocked with the medical password)
+
+- A live board shared between race control devices: open incidents with timers (since the call, and against the expected arrival once a unit is sent, turning red when overdue), the unit board (response teams, medical vehicles and where the plan has them, Safety Officers on post, and any units you add) and a radio log.
+- Log an incident from **New incident**, or from **Log incident** on a Find result, which carries over the km, coordinates and what3words. It suggests the team to send and the ETA.
+- Step through Dispatched, On scene, Leaving scene and Close (with the outcome). Each step is timed, logged with who did it, and updates the unit's status on every device within a few seconds.
+- Changes made without signal are kept on the device and sent when it reconnects.
+- **Export** downloads all incidents and the radio log as a spreadsheet for the incident report.
+- The log is kept in a database on the Cloudflare Worker, locked with the medical password. Setup: [`tools/RACE_CONTROL.md`](tools/RACE_CONTROL.md).
+
 **Admin** (`admin.html`, for the Race Director or safety lead)
 
 - Password protected. Each device asks once. To change the password, follow the note at the top of `admin.html`.
@@ -152,7 +161,9 @@ These are planning estimates. Always check access, gates and closures on the day
 
 | File | What it is |
 | --- | --- |
-| `index.html` | Staff app (Find, Run sheet, Weather and Medical) |
+| `index.html` | Staff app (Find, Run sheet, Weather, Medical and Control) |
+| `js/rc.js` | Race Control board |
+| `tools/refresh-worker.js` | Cloudflare Worker: weather refresh relay and the Race Control database |
 | `admin.html` | Planning map and access point editor |
 | `js/engine.js` | Response calculations, shared by Find and Run sheet |
 | `js/app.js` | Staff app screens |

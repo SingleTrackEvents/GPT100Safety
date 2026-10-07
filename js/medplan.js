@@ -273,7 +273,7 @@
     if (!fitted) { map.fitBounds(L.latLngBounds(P.stations.map(s => [s.lat, s.lon])).pad(0.06)); fitted = true; }
   }
   function updateMap(h) {
-    if (!map) return;
+    if (!map || !map._loaded) return; // not shown yet: it draws when the Medical tab opens
     P.stations.forEach(s => {
       const staff = staffAt(s.name, h), onPost = staff.filter(p => p.status === 'on'), crew = crewAt(s.name, h);
       const g = onPost.find(p => p.grade === 'Doctor') ? 'Doctor' : (onPost[0] || {}).grade;
@@ -291,7 +291,7 @@
 
   function startLive() { if (!liveTimer) liveTimer = setInterval(() => { if (isLive()) update(); refreshFind(); }, 60000); }
   function stopLive() { if (liveTimer) { clearInterval(liveTimer); liveTimer = null; } }
-  function refreshFind() { if (window.GPT_UI) window.GPT_UI.refresh(); drawFindLayer(); }
+  function refreshFind() { if (window.GPT_UI) window.GPT_UI.refresh(); drawFindLayer(); if (window.RaceControl) window.RaceControl.onAuth(); }
 
   // ---------- Safety Officer posts on the Find map ----------
   let findLayer = null, soKey = null;
@@ -411,7 +411,22 @@
   }
 
   function onShow() { if (built) { fitMap(); update(); } else render(); }
-  window.MedPlan = { render, nearbyHTML, soNearHTML, soLine, onShow, ready: unlockStored().then(ok => { if (ok) render(); refreshFind(); }) };
+  // For the Race Control board: the same password unlocks it, and it shows where the vehicles are.
+  function storedPw() { try { return localStorage.getItem(LS); } catch (e) { return null; } }
+  function vehicles() {
+    if (!P) return [];
+    const h = curH();
+    return VEH().map(v => { const s = vehicle(v, h); return { id: v, label: P.veh[v], where: s.moving ? 'to ' + s.moving.b : s.at }; });
+  }
+  function soOnPost() {
+    const src = P || SO;
+    if (!src) return [];
+    if (!T0) T0 = new Date(src.t0);
+    const h = curH();
+    return src.stations.map(s => ({ name: s.name, lat: s.lat, lon: s.lon, posts: (src.st || src.posts).filter(p => p.station === s.name && !/passage/i.test(p.label) && on(p, h)) }))
+      .filter(x => x.posts.length);
+  }
+  window.MedPlan = { unlocked: () => !!P, pw: storedPw, vehicles, soOnPost, render, nearbyHTML, soNearHTML, soLine, onShow, ready: unlockStored().then(ok => { if (ok) render(); refreshFind(); }) };
   // Keep the public Safety Officer markers in step with the clock when the plan isn't unlocked.
   setInterval(() => { if (!P) drawFindLayer(); }, 5 * 60e3);
   addEventListener('load', () => { if (!P) drawFindLayer(); });
