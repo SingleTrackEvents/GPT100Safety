@@ -7,7 +7,7 @@
 <meta name="description" content="GPT100 race-day medical access: find the fastest team and route to any point on the course.">
 <meta name="theme-color" content="#111111">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-48.png" type="image/png" sizes="48x48">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,10 +17,10 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="brand-event">GPT100</span><span class="brand-app">Safety</span></div>
+  <a class="brand" href="./" aria-label="GPT100 Safety home"><img class="brand-logo" src="icons/mark.png" alt="GPT100 Miler" width="53" height="34"><span class="brand-app">Safety</span></a>
   <nav class="tabs" role="tablist">
     <button class="tab-btn on" data-tab="find" role="tab" aria-selected="true">Find</button>
-    <button class="tab-btn" data-tab="sheet" role="tab" aria-selected="false">Run sheet</button>
+    <button class="tab-btn" data-tab="sheet" role="tab" aria-selected="false">Run<span class="tab-long"> sheet</span></button>
     <button class="tab-btn" data-tab="wx" role="tab" aria-selected="false">Weather</button>
     <button class="tab-btn" data-tab="med" role="tab" aria-selected="false">Medical</button>
     <button class="tab-btn" data-tab="rc" role="tab" aria-selected="false">Control</button>
@@ -65,6 +65,7 @@
     <div class="sheet">
       <div class="sheet-head">
         <div>
+          <img class="print-logo" src="icons/logo.png" alt="SingleTrack Events GPT100 Miler" width="160" height="140">
           <h1>Course run sheet</h1>
           <p class="muted">The fastest team to reach any point on the course, aid station to aid station.</p>
         </div>

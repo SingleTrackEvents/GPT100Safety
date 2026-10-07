@@ -174,6 +174,7 @@ These are planning estimates. Always check access, gates and closures on the day
 | `js/weather.js`, `js/weather-core.js` | Weather tab, and the trigger logic shared with the weather watch |
 | `data/pacing.js` | Fastest and slowest runner times for the simulator |
 | `tools/weather_watch.mjs`, `.github/workflows/weather.yml` | Hourly weather watch and phone alerts |
+| `icons/` | GPT100 Miler logo: header mark, full logo (print and admin) and app icons |
 | `sw.js`, `manifest.webmanifest` | Offline support and Add to Home Screen |
 
 ## Coming later

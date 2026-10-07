@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GPT100 Safety Admin</title>
+<link rel="icon" href="icons/icon-48.png" type="image/png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600;700&display=swap">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -51,10 +52,12 @@
   #gate button{width:100%;font-size:15px;font-weight:700;padding:12px;border:0;border-radius:8px;background:#d9531e;color:#fff;cursor:pointer}
   #gate .err{color:#ff8a80;font-weight:600;min-height:18px}
   #gate a{color:#bbb}
+  #gate .gate-logo{display:block;width:180px;background:#fff;border-radius:12px;padding:12px;margin:0 0 16px}
 </style>
 </head>
 <body>
 <div id="gate"><form id="gateForm" autocomplete="off">
+  <img src="icons/logo.png" alt="SingleTrack Events GPT100 Miler" class="gate-logo">
   <h1>GPT100 Admin</h1>
   <p>For the Race Director and safety lead. Enter the admin password.</p>
   <input id="gatePw" type="password" placeholder="Password" autocomplete="current-password" autofocus>
