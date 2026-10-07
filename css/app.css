@@ -29,7 +29,6 @@ a { color: inherit; }
 .top { position: sticky; top: 0; z-index: 1000; display: flex; align-items: center; gap: 16px; background: var(--ink); color: #fff; padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top)); }
 .brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; color: inherit; text-decoration: none; flex: 0 0 auto; }
 .brand-logo { display: block; height: 34px; width: auto; }
-.print-logo { display: none; }
 .brand-event { font-family: var(--head); font-size: 28px; letter-spacing: 1px; }
 .brand-app { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: #bbb; }
 .tabs { display: flex; gap: 4px; margin-left: auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -153,56 +152,11 @@ a.w3w:hover { text-decoration: underline; }
 .map-off { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 24px; text-align: center; color: var(--muted); font-size: 14px; }
 .map-hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 500; background: var(--course); color: #fff; font-weight: 600; font-size: 13px; padding: 8px 14px; border-radius: 20px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
 
-/* Run sheet */
-.sheet { max-width: 980px; margin: 0 auto; padding: 16px; }
-.sheet-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
-.sheet-head h1 { font-size: 36px; }
-.sheet-head p { margin: 4px 0 0; font-size: 14px; }
-.sheet-tools { display: flex; flex-wrap: wrap; gap: 8px; }
-.jump { display: flex; gap: 6px; }
-.jump input { width: 120px; min-height: 44px; padding: 0 10px; border: 2px solid var(--ink); border-radius: 8px; }
-.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 14px; }
-.stat { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
-.stat b { display: block; font-family: var(--head); font-weight: 400; font-size: 30px; line-height: 1.05; }
-.stat span { font-size: 12px; color: var(--muted); }
-.stat.red { border-left: 5px solid var(--red); }
-.stat.amber { border-left: 5px solid var(--amber); }
-.stat.green { border-left: 5px solid var(--green); }
-
-.sec { background: var(--paper); border: 1px solid var(--line); border-left: 8px solid var(--green); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; }
-.sec.amber { border-left-color: var(--amber); }
-.sec.red { border-left-color: var(--red); }
-.sec.flash { box-shadow: 0 0 0 3px var(--course); }
-.sec-head { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; width: 100%; text-align: left; background: none; border: 0; padding: 12px 14px; cursor: pointer; color: inherit; }
-.sec-km { font-family: var(--head); font-size: 22px; }
-.sec-name { grid-column: 1; font-weight: 600; font-size: 14px; }
-.sec-meta { grid-column: 1; font-size: 12px; color: var(--muted); }
-.badge { grid-column: 2; grid-row: 1 / span 3; align-self: center; text-align: right; }
-.badge b { display: block; font-family: var(--head); font-weight: 400; font-size: 28px; line-height: 1; }
-.badge span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; }
 .pill { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; padding: 2px 8px; border-radius: 20px; }
 .pill.green { background: var(--green-bg); color: var(--green); }
 .pill.amber { background: var(--amber-bg); color: var(--amber); }
 .pill.red { background: var(--red-bg); color: var(--red); }
-.sec-body { display: none; padding: 0 14px 14px; }
-.sec.open .sec-body { display: block; }
-.sec-body h4 { font-size: 18px; margin: 12px 0 4px; }
-.sec-body p { margin: 0; font-size: 14px; }
-.sec-body p.sec-ends { margin-bottom: 8px; font-size: 13px; line-height: 1.7; }
-.acc-list { list-style: none; padding: 0; margin: 0; font-size: 13px; }
-.acc-list li { padding: 5px 0; border-top: 1px solid var(--line); }
-.acc-list li:first-child { border-top: 0; }
-.acc-list .km { display: inline-block; width: 64px; font-weight: 700; }
-.kmtable { width: 100%; border-collapse: collapse; font-size: 13px; }
-.kmtable th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 600; padding: 4px 6px; border-bottom: 2px solid var(--ink); }
-.kmtable td { padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.kmtable tr.go { cursor: pointer; }
-.kmtable tr.go:hover td { background: #f7f6f2; }
-.kmtable tr.worst td { font-weight: 700; }
-.kmtable .eta-c { white-space: nowrap; font-weight: 700; text-align: right; }
-.kmtable .km-c { white-space: nowrap; font-weight: 700; }
-.kmtable .send-c { white-space: nowrap; }
-.sec, #result, .find-map { scroll-margin-top: 70px; }
+#result, .find-map { scroll-margin-top: 70px; }
 .sec-actions { margin-top: 10px; }
 
 .foot { padding: 16px; font-size: 12px; color: var(--muted); max-width: 980px; margin: 0 auto; }
@@ -480,24 +434,6 @@ tr.muted td { color: var(--muted); }
   body.on-rc .foot { display: none; }
 }
 
-/* Print: the run sheet as a paper backup */
-@media print {
-  @page { size: A4; margin: 12mm; }
-  body { background: #fff; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .top, #tab-find, #tab-med, #tab-wx, #tab-rc, .sheet-tools, .sec-actions, .foot a { display: none !important; }
-  #tab-sheet { display: block !important; }
-  .print-logo { display: block; width: 46mm; height: auto; margin: 0 0 4mm; }
-  .sheet { padding: 0; max-width: none; }
-  .sec { break-inside: avoid; border: 1px solid #999; border-left-width: 8px; margin-bottom: 6px; }
-  .sec-body { display: block !important; }
-  .sec-head { padding: 6px 10px; }
-  .sec-body { padding: 0 10px 8px; }
-  .kmtable td { padding: 3px 5px; }
-  .stat { border: 1px solid #999; }
-  .foot { display: block !important; padding: 8px 0 0; }
-  a.w3w { color: #b0181d; }
-}
-
 /* Phones: all five tabs fit beside the logo */
-@media (max-width: 380px) { .tab-long { display: none; } .tab-btn { padding: 8px 4px; } }
+@media (max-width: 380px) { .tab-btn { padding: 8px 5px; } }
 @media (max-width: 340px) { .brand-logo { height: 26px; } .tab-btn { padding: 8px 3px; font-size: 12px; } }

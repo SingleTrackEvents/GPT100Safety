@@ -6,7 +6,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 ## What's in it
 
-**Courses:** a picker at the top of Find and the Run sheet switches between the GPT100 course (which the 50k, 33k and stage races also run on) and the 14k (the 6k runs on part of it). Each course has its own km, sections and checkpoints, and shares the same access points and drive routes.
+**Courses:** a picker at the top of Find switches between the GPT100 course (which the 50k, 33k and stage races also run on) and the 14k (the 6k runs on part of it). Each course has its own km, sections and checkpoints, and shares the same access points and drive routes.
 
 **Find** (for whoever takes the call)
 
@@ -26,12 +26,6 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - Every access point, aid station and base has a what3words address stored in the app, so it shows even with no signal. Tap one to open it in the what3words app, which can navigate there.
 - Search by what3words, with suggestions near the course as you type. If a word is misheard or the address lands a long way from the course, the app suggests likely alternatives near the race.
 - With signal, the casualty's what3words is looked up and added to the result, the message and the WhatsApp text, along with the parking spot's what3words.
-
-**Run sheet** (for briefings, aid station captains and sweeps)
-
-- The course from aid station to aid station, rated green, amber or red by how long it takes to reach the hardest point.
-- Open a section to see its access points and a km by km table. Tap any row to open it in Find.
-- **Print** gives a clean A4 paper backup for vehicles and aid stations.
 
 **Weather** (for the weather lead and race control)
 
@@ -79,7 +73,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 ## Using it offline
 
-Open the app once with signal and it saves itself to the device. After that, Find and the Run sheet work with no signal. Map tiles are saved as you view them, so it's worth zooming along the course once before race day. what3words lookups need signal.
+Open the app once with signal and it saves itself to the device. After that, Find works with no signal. Map tiles are saved as you view them, so it's worth zooming along the course once before race day. what3words lookups need signal.
 
 On a phone, use **Add to Home Screen** so it opens like an app.
 
@@ -107,7 +101,7 @@ python3 tools/update_course.py path/to/course.gpx
 
 Then run `python3 tools/add_w3w.py` to give any new points a what3words address.
 
-The update script replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check the Run sheet afterwards and commit `data/course.js`.
+The update script replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check a few km in Find afterwards and commit `data/course.js`.
 
 Where the course passes the same spot twice, such as the out and back to Jimmy Creek Camp, the app works that out automatically and shows both km.
 
@@ -161,20 +155,20 @@ These are planning estimates. Always check access, gates and closures on the day
 
 | File | What it is |
 | --- | --- |
-| `index.html` | Staff app (Find, Run sheet, Weather, Medical and Control) |
+| `index.html` | Staff app (Find, Weather, Medical and Control) |
 | `js/rc.js` | Race Control board |
 | `tools/refresh-worker.js` | Cloudflare Worker: weather refresh relay and the Race Control database |
 | `admin.html` | Planning map and access point editor |
-| `js/engine.js` | Response calculations, shared by Find and Run sheet |
+| `js/engine.js` | Response calculations for Find, the Medical tab and Race Control |
 | `js/app.js` | Staff app screens |
-| `css/app.css` | Staff app styles, including the print layout |
+| `css/app.css` | Staff app styles |
 | `data/course.js` | Course route, bases, access points and crossings |
 | `data/access-edits.js` | Published access point changes |
 | `data/config.js` | Bases, assumptions and thresholds |
 | `js/weather.js`, `js/weather-core.js` | Weather tab, and the trigger logic shared with the weather watch |
 | `data/pacing.js` | Fastest and slowest runner times for the simulator |
 | `tools/weather_watch.mjs`, `.github/workflows/weather.yml` | Hourly weather watch and phone alerts |
-| `icons/` | GPT100 Miler logo: header mark, full logo (print and admin) and app icons |
+| `icons/` | GPT100 Miler logo: header mark, full logo (admin login) and app icons |
 | `sw.js`, `manifest.webmanifest` | Offline support and Add to Home Screen |
 
 ## Coming later

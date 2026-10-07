@@ -137,7 +137,7 @@
       });
     }
 
-    // Stops split the run sheet and are the "nearest help": aid stations and water points on the main
+    // Stops are the "nearest help": aid stations and water points on the main
     // course, the listed checkpoints on other courses.
     let STOPS;
     if (def.main) STOPS = ACCESS.filter(a => a.aid).sort((x, y) => x.trail_km - y.trail_km);
@@ -201,7 +201,7 @@
       };
     }
 
-    // Fastest response at every course point (for the danger overlay and run sheet).
+    // Fastest response at every course point (for the danger overlay).
     let bestAll = null;
     function bestAtAll() {
       if (bestAll) return bestAll;

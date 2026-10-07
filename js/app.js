@@ -1,11 +1,10 @@
-// GPT100 Safety staff app: Find (incident finder) and Run sheet tabs.
+// GPT100 Safety staff app: the Find tab (incident finder), tabs and start-up.
 (function () {
   // G is the engine for the course being viewed (GPT100 by default); the picker switches it.
   let G = window.GPT, route = G.route;
   const C = G.config;
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const baseOf = k => G.BASES.find(b => b.key === k);
   const one = n => (Math.round(n * 10) / 10).toFixed(1);
   const kmTxt = km => 'km ' + one(km);
   // what3words: a tappable ///address that opens the what3words app or website.
@@ -17,7 +16,6 @@
     `(older automatic times x ${C.driveFactor}).`;
 
   // ---------- Tabs ----------
-  let sheetBuilt = false;
   function showTab(name) {
     document.querySelectorAll('.tab-btn').forEach(b => {
       const on = b.dataset.tab === name; b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
@@ -29,12 +27,11 @@
     document.body.classList.toggle('on-rc', name === 'rc');
     if (window.RaceControl) { if (name === 'rc') window.RaceControl.onShow(); else window.RaceControl.onHide(); }
     if (window.WeatherTab) { if (name === 'wx') window.WeatherTab.onShow(); else window.WeatherTab.onHide(); }
-    if (name === 'sheet' && !sheetBuilt) buildSheet();
     if (name === 'med' && window.MedPlan) window.MedPlan.onShow();
     if (name === 'find' && map) setTimeout(() => map.invalidateSize(), 0);
   }
   document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
-    history.replaceState(null, '', b.dataset.tab === 'sheet' ? '#sheet' : b.dataset.tab === 'med' ? '#medical' : b.dataset.tab === 'wx' ? '#weather' : b.dataset.tab === 'rc' ? '#control' : location.pathname + location.search);
+    history.replaceState(null, '', b.dataset.tab === 'med' ? '#medical' : b.dataset.tab === 'wx' ? '#weather' : b.dataset.tab === 'rc' ? '#control' : location.pathname + location.search);
     showTab(b.dataset.tab);
   }));
 
@@ -43,12 +40,12 @@
   addEventListener('online', netStatus); addEventListener('offline', netStatus); netStatus();
 
   // ---------- Map ----------
-  // The map is optional: if Leaflet can't load (no signal on first open), answers and the run sheet still work.
+  // The map is optional: if Leaflet can't load (no signal on first open), answers still work.
   let courseLL = route.map(p => [p[0], p[1]]);
   let map = null, resultLayer = null, courseLayer = null, pin = null;
   if (window.L) initMap();
   else {
-    $('map').innerHTML = '<p class="map-off">Map unavailable without signal. Answers and the run sheet still work.</p>';
+    $('map').innerHTML = '<p class="map-off">Map unavailable without signal. Answers still work.</p>';
     $('btnPick').disabled = true;
   }
 
@@ -117,13 +114,10 @@
     last = null; $('result').innerHTML = EMPTY; setMsg('');
     if (map) { resultLayer.clearLayers(); drawCourse(true); }
     if ($('racePick')) $('racePick').hidden = !G.main;
-    sheetBuilt = false;
-    if ($('tab-sheet').classList.contains('on')) buildSheet();
   }
   if (G.courses.length > 1) {
     const html = `<div class="course-pick" role="group" aria-label="Course">${G.courses.map(c => `<button type="button" data-c="${c.id}"${c === G ? ' class="on"' : ''}>${esc(c.label)}</button>`).join('')}</div><p class="course-note"></p>`;
     $('findForm').insertAdjacentHTML('afterbegin', html);
-    document.querySelector('.sheet-head').insertAdjacentHTML('afterend', html);
     document.querySelectorAll('.course-pick button').forEach(b => b.addEventListener('click', () => setCourse(b.dataset.c)));
   }
 
@@ -481,64 +475,6 @@
     map.fitBounds(bounds.pad(0.35), { maxZoom: 15 });
   }
 
-  // ---------- Run sheet ----------
-  let secs = null;
-  function buildSheet() {
-    sheetBuilt = true;
-    secs = G.sections();
-    const all = G.bestAtAll();
-    let redKm = 0, amberKm = 0, worst = null;
-    for (let i = 1; i < route.length; i++) {
-      const d = route[i][2] - route[i - 1][2], t = all[i] && all[i].total;
-      if (t > C.redMin) redKm += d; else if (t > C.amberMin) amberKm += d;
-      if (all[i] && (!worst || t > worst.t)) worst = { t, km: route[i][2] };
-    }
-    $('sheetSummary').innerHTML = `
-      <div class="stat green"><b>${one(G.totalKm - redKm - amberKm)} km</b><span>reachable within ${G.fmt(C.amberMin)}</span></div>
-      <div class="stat amber"><b>${one(amberKm)} km</b><span>${G.fmt(C.amberMin)} to ${G.fmt(C.redMin)} to reach</span></div>
-      <div class="stat red"><b>${one(redKm)} km</b><span>over ${G.fmt(C.redMin)} to reach</span></div>
-      <div class="stat"><b>${G.fmt(worst.t)}</b><span>slowest point, ${kmTxt(worst.km)}</span></div>`;
-    $('sections').innerHTML = secs.map(sectionHTML).join('');
-    document.querySelectorAll('.sec-head').forEach(h => h.addEventListener('click', () => {
-      const s = h.parentNode, on = !s.classList.contains('open');
-      s.classList.toggle('open', on); h.setAttribute('aria-expanded', on);
-    }));
-    document.querySelectorAll('tr.go').forEach(tr => tr.addEventListener('click', () => openInFinder(+tr.dataset.km)));
-    document.querySelectorAll('[data-map]').forEach(btn => btn.addEventListener('click', () => {
-      const s = secs[+btn.dataset.map]; showTab('find');
-      if (!map) return;
-      map.fitBounds(L.latLngBounds(courseLL.slice(s.from.idx, s.to.idx + 1)).pad(0.15));
-      $('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }));
-  }
-
-  function sectionHTML(s, n) {
-    const w = s.worst;
-    const label = { green: 'Good access', amber: 'Slow access', red: 'Remote' }[s.rating];
-    let h = `<article class="sec ${s.rating}" id="sec-${n}">
-      <button class="sec-head" type="button" aria-expanded="false">
-        <span class="sec-km">KM ${one(s.startKm)} to ${one(s.endKm)}</span>
-        <span class="sec-name">${esc(s.from.name)} to ${esc(s.to.name)}</span>
-        <span class="sec-meta">${one(s.lengthKm)} km, ${Math.round(s.climb)} m climb &middot; <span class="pill ${s.rating}">${label}</span></span>
-        <span class="badge"><span>Up to</span><b>${G.fmt(w.r.total)}</b></span>
-      </button><div class="sec-body">`;
-    h += `<p class="sec-ends"><b>${esc(s.from.name)}</b> ${w3wLink(s.from.w3w)}<br><b>${esc(s.to.name)}</b> ${w3wLink(s.to.w3w)}</p>`;
-    h += `<p><b>Hardest point to reach:</b> ${kmTxt(w.km)}. Send ${esc(w.r.base ? w.r.base.name : baseOf(w.r.key).name)} team via ${esc(G.cleanName(w.r.a))}${G.isGated(w.r.a) ? ' (gated)' : ''}, ${G.fmt(w.r.total)}.</p>`;
-    h += '<h4>Access points in this section</h4>';
-    if (s.access.length) {
-      h += '<ul class="acc-list">' + s.access.map(a => `<li><span class="km">${kmTxt(a.trail_km)}</span>${esc(G.cleanName(a))}${G.isGated(a) ? '<span class="tag gated">Gated</span>' : ''}${a.conn_m > 50 ? `<span class="tag track">${a.conn_m} m walk to course</span>` : ''} ${w3wLink(a.w3w)}</li>`).join('') + '</ul>';
-    } else h += '<p class="muted">None between these aid stations. Access is from the aid stations at each end.</p>';
-    h += `<h4>Km by km</h4><table class="kmtable"><thead><tr><th>Km</th><th>Send</th><th>Via</th><th style="text-align:right">ETA</th></tr></thead><tbody>`;
-    s.rows.forEach(row => {
-      const r = row.r, b = baseOf(r.key);
-      h += `<tr class="go${row.worst ? ' worst' : ''}" data-km="${row.km}" title="Open in Find">
-        <td class="km-c">${one(row.km)}</td><td class="send-c"><span class="dot" style="background:${b.color}"></span>${esc(b.name)}</td>
-        <td>${esc(G.cleanName(r.a))}${G.isGated(r.a) ? ' (gated)' : ''}</td><td class="eta-c">${G.fmt(r.total)}</td></tr>`;
-    });
-    h += `</tbody></table><div class="sec-actions"><button class="btn small" type="button" data-map="${n}">Show on map</button></div></div></article>`;
-    return h;
-  }
-
   function openInFinder(km) { showTab('find'); $('q').value = one(km); setMsg(''); findKm(km); }
   // Used by the Medical tab: open a km in Find, and refresh the "Medical on duty" card when the plan time changes.
   window.GPT_UI = {
@@ -551,29 +487,9 @@
     }
   };
 
-  $('jumpForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const km = parseFloat($('jump').value);
-    if (isNaN(km) || !secs) return;
-    const n = secs.findIndex(s => km >= s.startKm && km <= s.endKm);
-    const el = $('sec-' + (n < 0 ? (km < secs[0].startKm ? 0 : secs.length - 1) : n));
-    el.classList.add('open', 'flash'); el.querySelector('.sec-head').setAttribute('aria-expanded', true);
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => el.classList.remove('flash'), 1800);
-  });
-  let expanded = false;
-  $('btnExpand').addEventListener('click', () => {
-    expanded = !expanded;
-    document.querySelectorAll('.sec').forEach(s => { s.classList.toggle('open', expanded); s.querySelector('.sec-head').setAttribute('aria-expanded', expanded); });
-    $('btnExpand').textContent = expanded ? 'Close all' : 'Open all';
-  });
-  $('btnPrint').addEventListener('click', () => window.print());
-  addEventListener('beforeprint', () => { if (!sheetBuilt) buildSheet(); });
-
   // ---------- Start-up: restore from link ----------
   function fromHash() {
     const h = decodeURIComponent(location.hash.slice(1));
-    if (h === 'sheet') { showTab('sheet'); return; }
     if (h === 'medical') { showTab('med'); return; }
     if (h === 'weather') { showTab('wx'); return; }
     if (h === 'control') { showTab('rc'); return; }
