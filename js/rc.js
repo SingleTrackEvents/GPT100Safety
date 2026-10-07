@@ -62,6 +62,7 @@
     try {
       await flush();
       const j = await api('/rc/state?since=' + since);
+      if (!Array.isArray(j.incidents)) throw new Error('Race Control isn\'t set up on the Worker yet (paste the latest Worker code into Cloudflare)');
       j.incidents.forEach(i => { const cur = incidents.get(i.id); if (!cur || (cur.version || 0) <= i.version) incidents.set(i.id, i); });
       j.units.forEach(u => units.set(u.id, u));
       if (j.log.length) { const ids = new Set(log.map(l => l.id)); log = j.log.filter(l => !ids.has(l.id)).concat(log).sort((a, b) => b.id - a.id).slice(0, 500); }
