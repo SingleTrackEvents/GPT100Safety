@@ -142,14 +142,14 @@
     $('rcExport').addEventListener('click', exportCSV);
     $('rcLogForm').addEventListener('submit', e => {
       e.preventDefault();
-      const t = $('rcLogText').value.trim(); if (!t) return;
+      const t = $('rcLogText').value.trim(); if (!t) return flash($('rcLogText'));
       if (!needName()) return;
       log.unshift({ id: 1e15 + now(), t: now(), text: t, who: who(), kind: 'note', pending: true });
       send('/rc/log', { text: t }); $('rcLogText').value = ''; renderLog();
     });
     $('rcAddUnit').addEventListener('submit', e => {
       e.preventDefault();
-      const n = $('rcUnitName').value.trim(); if (!n) return;
+      const n = $('rcUnitName').value.trim(); if (!n) return flash($('rcUnitName'));
       patchUnit('u-' + n.replace(/[^A-Za-z0-9]+/g, '-').slice(0, 40), { custom: true, label: n, status: 'available' }, 'Unit added: ' + n);
       $('rcUnitName').value = '';
     });
@@ -162,11 +162,18 @@
     }
     built = true;
   }
+  // Flash a missing required field red (and focus the first one).
+  function flash(...els) {
+    els = els.filter(Boolean);
+    els.forEach(el => { el.classList.remove('rc-flash'); void el.offsetWidth; el.classList.add('rc-flash'); el.addEventListener('input', () => el.classList.remove('rc-flash'), { once: true }); el.addEventListener('change', () => el.classList.remove('rc-flash'), { once: true }); clearTimeout(el._flashT); el._flashT = setTimeout(() => el.classList.remove('rc-flash'), 2600); });
+    if (els[0]) els[0].focus();
+    return false;
+  }
   function needName() {
     if (who()) return true;
-    $('rcWho').focus(); $('rcWho').classList.add('rc-need');
-    setTimeout(() => $('rcWho') && $('rcWho').classList.remove('rc-need'), 2500);
-    return false;
+    const el = $('rcWho');
+    el.placeholder = 'Your name first';
+    return flash(el);
   }
 
   // ---------- rendering ----------
@@ -228,7 +235,7 @@
   function step(i, k) {
     if (!needName()) return;
     const label = STEPS.find(s => s[0] === k)[1];
-    if (k === 'dispatched' && !i.unit) { openForm(i, 'Choose the unit sent, then save.'); return; }
+    if (k === 'dispatched' && !i.unit) { openForm(i, 'Choose the unit sent, then save.'); flash($('rcForm').querySelector('select[name=unit]')); return; }
     const patch = { times: { [k]: now() } };
     patchIncident(i.id, patch, `${label}${i.unit ? ' (' + unitLabel(i.unit) + ')' : ''}`);
     if (i.unit) patchUnit(i.unit, { status: k === 'onScene' ? 'onscene' : k === 'leaving' ? 'returning' : 'tasked', incident: i.id });
@@ -320,16 +327,17 @@
       ${d.note ? `<p class="notice warn">${esc(d.note)}</p>` : ''}
       <div class="rc-sevs">${Object.entries(SEV).map(([k, [l, c]]) => `<label style="--c:${c}"><input type="radio" name="sev" value="${k}"${(d.severity || 'priority') === k ? ' checked' : ''}> ${l}</label>`).join('')}</div>
       <div class="rc-grid">
-        <label>Km on ${esc((courseOf(d).name) || 'course')}<input name="km" inputmode="decimal" value="${d.km != null ? (+d.km).toFixed(1) : ''}" placeholder="e.g. 87.3"></label>
-        <label>Or where<input name="where" value="${esc(d.where || '')}" placeholder="Description or what3words"></label>
+        <label>Km on ${esc((courseOf(d).name) || 'course')} <em class="rc-req">*</em><input name="km" inputmode="decimal" value="${d.km != null ? (+d.km).toFixed(1) : ''}" placeholder="e.g. 87.3"></label>
+        <label>Or where <em class="rc-req">*</em><input name="where" value="${esc(d.where || '')}" placeholder="Description or what3words"></label>
         <label>Bib<input name="bib" value="${esc(d.bib || '')}"></label>
         <label>Runner<input name="name" value="${esc(d.name || '')}"></label>
         <label>Race<select name="race"><option></option>${races.map(x => `<option${x === d.race ? ' selected' : ''}>${esc(x)}</option>`).join('')}<option${d.race === '14k or 6k' ? ' selected' : ''}>14k or 6k</option></select></label>
         <label>Reported by<input name="reporter" value="${esc(d.reporter || '')}" placeholder="e.g. Aid station, runner, SO"></label>
       </div>
-      <label class="rc-full">What happened<textarea name="desc" rows="2" placeholder="Injury or illness, condition, what they need">${esc(d.desc || '')}</textarea></label>
+      <label class="rc-full">What happened <em class="rc-req">*</em><textarea name="desc" rows="2" placeholder="Injury or illness, condition, what they need">${esc(d.desc || '')}</textarea></label>
       <label class="rc-full">Unit sent<select name="unit"><option value="">Not sent yet</option>${unitList().map(u => `<option value="${esc(u.id)}"${u.id === d.unit ? ' selected' : ''}>${esc(u.label)}${u.st !== 'available' ? ' (' + UNIT_ST[u.st].toLowerCase() + ')' : ''}</option>`).join('')}</select></label>
       ${best ? `<p class="rc-suggest">Suggested: <b>${esc(best.base.name)} team</b>, ETA ${G.fmt(best.total)} via ${esc(G.cleanName(best.a))}${r.results[1] ? `; backup ${esc(r.results[1].base.name)}, ${G.fmt(r.results[1].total)}` : ''}.</p>` : ''}
+      <p class="rc-reqnote"><em class="rc-req">*</em> Required: a km or where, and what happened.</p>
       <div class="rc-actions"><button class="btn primary small" type="submit">${editing ? 'Save' : 'Log incident'}</button><button class="btn small" type="button" data-cancel>Cancel</button></div></form>`;
     const f = box.querySelector('form');
     f.km.addEventListener('change', () => { const v = parseFloat(f.km.value); draft.km = isNaN(v) ? null : v; keep(f); renderForm(true); });
@@ -341,6 +349,12 @@
   function save(f) {
     if (!needName()) return;
     keep(f);
+    // Required: a location (km or where) and what happened. Missing ones flash red.
+    const missing = [];
+    if (!f.km.value.trim() && !f.where.value.trim()) missing.push(f.km, f.where);
+    if (!f.desc.value.trim()) missing.push(f.desc);
+    if (f.km.value.trim() && isNaN(parseFloat(f.km.value))) missing.push(f.km);
+    if (missing.length) { flash(...missing); return; }
     const km = parseFloat(f.km.value);
     const p = { severity: draft.severity, km: isNaN(km) ? null : Math.round(km * 10) / 10, where: draft.where.trim(), bib: draft.bib.trim(), name: draft.name.trim(), race: draft.race, reporter: draft.reporter.trim(), desc: draft.desc.trim(), unit: draft.unit || null };
     if (draft.course) p.course = draft.course;

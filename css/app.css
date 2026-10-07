@@ -414,7 +414,10 @@ tr.muted td { color: var(--muted); }
 .rc-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
 .rc-who { font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .rc-who input { width: 130px; min-height: 32px; border: 1.5px solid var(--ink); border-radius: 8px; padding: 0 8px; font: inherit; font-size: 13px; }
-.rc-who input.rc-need { outline: 3px solid var(--red); }
+.rc-flash { border-color: var(--red) !important; outline: 3px solid var(--red); outline-offset: 0; animation: rcflash .5s ease-in-out 4; }
+@keyframes rcflash { 0%, 100% { background: #fff; } 50% { background: #ffcdd2; } }
+.rc-req { color: var(--red); font-style: normal; font-weight: 700; }
+.rc-reqnote { font-size: 11px; color: var(--muted); margin: -2px 0 8px; }
 .rc-sync { font-size: 12px; font-weight: 600; }
 .rc-sync::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: #bbb; }
 .rc-sync.ok::before { background: var(--green); } .rc-sync.warn::before { background: var(--amber); } .rc-sync.bad { color: var(--red); } .rc-sync.bad::before { background: var(--red); }
