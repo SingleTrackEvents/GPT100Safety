@@ -64,6 +64,15 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Export** downloads all incidents and the radio log as a spreadsheet for the incident report.
 - The log is kept in a database on the Cloudflare Worker, locked with the medical password. Setup: [`tools/RACE_CONTROL.md`](tools/RACE_CONTROL.md).
 
+**Field app** (`field.html`, for Safety Officers, sweeps, aid station crews and medics on the course; open to all)
+
+- **Where am I?** One tap uses the phone's GPS: km on the course (the GPT100, or the 14k when that's nearer), between which aid stations, how far off the course, height, GPS accuracy, coordinates and what3words. No GPS? Type the km.
+- **Send my location** or **Urgent: casualty here** opens WhatsApp with the message ready (km, place, coordinates, map link, what3words, nearest vehicle access, and for urgent, the fastest team), plus an optional note.
+- **Nearest way out:** the closest vehicle access by walking time (gated or not) and the drive from there to each base, and the aid stations either side.
+- **Weather here:** now and the next 3 hours, triggers, BOM warnings and fires nearby. And a map with you, the course and the way out.
+- Works offline once opened with signal (what3words and fresh weather need signal). Add it to the home screen: it opens straight to the field app.
+- **Live tracking:** when the tracking link is known, put it in `data/config.js` (`tracking.url`) and a Live tracking button appears here and on the Race Control board.
+
 **Admin** (`admin.html`, for the Race Director or safety lead)
 
 - Password protected. Each device asks once. To change the password, follow the note at the top of `admin.html`.
@@ -157,6 +166,7 @@ These are planning estimates. Always check access, gates and closures on the day
 | --- | --- |
 | `index.html` | Staff app (Find, Weather, Medical and Control) |
 | `js/rc.js` | Race Control board |
+| `field.html`, `js/field.js`, `css/field.css` | Field app |
 | `tools/refresh-worker.js` | Cloudflare Worker: weather refresh relay and the Race Control database |
 | `admin.html` | Planning map and access point editor |
 | `js/engine.js` | Response calculations for Find, the Medical tab and Race Control |

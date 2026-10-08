@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GPT100 Field</title>
+<meta name="description" content="GPT100 field app for Safety Officers, sweeps and aid station crews: where am I, the nearest way out, local weather and send my location.">
+<meta name="theme-color" content="#111111">
+<link rel="manifest" href="manifest-field.webmanifest">
+<link rel="icon" href="icons/icon-48.png" type="image/png" sizes="48x48">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/field.css">
+</head>
+<body class="field">
+<header class="top">
+  <a class="brand" href="field.html" aria-label="GPT100 Field"><img class="brand-logo" src="icons/mark.png" alt="GPT100 Miler" width="53" height="34"><span class="brand-app fd-app">Field</span></a>
+  <span id="net" class="net" hidden>Offline</span>
+  <a class="fd-full" href="index.html">Full app</a>
+</header>
+
+<main class="fd">
+  <section class="fd-locate">
+    <button id="fdLocate" class="fd-big" type="button">Where am I?</button>
+    <label class="fd-follow"><input id="fdFollow" type="checkbox"> Keep updating</label>
+    <p id="fdGpsMsg" class="fd-msg" role="status"></p>
+    <form id="fdKmForm" class="fd-km" autocomplete="off"><label for="fdKm">No GPS? Enter the km</label>
+      <div><input id="fdKm" type="text" inputmode="decimal" placeholder="e.g. 87.3"><button class="btn" type="submit">Go</button></div></form>
+  </section>
+
+  <div id="fdOut" hidden>
+    <section class="fd-card fd-where">
+      <div id="fdWhere"></div>
+    </section>
+
+    <section class="fd-card fd-send">
+      <h2>Send my location</h2>
+      <label for="fdNote" class="fd-label">Add a note (optional)</label>
+      <textarea id="fdNote" rows="2" placeholder="e.g. Runner 123, rolled ankle, walking slowly"></textarea>
+      <div class="fd-sendbtns">
+        <a id="fdSend" class="fd-big fd-wa" href="#" target="_blank" rel="noopener">Send my location</a>
+        <a id="fdUrgent" class="fd-big fd-urgent" href="#" target="_blank" rel="noopener">Urgent: casualty here</a>
+      </div>
+      <p class="fd-hint">Opens WhatsApp with the message ready. Pick the safety group or race control, then send. With weak signal it sends when it can.</p>
+    </section>
+
+    <section class="fd-card">
+      <h2>Nearest way out</h2>
+      <div id="fdOutWay"></div>
+    </section>
+
+    <section class="fd-card">
+      <h2>Weather here</h2>
+      <div id="fdWx"><p class="muted">Loading…</p></div>
+    </section>
+
+    <section class="fd-card fd-mapcard"><div id="fdMap" aria-label="Map"></div></section>
+  </div>
+
+  <p id="fdTrack" class="fd-track" hidden></p>
+  <p class="fd-foot">Planning guide only. Times are estimates at responder walking pace. In an emergency call 000.</p>
+</main>
+
+<!-- The Weather tab code supplies the weather line; it stays hidden here. -->
+<div id="wxBody" hidden></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="data/config.js"></script>
+<script src="data/course.js"></script>
+<script src="data/courses.js"></script>
+<script src="data/access-edits.js"></script>
+<script src="js/engine.js"></script>
+<script src="data/pacing.js"></script>
+<script src="js/weather-core.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/field.js"></script>
+</body>
+</html>

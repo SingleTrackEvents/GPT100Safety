@@ -129,6 +129,7 @@
         <div class="rc-tools"><span id="rcSync" class="rc-sync"></span>
           <label class="rc-who">You <input id="rcWho" type="text" maxlength="40" placeholder="Your name" value="${esc(who())}"></label>
           <button id="rcNew" class="btn primary small" type="button">New incident</button>
+          ${C.tracking && C.tracking.url ? `<a class="btn small" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>` : ''}
           <button id="rcExport" class="btn small" type="button">Export</button></div>
       </div>
       <div class="rc-col rc-incs"><div id="rcForm"></div><div id="rcOpen"></div><details class="rc-closed"><summary id="rcClosedSum">Closed</summary><div id="rcClosed"></div></details></div>

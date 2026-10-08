@@ -66,6 +66,9 @@ window.GPT100_CONFIG = {
       fire: {}                                            // Total Fire Ban, or Extreme / Catastrophic rating
     }
   },
+  // Live runner tracking. Paste the tracking page link here when it's available: a Live tracking button
+  // then shows in the field app and on the Race Control board. (A data feed can be added later.)
+  tracking: { url: '', label: 'Live tracking' },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
   what3wordsKey: 'LBTPEWCQ'

@@ -980,7 +980,7 @@
       ${warn.map(w => `<br><a class="wx-near-warn" href="${esc(w.link)}" target="_blank" rel="noopener">BOM: ${esc(w.title)}</a>`).join('')}
       ${inc.map(x => `<br><a class="wx-near-warn" href="https://emergency.vic.gov.au/respond/" target="_blank" rel="noopener">${esc(x.title)} ${(G.metres([lat, lon], [x.lat, x.lon]) / 1000).toFixed(0)} km away${x.location ? ': ' + esc(x.location) : ''}</a>`).join('')}
       ${age > W.staleHours ? `<br><span class="muted">Weather data is ${age.toFixed(0)} hours old.</span>` : ''}
-      <a class="lnk" href="#weather">Weather tab</a></div>`;
+      <a class="lnk" href="index.html#weather">Weather tab</a></div>`;
   }
   // For the Race Control board: the latest triggers, loading them if this tab hasn't yet.
   async function peek() { if (!latest || nowS() - latest.updated > 15 * 60) await load(); return latest; }
