@@ -66,10 +66,24 @@
     if (n && n.distKm < 0.3) return 'at ' + n.a.name;
     return p && n ? `between ${p.a.name} and ${n.a.name}` : '';
   }
+  // More than this far from the course, "nearest point" answers would mislead, so the app says so instead.
+  const FAR_M = 10000;
   function render() {
     if (!here) return;
     $('fdOut').hidden = false;
-    const { E, r } = here, g = here.gps;
+    const { E, r } = here, g = here.gps, far = here.offM > FAR_M && !here.manual;
+    $('fdOut').classList.toggle('far', far);
+    if (far) {
+      $('fdWhere').innerHTML = `
+        <div class="fd-kmrow"><span class="fd-kmbig">${Math.round(here.offM / 1000)} KM</span></div>
+        <p class="fd-between">from the course</p>
+        <p class="notice warn">You're more than ${FAR_M / 1000} km from the GPT100 courses, so the app won't point you to a course km or a way out from here. Where am I? works within ${FAR_M / 1000} km of the course.</p>
+        <p class="fd-facts">${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${g ? ` · GPS ±${Math.round(g.acc)} m` : ''}</p>
+        <p class="fd-facts">Need a point on the course? Enter the km above.</p>`;
+      drawMap(null, true);
+      profile.setHere(null);
+      return;
+    }
     const off = here.offM < 40 ? 'On the course' : here.offM < 1000 ? `${here.offM} m from the course` : `${one(here.offM / 1000)} km from the course`;
     $('fdWhere').innerHTML = `
       <div class="fd-kmrow"><span class="fd-kmbig">KM ${one(r.km)}</span>${E.main ? '' : `<span class="fd-course">${esc(E.name)}</span>`}</div>
@@ -174,7 +188,7 @@
     el.innerHTML = `<span class="fd-trail-key"></span>Your trail: <b>${one(m / 1000)} km</b> since ${tf.format(new Date(trail[0][2]))} <button type="button" class="fd-linkbtn" id="fdTrailClear">Clear</button>`;
     $('fdTrailClear').onclick = () => { if (!confirm('Clear your trail on this phone?')) return; trail = []; try { localStorage.removeItem(TRAIL_KEY); } catch (e) { } showTrail(); };
   }
-  function drawMap(w) {
+  function drawMap(w, far) {
     if (!map) return;
     layer.clearLayers();
     const me = [here.lat, here.lon], pts = [me];
@@ -187,6 +201,8 @@
       if (line) L.polyline(line, { color: '#1666c9', weight: 4, dashArray: '2 8', lineCap: 'round' }).addTo(layer);
     }
     map.invalidateSize();
+    // Far away: show you and the course together.
+    if (far) { map.fitBounds(L.latLngBounds(pts).extend(L.latLngBounds(MAIN.route.map(p => [p[0], p[1]]))).pad(0.1)); return; }
     map.fitBounds(L.latLngBounds(pts).pad(0.5), { maxZoom: 15 });
   }
 
