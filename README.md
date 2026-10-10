@@ -20,6 +20,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Directions** opens Google Maps to the parking spot.
 - **Weather now** at the casualty: temperature, feels like, gusts and sky, the next 3 hours, any trigger getting close, and any BOM warning near the course.
 - If a spot takes more than 2 hours to reach, a red warning tells you to escalate early.
+- **Elevation profile** under the map, coloured by steepness. After a find it shows the casualty's section with the distance, climb and descent to the aid stations either side. Drag along it to see any point on the map.
+- **Maps** on every tab open on a topo map (contours, tracks and peaks). The layers button switches to the street map, and the choice is remembered.
 
 **what3words throughout**
 
@@ -64,7 +66,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Export** downloads all incidents and the radio log as a spreadsheet for the incident report.
 - The log is kept in a database on the Cloudflare Worker, locked with the medical password. Setup: [`tools/RACE_CONTROL.md`](tools/RACE_CONTROL.md).
 
-**Field app** (`field.html`, for Safety Officers, sweeps, aid station crews and medics on the course; open to all)
+**Field app** (`field.html`, for Safety Officers, sweeps, aid station crews and medics on the course; open to all, and kept separate from the staff app with no links into it)
 
 - **Map and elevation profile** are up from the start: both courses and the aid stations on a topo map (switch to the street map with the layers button), with the whole course profile underneath, coloured by steepness (under 5%, 5 to 10%, 10 to 15%, 15% and over). After Where am I?, the profile shows your section (the aid stations either side), you on it, the way ahead in blue, and the distance, climb and descent to the next aid station and back to the last. Switch between This section and Whole course. Drag along the profile, or tap the course on the map, to see any point: km, height, steepness, and how far and how much climb from you.
 - **Your trail:** every GPS fix (with Keep updating on, as you move) is kept on the phone for 24 hours and drawn on the map as a dotted purple line, with the distance covered. Clear it any time.
@@ -173,6 +175,8 @@ These are planning estimates. Always check access, gates and closures on the day
 | `admin.html` | Planning map and access point editor |
 | `js/engine.js` | Response calculations for Find, the Medical tab and Race Control |
 | `js/app.js` | Staff app screens |
+| `js/profile.js` | Elevation profile (Find tab and field app) |
+| `js/basemap.js` | Topo and street map backgrounds for every map |
 | `css/app.css` | Staff app styles |
 | `data/course.js` | Course route, bases, access points and crossings |
 | `data/access-edits.js` | Published access point changes |

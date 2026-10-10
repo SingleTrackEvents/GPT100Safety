@@ -29,6 +29,7 @@
     if (window.WeatherTab) { if (name === 'wx') window.WeatherTab.onShow(); else window.WeatherTab.onHide(); }
     if (name === 'med' && window.MedPlan) window.MedPlan.onShow();
     if (name === 'find' && map) setTimeout(() => map.invalidateSize(), 0);
+    if (name === 'find' && profile) setTimeout(profile.redraw, 0);
   }
   document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
     history.replaceState(null, '', b.dataset.tab === 'med' ? '#medical' : b.dataset.tab === 'wx' ? '#weather' : b.dataset.tab === 'rc' ? '#control' : location.pathname + location.search);
@@ -43,6 +44,9 @@
   // The map is optional: if Leaflet can't load (no signal on first open), answers still work.
   let courseLL = route.map(p => [p[0], p[1]]);
   let map = null, resultLayer = null, courseLayer = null, pin = null;
+  // The elevation profile under the map: the course, then the casualty's section.
+  const profile = window.GPTProfile ? GPTProfile({ el: $('findProf'), course: G, map: () => map, who: 'the casualty', colour: '#ffd21f',
+    empty: 'Find a casualty to see their section: the climb and distance to the aid stations either side. Drag along the profile to see any point.' }) : null;
   if (window.L) initMap();
   else {
     $('map').innerHTML = '<p class="map-off">Map unavailable without signal. Answers still work.</p>';
@@ -51,7 +55,7 @@
 
   function initMap() {
   map = L.map('map', { preferCanvas: true, zoomControl: true });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  GPTBaseMap(map);
   pin = (color, size) => L.divIcon({ className: '', html: `<div class="pin" style="background:${color};width:${size}px;height:${size}px"></div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
   courseLayer = L.layerGroup().addTo(map);
   drawCourse(true);
@@ -113,6 +117,7 @@
     document.querySelectorAll('.course-note').forEach(n => n.textContent = G.note);
     last = null; $('result').innerHTML = EMPTY; setMsg('');
     if (map) { resultLayer.clearLayers(); drawCourse(true); }
+    if (profile) { profile.setHere(null); profile.setCourse(G); }
     if ($('racePick')) $('racePick').hidden = !G.main;
   }
   if (G.courses.length > 1) {
@@ -346,6 +351,7 @@
 
   function show(ic, q) {
     const r = G.assess(ic); r.q = q; last = r;
+    if (profile) profile.setHere({ E: G, km: r.km, ele: r.ele });
     r.casW3w = q.words || null;
     r.raceKm = raceKmOf(r.km);
     const b = r.best, a = b.a, base = b.base;

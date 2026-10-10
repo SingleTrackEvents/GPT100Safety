@@ -753,7 +753,7 @@
   function buildMap() {
     if (!window.L) { $('wxMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
     map = L.map('wxMap', { zoomControl: true });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    GPTBaseMap(map);
     L.polyline(G.route.map(p => [p[0], p[1]]), { color: '#555', weight: 7, opacity: .35 }).addTo(map);
     runMarks.fast = L.marker([0, 0], { zIndexOffset: 1000, icon: L.divIcon({ className: '', html: '<div class="wx-rm">F</div>', iconSize: [24, 24], iconAnchor: [12, 12] }) }).bindTooltip('Fastest');
     runMarks.slow = L.marker([0, 0], { zIndexOffset: 1000, icon: L.divIcon({ className: '', html: '<div class="wx-rm slow">S</div>', iconSize: [24, 24], iconAnchor: [12, 12] }) }).bindTooltip('Slowest');

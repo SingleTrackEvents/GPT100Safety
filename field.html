@@ -20,19 +20,12 @@
 <header class="top">
   <a class="brand" href="field.html" aria-label="GPT100 Field"><img class="brand-logo" src="icons/mark.png" alt="GPT100 Miler" width="53" height="34"><span class="brand-app fd-app">Field</span></a>
   <span id="net" class="net" hidden>Offline</span>
-  <a class="fd-full" href="index.html">Full app</a>
 </header>
 
 <main class="fd">
   <section class="fd-card fd-mapcard fd-top">
     <div id="fdMap" aria-label="Map"></div>
-    <div class="fd-prof">
-      <div class="fd-prof-head"><span id="fdProfTitle">GPT100 course</span>
-        <span class="fd-seg" role="group" aria-label="Profile"><button type="button" data-p="section" disabled>This section</button><button type="button" data-p="course" class="on">Whole course</button></span></div>
-      <div id="fdProfile" class="fd-profile" aria-label="Elevation profile"></div>
-      <p class="fd-legend" aria-label="Steepness"><span><i style="background:#e7e3da"></i>Under 5%</span><span><i style="background:#f6d77a"></i>5 to 10%</span><span><i style="background:#f0a04b"></i>10 to 15%</span><span><i style="background:#d9473b"></i>15%+</span></p>
-      <p id="fdProfInfo" class="fd-prof-info">Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.</p>
-    </div>
+    <div id="fdProf" class="fd-prof"></div>
   </section>
 
   <section class="fd-locate">
@@ -85,6 +78,8 @@
 <script src="data/courses.js"></script>
 <script src="data/access-edits.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/basemap.js"></script>
+<script src="js/profile.js"></script>
 <script src="data/pacing.js"></script>
 <script src="js/weather-core.js"></script>
 <script src="js/weather.js"></script>

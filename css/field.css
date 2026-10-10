@@ -2,7 +2,6 @@
 body.field { background: #f4f3ef; font-size: 16px; }
 .fd { max-width: 560px; margin: 0 auto; padding: 12px 14px 24px; }
 .fd-app { display: inline !important; color: #fff !important; font-size: 13px !important; }
-.fd-full { margin-left: auto; color: #bbb; font-size: 13px; font-weight: 600; text-decoration: none; }
 .fd-big { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 64px; border: 0; border-radius: 14px; background: var(--ink); color: #fff; font: 400 30px/1 var(--head); letter-spacing: 1px; text-decoration: none; cursor: pointer; }
 .fd-big:active { transform: translateY(1px); }
 .fd-follow { display: inline-flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 14px; font-weight: 600; }
@@ -40,23 +39,11 @@ body.field { background: #f4f3ef; font-size: 16px; }
 /* Map and elevation profile, up from the start */
 .fd-top { margin-top: 0; }
 .fd-top #fdMap { height: 40vh; min-height: 260px; max-height: 420px; }
-.fd-prof { padding: 10px 12px 12px; border-top: 1px solid var(--line); }
-.fd-prof-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-#fdProfTitle { font: 400 20px/1.1 var(--head); letter-spacing: .5px; }
-.fd-seg { display: flex; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; }
-.fd-seg button { min-height: 32px; border: 0; background: #fff; font: 600 12px var(--body); white-space: nowrap; padding: 0 10px; cursor: pointer; }
-.fd-seg button + button { border-left: 1.5px solid var(--ink); }
-.fd-seg button.on { background: var(--ink); color: #fff; }
-.fd-seg button:disabled { color: #aaa; cursor: default; }
-.fd-profile { margin-top: 8px; width: 100%; overflow: hidden; }
-.fd-profile svg { display: block; max-width: 100%; height: auto; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
-.fd-profile svg text { font: 500 10px Montserrat, sans-serif; fill: #625c53; }
-.fd-profile svg text.fd-aid { font-weight: 700; fill: #111; }
-.fd-prof-info { margin: 6px 0 0; font-size: 14px; line-height: 1.4; min-height: 2.8em; }
-.fd-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 0; font-size: 11px; color: var(--muted); }
-.fd-legend i, .fd-trail-key { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.15); }
-.fd-grade { display: inline-block; padding: 0 6px; border-radius: 6px; font-weight: 700; font-size: 13px; }
 .fd-trail { margin: 6px 0 0; font-size: 14px; }
-.fd-trail-key { width: 16px; height: 0; border: 0; border-top: 3px dotted #7a3db8; vertical-align: 3px; }
+.fd-trail-key { display: inline-block; width: 16px; height: 0; margin-right: 4px; border-top: 3px dotted #7a3db8; vertical-align: 3px; }
 .fd-linkbtn { border: 0; background: none; padding: 0 0 0 6px; font: inherit; font-weight: 700; color: #b0181d; text-decoration: underline; cursor: pointer; }
 .fd-top .leaflet-control-layers-toggle { width: 36px; height: 36px; }
+
+.fd-prof { padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+/* The field app stands alone: no links into the staff app. */
+.field .wx-near .lnk { display: none; }

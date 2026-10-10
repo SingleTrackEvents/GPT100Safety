@@ -246,7 +246,7 @@
   function buildMap() {
     if (!window.L) { $('medMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
     map = L.map('medMap', { zoomControl: true });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    GPTBaseMap(map);
     L.polyline(G.route.map(p => [p[0], p[1]]), { color: '#d9531e', weight: 3, opacity: .8 }).addTo(map);
     stMarks = {}; vMarks = {};
     P.stations.forEach(s => {

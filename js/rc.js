@@ -156,7 +156,7 @@
     });
     if (window.L) {
       map = L.map('rcMap', { zoomControl: true });
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenStreetMap' }).addTo(map);
+      GPTBaseMap(map);
       L.polyline(G.route.map(p => [p[0], p[1]]), { color: '#d9531e', weight: 3, opacity: .7 }).addTo(map);
       layer = L.layerGroup().addTo(map);
       map.fitBounds(L.latLngBounds(G.route.map(p => [p[0], p[1]])).pad(0.04));

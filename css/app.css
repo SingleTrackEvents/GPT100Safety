@@ -26,7 +26,7 @@ a { color: inherit; }
 [hidden] { display: none !important; }
 
 /* Header */
-.top { position: sticky; top: 0; z-index: 1000; display: flex; align-items: center; gap: 16px; background: var(--ink); color: #fff; padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top)); }
+.top { position: sticky; top: 0; z-index: 1100; display: flex; align-items: center; gap: 16px; background: var(--ink); color: #fff; padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top)); }
 .brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; color: inherit; text-decoration: none; flex: 0 0 auto; }
 .brand-logo { display: block; height: 34px; width: auto; }
 .brand-event { font-family: var(--head); font-size: 28px; letter-spacing: 1px; }
@@ -53,10 +53,12 @@ a { color: inherit; }
 .find-panel { padding: 16px; }
 .find-map { position: relative; height: 55vh; min-height: 320px; border-top: 1px solid var(--line); }
 #map { position: absolute; inset: 0; background: #ddd; }
+.find-prof { padding: 12px 16px 14px; border-top: 1px solid var(--line); background: var(--paper); }
 @media (min-width: 900px) {
   .find-layout { grid-template-columns: 440px minmax(0, 1fr); height: calc(100vh - 58px); }
   .find-panel { overflow-y: auto; border-right: 1px solid var(--line); }
-  .find-map { height: auto; border-top: 0; }
+  .find-right { display: flex; flex-direction: column; min-height: 0; }
+  .find-map { flex: 1; height: auto; min-height: 0; border-top: 0; }
   body.on-find .foot { display: none; }
 }
 
@@ -437,3 +439,20 @@ tr.muted td { color: var(--muted); }
 /* Phones: all five tabs fit beside the logo */
 @media (max-width: 380px) { .tab-btn { padding: 8px 5px; } }
 @media (max-width: 340px) { .brand-logo { height: 26px; } .tab-btn { padding: 8px 3px; font-size: 12px; } }
+
+/* Elevation profile (js/profile.js), in the field app and the Find tab */
+.prof-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.prof-title { font: 400 20px/1.1 var(--head); letter-spacing: .5px; }
+.prof-seg { display: flex; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; }
+.prof-seg button { min-height: 32px; border: 0; background: #fff; font: 600 12px var(--body); color: var(--ink); white-space: nowrap; padding: 0 10px; cursor: pointer; }
+.prof-seg button + button { border-left: 1.5px solid var(--ink); }
+.prof-seg button.on { background: var(--ink); color: #fff; }
+.prof-seg button:disabled { color: #aaa; cursor: default; }
+.prof-svg { margin-top: 8px; width: 100%; overflow: hidden; }
+.prof-svg svg { display: block; max-width: 100%; height: auto; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.prof-svg svg text { font: 500 10px var(--body); fill: #625c53; }
+.prof-svg svg text.prof-aid { font-weight: 700; fill: #111; }
+.prof-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+.prof-legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.15); }
+.prof-info { margin: 6px 0 0; font-size: 14px; line-height: 1.4; min-height: 2.8em; }
+.prof-grade { display: inline-block; padding: 0 6px; border-radius: 6px; font-weight: 700; font-size: 13px; }
