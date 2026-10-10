@@ -47,3 +47,12 @@ body.field { background: #f4f3ef; font-size: 16px; }
 .fd-prof { padding: 10px 12px 12px; border-top: 1px solid var(--line); }
 /* The field app stands alone: no links into the staff app. */
 .field .wx-near .lnk { display: none; }
+/* Save the map for offline */
+.fd-offline.todo { border: 2px solid var(--red); margin: 0 0 12px; }
+.fd-offline.todo p { font-size: 14px; margin: 0 0 10px; }
+.fd-offline.ok { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: #1f6b3a; }
+.fd-tick { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #1f6b3a; color: #fff; font-size: 12px; margin-right: 4px; }
+.fd-bar { height: 10px; margin-top: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+.fd-bar i { display: block; width: 0; height: 100%; background: var(--ink); transition: width .2s; }
+.fd-hint.bad { color: var(--red); font-weight: 600; }
+.fd-big:disabled { opacity: .7; cursor: default; }

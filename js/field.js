@@ -190,10 +190,48 @@
     map.fitBounds(L.latLngBounds(pts).pad(0.5), { maxZoom: 15 });
   }
 
+  // ---------- save the map for offline ----------
+  // Until the topo map is saved on the phone, a card at the top asks for it; then it shrinks to one line.
+  const OM = window.GPTOfflineMap;
+  let saving = false;
+  async function offlineCard() {
+    const el = $('fdOffline');
+    if (!OM || !OM.available()) { el.hidden = true; return; }
+    const st = await OM.status(), mb = Math.round(OM.bytes / 1e6);
+    el.hidden = false;
+    if (saving) return;
+    if (st.saved) {
+      el.className = 'fd-offline ok';
+      el.innerHTML = `<span class="fd-tick">✓</span> Map saved for use without signal${st.when ? ', ' + new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short' }).format(new Date(st.when)) : ''}.`;
+      return;
+    }
+    el.className = 'fd-offline fd-card todo';
+    el.innerHTML = `<h2>Save the map before you leave signal</h2>
+      <p>The topo map 2 km either side of both courses, so it works with no signal. About ${mb} MB: best on wifi.${st.have ? ` ${st.have} of ${st.total} map squares already saved.` : ''}</p>
+      <button id="fdSaveMap" class="fd-big" type="button">Save map for offline</button>
+      <div class="fd-bar" hidden><i></i></div><p class="fd-hint" id="fdSaveMsg"></p>`;
+    $('fdSaveMap').onclick = saveMap;
+  }
+  async function saveMap() {
+    if (!navigator.onLine) { $('fdSaveMsg').textContent = 'No signal. Try again with wifi or good signal.'; return; }
+    saving = true;
+    const btn = $('fdSaveMap'), bar = document.querySelector('.fd-bar'), m = $('fdSaveMsg');
+    btn.disabled = true; btn.textContent = 'Saving…'; bar.hidden = false;
+    m.textContent = 'Keep the app open until it finishes.';
+    const r = await OM.save((d, t) => { bar.firstChild.style.width = (100 * d / t).toFixed(1) + '%'; btn.textContent = `Saving ${Math.round(100 * d / t)}%`; });
+    saving = false;
+    if (r.failed) {
+      await offlineCard();
+      $('fdSaveMsg').textContent = `${r.failed} map squares didn't save. Tap Save again with better signal to finish.`;
+      $('fdSaveMsg').classList.add('bad');
+    } else offlineCard();
+  }
+
   // ---------- start ----------
   initMap();
   profile = GPTProfile({ el: $('fdProf'), course: MAIN, map: () => map, who: 'you', empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.' });
   showTrail();
+  offlineCard();
   let rz = null; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (map) map.invalidateSize(); }, 200); });
   $('fdLocate').addEventListener('click', locate);
   $('fdFollow').addEventListener('change', e => follow(e.target.checked));

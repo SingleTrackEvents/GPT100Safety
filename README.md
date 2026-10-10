@@ -69,6 +69,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 **Field app** (`field.html`, for Safety Officers, sweeps, aid station crews and medics on the course; open to all, and kept separate from the staff app with no links into it)
 
 - **Map and elevation profile** are up from the start: both courses and the aid stations on a topo map (switch to the street map with the layers button), with the whole course profile underneath, coloured by steepness (under 5%, 5 to 10%, 10 to 15%, 15% and over). After Where am I?, the profile shows your section (the aid stations either side), you on it, the way ahead in blue, and the distance, climb and descent to the next aid station and back to the last. Switch between This section and Whole course. Drag along the profile, or tap the course on the map, to see any point: km, height, steepness, and how far and how much climb from you.
+- **Save the map before you leave signal:** until the topo map is saved on the phone, a red card at the top asks for it. One tap saves the topo map 2 km either side of both courses (zoom 10 to 15, about 40 MB, best on wifi), with a progress bar. Then it shrinks to a green "Map saved" line. Zooming in closer enlarges the saved map; with signal, sharper tiles load on top. The saved map stays on the phone through app updates. The street map can't be saved (OpenStreetMap doesn't allow it).
 - **Your trail:** every GPS fix (with Keep updating on, as you move) is kept on the phone for 24 hours and drawn on the map as a dotted purple line, with the distance covered. Clear it any time.
 - **Where am I?** One tap uses the phone's GPS: km on the course (the GPT100, or the 14k when that's nearer), between which aid stations, how far off the course, height, GPS accuracy, coordinates and what3words. No GPS? Type the km.
 - **Send my location** or **Urgent: casualty here** opens WhatsApp with the message ready (km, place, coordinates, map link, what3words, nearest vehicle access, and for urgent, the fastest team), plus an optional note.
@@ -176,7 +177,8 @@ These are planning estimates. Always check access, gates and closures on the day
 | `js/engine.js` | Response calculations for Find, the Medical tab and Race Control |
 | `js/app.js` | Staff app screens |
 | `js/profile.js` | Elevation profile (Find tab and field app) |
-| `js/basemap.js` | Topo and street map backgrounds for every map |
+| `js/basemap.js` | Topo and street map backgrounds for every map, and saving the topo map for offline |
+| `tiles/topo/`, `data/tiles.js` | Our copy of the OpenTopoMap tiles along the course (CC-BY-SA), made once with `tools/fetch_topo_tiles.mjs` |
 | `css/app.css` | Staff app styles |
 | `data/course.js` | Course route, bases, access points and crossings |
 | `data/access-edits.js` | Published access point changes |
