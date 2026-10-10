@@ -66,10 +66,11 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 **Field app** (`field.html`, for Safety Officers, sweeps, aid station crews and medics on the course; open to all)
 
+- **Map and elevation profile** are up from the start: both courses and the aid stations, with the whole course profile underneath. After Where am I?, the profile shows your section (the aid stations either side), you on it, the part ahead shaded, and the distance, climb and descent to the next aid station and back to the last. Switch between This section and Whole course, and drag along the profile to see any point on the map.
 - **Where am I?** One tap uses the phone's GPS: km on the course (the GPT100, or the 14k when that's nearer), between which aid stations, how far off the course, height, GPS accuracy, coordinates and what3words. No GPS? Type the km.
 - **Send my location** or **Urgent: casualty here** opens WhatsApp with the message ready (km, place, coordinates, map link, what3words, nearest vehicle access, and for urgent, the fastest team), plus an optional note.
 - **Nearest way out:** the closest vehicle access by walking time (gated or not) and the drive from there to each base, and the aid stations either side.
-- **Weather here:** now and the next 3 hours, triggers, BOM warnings and fires nearby. And a map with you, the course and the way out.
+- **Weather here:** now and the next 3 hours, triggers, BOM warnings and fires nearby. The map shows you and the way out.
 - Works offline once opened with signal (what3words and fresh weather need signal). Add it to the home screen: it opens straight to the field app.
 - **Live tracking:** when the tracking link is known, put it in `data/config.js` (`tracking.url`) and a Live tracking button appears here and on the Race Control board.
 

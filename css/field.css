@@ -33,7 +33,23 @@ body.field { background: #f4f3ef; font-size: 16px; }
 .fd-way:first-child { border-top: 0; padding-top: 0; }
 .fd-way span { font-size: 14px; color: var(--muted); }
 .fd-mapcard { padding: 0; overflow: hidden; }
-#fdMap { height: 300px; background: #ddd; }
+#fdMap { position: relative; height: 300px; background: #ddd; }
 .fd-track { margin: 14px 0 0; }
 .fd-track .btn { width: 100%; }
 .fd-foot { font-size: 12px; color: var(--muted); margin: 18px 0 0; text-align: center; }
+/* Map and elevation profile, up from the start */
+.fd-top { margin-top: 0; }
+.fd-top #fdMap { height: 40vh; min-height: 260px; max-height: 420px; }
+.fd-prof { padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+.fd-prof-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+#fdProfTitle { font: 400 20px/1.1 var(--head); letter-spacing: .5px; }
+.fd-seg { display: flex; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; }
+.fd-seg button { min-height: 32px; border: 0; background: #fff; font: 600 12px var(--body); white-space: nowrap; padding: 0 10px; cursor: pointer; }
+.fd-seg button + button { border-left: 1.5px solid var(--ink); }
+.fd-seg button.on { background: var(--ink); color: #fff; }
+.fd-seg button:disabled { color: #aaa; cursor: default; }
+.fd-profile { margin-top: 8px; width: 100%; overflow: hidden; }
+.fd-profile svg { display: block; max-width: 100%; height: auto; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.fd-profile svg text { font: 500 10px Montserrat, sans-serif; fill: #625c53; }
+.fd-profile svg text.fd-aid { font-weight: 700; fill: #111; }
+.fd-prof-info { margin: 6px 0 0; font-size: 14px; line-height: 1.4; min-height: 2.8em; }

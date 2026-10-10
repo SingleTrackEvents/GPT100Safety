@@ -24,6 +24,16 @@
 </header>
 
 <main class="fd">
+  <section class="fd-card fd-mapcard fd-top">
+    <div id="fdMap" aria-label="Map"></div>
+    <div class="fd-prof">
+      <div class="fd-prof-head"><span id="fdProfTitle">GPT100 course</span>
+        <span class="fd-seg" role="group" aria-label="Profile"><button type="button" data-p="section" disabled>This section</button><button type="button" data-p="course" class="on">Whole course</button></span></div>
+      <div id="fdProfile" class="fd-profile" aria-label="Elevation profile"></div>
+      <p id="fdProfInfo" class="fd-prof-info">Tap Where am I? to see where you are. Drag along the profile to see any point.</p>
+    </div>
+  </section>
+
   <section class="fd-locate">
     <button id="fdLocate" class="fd-big" type="button">Where am I?</button>
     <label class="fd-follow"><input id="fdFollow" type="checkbox"> Keep updating</label>
@@ -58,7 +68,6 @@
       <div id="fdWx"><p class="muted">Loading…</p></div>
     </section>
 
-    <section class="fd-card fd-mapcard"><div id="fdMap" aria-label="Map"></div></section>
   </div>
 
   <p id="fdTrack" class="fd-track" hidden></p>
