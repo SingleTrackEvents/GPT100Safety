@@ -1,4 +1,4 @@
-// One-off: save the OpenTopoMap tiles 2 km either side of both courses (zoom 10 to 15) into tiles/topo/,
+// One-off: save the OpenTopoMap tiles 2 km either side of both courses (zoom 8 to 15) into tiles/topo/,
 // and write data/tiles.js (the list the apps use to save the map for offline).
 // Phones then save the map from our own site, so OpenTopoMap's free servers are only asked once.
 // Polite: one tile at a time with a pause, identified, and tiles already saved are skipped.
@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const BUF_KM = 2, ZMIN = 10, ZMAX = 15, OUT = 'tiles/topo';
+const BUF_KM = 2, ZMIN = 8, ZMAX = 15, OUT = 'tiles/topo';
 globalThis.window = globalThis;
 for (const f of ['data/config.js', 'data/course.js', 'data/courses.js', 'data/access-edits.js', 'js/engine.js']) (0, eval)(fs.readFileSync(f, 'utf8'));
 const GPT = globalThis.GPT;

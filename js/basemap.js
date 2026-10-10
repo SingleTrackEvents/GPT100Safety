@@ -1,6 +1,6 @@
 // Map backgrounds for every map: a topo map (contours, tracks and peaks) by default, or the street map.
 // The layers button switches them, and the choice is remembered on this phone for all the maps.
-// The topo map 2 km either side of both courses (zoom 10 to 15) is hosted on this site (data/tiles.js lists it),
+// The topo map 2 km either side of both courses (zoom 8 to 15) is hosted on this site (data/tiles.js lists it),
 // so it can be saved on the phone for use without signal. Closer in than zoom 15 it enlarges the saved map,
 // with OpenTopoMap's sharper tiles on top when there's signal. (The street map can't be saved: OpenStreetMap
 // doesn't allow it.)
