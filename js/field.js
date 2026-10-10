@@ -66,31 +66,76 @@
     if (n && n.distKm < 0.3) return 'at ' + n.a.name;
     return p && n ? `between ${p.a.name} and ${n.a.name}` : '';
   }
-  // More than this far from the course, "nearest point" answers would mislead, so the app says so instead.
-  const FAR_M = 10000;
+  // How far off the course you are decides what the app says:
+  //   up to 50 m: on the course · 50 to 300 m: just off (direction back) · 300 m to 2 km: off the course
+  //   (named if at an access point or aid station; walk-out times assume you get back onto the course first)
+  //   2 to 10 km: a long way off (named if at a base; no walk-out times) · over 10 km: no course answers.
+  const ON_M = 50, NEAR_M = 300, OFF_M = 2000, FAR_M = 10000, POOR_GPS_M = 100;
+  const DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+  function compass(from, to) {
+    const r = Math.PI / 180, y = Math.sin((to[1] - from[1]) * r) * Math.cos(to[0] * r);
+    const x = Math.cos(from[0] * r) * Math.sin(to[0] * r) - Math.sin(from[0] * r) * Math.cos(to[0] * r) * Math.cos((to[1] - from[1]) * r);
+    return DIRS[Math.round(((Math.atan2(y, x) / r + 360) % 360) / 45) % 8];
+  }
+  const dist = m => m < 1000 ? `${Math.round(m / 10) * 10} m` : `${one(m / 1000)} km`;
+  // Where you are relative to the course, for the screen and the message.
+  function situation() {
+    const { E, r } = here, me = [here.lat, here.lon], cp = [r.lat, r.lon];
+    const tier = here.manual || here.offM <= ON_M ? 'on' : here.offM <= NEAR_M ? 'near' : here.offM <= OFF_M ? 'off' : here.offM <= FAR_M ? 'long' : 'far';
+    const dir = tier === 'on' ? '' : compass(me, cp);
+    let at = null;
+    if (tier === 'off') {
+      const spots = E.ACCESS.map(a => ({ name: E.cleanName(a), lat: a.lat, lon: a.lon })).concat(E.AID.map(a => ({ name: a.name, lat: a.lat, lon: a.lon })));
+      const best = spots.map(x => ({ x, d: E.metres(me, [x.lat, x.lon]) })).sort((a, b) => a.d - b.d)[0];
+      if (best && best.d < 300) at = best.x.name;
+    } else if (tier === 'long') {
+      const best = E.BASES.map(b => ({ b, d: E.metres(me, [b.lat, b.lon]) })).sort((a, b) => a.d - b.d)[0];
+      if (best && best.d < 1500) at = best.b.name + ' base';
+    }
+    return { tier, dir, at };
+  }
   function render() {
     if (!here) return;
     $('fdOut').hidden = false;
-    const { E, r } = here, g = here.gps, far = here.offM > FAR_M && !here.manual;
-    $('fdOut').classList.toggle('far', far);
-    if (far) {
-      $('fdWhere').innerHTML = `
+    const { E, r } = here, g = here.gps, S = situation();
+    here.S = S;
+    $('fdOut').classList.toggle('far', S.tier === 'far');
+    $('fdOut').classList.toggle('long', S.tier === 'long');
+    const poor = g && g.acc > POOR_GPS_M ? `<p class="notice warn"><b>GPS isn't accurate enough yet</b> (±${Math.round(g.acc)} m). Stand in the open and tap Where am I? again.</p>` : '';
+    const pos = `<p class="fd-facts">${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${g ? ` · GPS ±${Math.round(g.acc)} m` : ''}${here.w3w ? ` · <a href="https://w3w.co/${esc(here.w3w)}" target="_blank" rel="noopener">///${esc(here.w3w)}</a>` : ''}</p>`;
+    const kmTag = E.main ? '' : `<span class="fd-course">${esc(E.name)}</span>`;
+    if (S.tier === 'far') {
+      $('fdWhere').innerHTML = `${poor}
         <div class="fd-kmrow"><span class="fd-kmbig">${Math.round(here.offM / 1000)} KM</span></div>
         <p class="fd-between">from the course</p>
         <p class="notice warn">You're more than ${FAR_M / 1000} km from the GPT100 courses, so the app won't point you to a course km or a way out from here. Where am I? works within ${FAR_M / 1000} km of the course.</p>
-        <p class="fd-facts">${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${g ? ` · GPS ±${Math.round(g.acc)} m` : ''}</p>
-        <p class="fd-facts">Need a point on the course? Enter the km above.</p>`;
-      drawMap(null, true);
+        ${pos}<p class="fd-facts">Need a point on the course? Enter the km above.</p>`;
+      $('fdOutWay').innerHTML = '';
+      drawMap(null, 'far');
       profile.setHere(null);
       return;
     }
-    const off = here.offM < 40 ? 'On the course' : here.offM < 1000 ? `${here.offM} m from the course` : `${one(here.offM / 1000)} km from the course`;
-    $('fdWhere').innerHTML = `
-      <div class="fd-kmrow"><span class="fd-kmbig">KM ${one(r.km)}</span>${E.main ? '' : `<span class="fd-course">${esc(E.name)}</span>`}</div>
+    if (S.tier === 'long') {
+      $('fdWhere').innerHTML = `${poor}
+        <div class="fd-kmrow"><span class="fd-kmbig">${one(here.offM / 1000)} KM</span>${kmTag}</div>
+        <p class="fd-between">${S.at ? `At ${esc(S.at)}, ` : ''}from the course</p>
+        <p class="fd-facts">Nearest course point: <b>km ${one(r.km)}</b>, ${S.dir} of you (${esc(between(r))}). Walking times don't apply from here.</p>
+        ${pos}`;
+      $('fdOutWay').innerHTML = '';
+      sendLinks();
+      weather();
+      drawMap(null, 'long');
+      profile.setHere(null);
+      return;
+    }
+    const off = S.tier === 'on' ? (here.manual ? 'From the km you entered' : 'On the course')
+      : S.tier === 'near' ? `Just off the course. The course is ${dist(here.offM)} ${S.dir} of you`
+      : `${S.at ? `At ${esc(S.at)}, ` : ''}${dist(here.offM)} off the course. The course is ${S.dir} of you (straight line, may not be walkable)`;
+    $('fdWhere').innerHTML = `${poor}
+      <div class="fd-kmrow"><span class="fd-kmbig">KM ${one(r.km)}</span>${kmTag}</div>
       <p class="fd-between">${esc(between(r))}</p>
-      <p class="fd-facts"><b>${off}</b> · ${Math.round(r.ele)} m high${g ? ` · GPS ±${Math.round(g.acc)} m` : ' · from the km you entered'}</p>
-      <p class="fd-facts">${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${here.w3w ? ` · <a href="https://w3w.co/${esc(here.w3w)}" target="_blank" rel="noopener">///${esc(here.w3w)}</a>` : ''}</p>
-      ${here.offM > 1500 ? '<p class="notice warn">You are a long way from the course. Check the location before sending.</p>' : ''}`;
+      <p class="fd-facts fd-off-${S.tier}"><b>${off}</b> · ${Math.round(r.ele)} m high</p>
+      ${pos}`;
     // Nearest way out: the closest vehicle access (by walking time), and the aid stations either side.
     const opts = r.results.slice().sort((a, b) => a.walk - b.walk);
     const w = opts[0], seen = new Set();
@@ -106,10 +151,11 @@
       h += `<div class="fd-way"><b>${l}: ${esc(x.a.name)}</b><span>${one(x.distKm)} km, about ${E.fmt(x.walk)} on foot${x.a.w3w ? ` · <a href="https://w3w.co/${esc(x.a.w3w)}" target="_blank" rel="noopener">///${esc(x.a.w3w)}</a>` : ''}</span></div>`;
     });
     h += `<p class="fd-hint">The team that would come to you: <b>${esc(r.best.base.name)}</b>, about ${E.fmt(r.best.total)}.</p>`;
+    if (S.tier === 'off') h = `<p class="notice warn">You're ${dist(here.offM)} off the course. These times assume you get back onto the course at km ${one(r.km)} first.</p>` + h;
     $('fdOutWay').innerHTML = h;
     sendLinks();
     weather();
-    drawMap(w);
+    drawMap(w, S.tier);
     profile.setHere({ E, km: r.km, ele: r.ele });
   }
 
@@ -118,16 +164,18 @@
 
   // ---------- send my location (WhatsApp) ----------
   function message(urgent) {
-    const r = here.r, E = here.E, note = $('fdNote').value.trim();
-    const w = r.results.slice().sort((a, b) => a.walk - b.walk)[0];
+    const r = here.r, E = here.E, note = $('fdNote').value.trim(), S = here.S || { tier: 'on' };
+    const long = S.tier === 'long', w = long ? null : r.results.slice().sort((a, b) => a.walk - b.walk)[0];
+    const where = S.tier === 'on' ? `${E.name} km ${one(r.km)}${between(r) ? ', ' + between(r) : ''}`
+      : `${S.at ? 'at ' + S.at + ', ' : ''}${dist(here.offM)} ${({ north: 'south', 'north-east': 'south-west', east: 'west', 'south-east': 'north-west', south: 'north', 'south-west': 'north-east', west: 'east', 'north-west': 'south-east' })[S.dir]} of the course at ${E.name} km ${one(r.km)}${between(r) ? ' (' + between(r) + ')' : ''}`;
     const lines = [
-      urgent ? `URGENT: casualty at ${E.name} km ${one(r.km)}${between(r) ? ', ' + between(r) : ''}.` : `My location: ${E.name} km ${one(r.km)}${between(r) ? ', ' + between(r) : ''}.`,
+      urgent ? `URGENT: casualty ${S.tier === 'on' ? 'at ' : ''}${where}.` : `My location: ${where}.`,
       note ? 'Note: ' + note : '',
-      `Position ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${here.gps ? ` (GPS ±${Math.round(here.gps.acc)} m)` : ' (from the km)'}${here.offM >= 40 ? `, ${here.offM} m off the course` : ''}.`,
+      `Position ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${here.gps ? ` (GPS ±${Math.round(here.gps.acc)} m)` : ' (from the km)'}.`,
       here.w3w ? `what3words ///${here.w3w}` : '',
       `Map: https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}`,
       w ? `Nearest vehicle access: ${E.cleanName(w.a)}${E.isGated(w.a) ? ' (gated)' : ''}, ${one(w.walkKm)} km walk.` : '',
-      urgent ? `Fastest team: ${r.best.base.name}, about ${E.fmt(r.best.total)}.` : '',
+      urgent && !long ? `Fastest team: ${r.best.base.name}, about ${E.fmt(r.best.total)}.` : '',
       `Sent ${tf.format(new Date())} from GPT100 Field.`
     ];
     return lines.filter(Boolean).join('\n');
@@ -188,10 +236,13 @@
     el.innerHTML = `<span class="fd-trail-key"></span>Your trail: <b>${one(m / 1000)} km</b> since ${tf.format(new Date(trail[0][2]))} <button type="button" class="fd-linkbtn" id="fdTrailClear">Clear</button>`;
     $('fdTrailClear').onclick = () => { if (!confirm('Clear your trail on this phone?')) return; trail = []; try { localStorage.removeItem(TRAIL_KEY); } catch (e) { } showTrail(); };
   }
-  function drawMap(w, far) {
+  function drawMap(w, tier) {
+    const far = tier === 'far' || tier === 'long';
     if (!map) return;
     layer.clearLayers();
     const me = [here.lat, here.lon], pts = [me];
+    // Off the course: a dashed line to the nearest course point.
+    if (tier && tier !== 'on' && tier !== 'far') { const cp = [here.r.lat, here.r.lon]; pts.push(cp); L.polyline([me, cp], { color: '#111', weight: 2, dashArray: '4 6', interactive: false }).addTo(layer); L.circleMarker(cp, { radius: 6, color: '#111', weight: 2, fillColor: '#fff', fillOpacity: 1 }).bindTooltip('Course km ' + one(here.r.km)).addTo(layer); }
     if (here.gps) L.circle(me, { radius: here.gps.acc, color: '#1666c9', weight: 1, fillOpacity: .12 }).addTo(layer);
     L.circleMarker(me, { radius: 9, color: '#fff', weight: 3, fillColor: '#1666c9', fillOpacity: 1 }).bindTooltip('You').addTo(layer);
     if (w) {
@@ -202,7 +253,8 @@
     }
     map.invalidateSize();
     // Far away: show you and the course together.
-    if (far) { map.fitBounds(L.latLngBounds(pts).extend(L.latLngBounds(MAIN.route.map(p => [p[0], p[1]]))).pad(0.1)); return; }
+    if (tier === 'far') { map.fitBounds(L.latLngBounds(pts).extend(L.latLngBounds(MAIN.route.map(p => [p[0], p[1]]))).pad(0.1)); return; }
+    if (far) { map.fitBounds(L.latLngBounds(pts).pad(0.3), { maxZoom: 14 }); return; }
     map.fitBounds(L.latLngBounds(pts).pad(0.5), { maxZoom: 15 });
   }
 
