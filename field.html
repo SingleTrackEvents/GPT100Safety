@@ -30,7 +30,8 @@
       <div class="fd-prof-head"><span id="fdProfTitle">GPT100 course</span>
         <span class="fd-seg" role="group" aria-label="Profile"><button type="button" data-p="section" disabled>This section</button><button type="button" data-p="course" class="on">Whole course</button></span></div>
       <div id="fdProfile" class="fd-profile" aria-label="Elevation profile"></div>
-      <p id="fdProfInfo" class="fd-prof-info">Tap Where am I? to see where you are. Drag along the profile to see any point.</p>
+      <p class="fd-legend" aria-label="Steepness"><span><i style="background:#e7e3da"></i>Under 5%</span><span><i style="background:#f6d77a"></i>5 to 10%</span><span><i style="background:#f0a04b"></i>10 to 15%</span><span><i style="background:#d9473b"></i>15%+</span></p>
+      <p id="fdProfInfo" class="fd-prof-info">Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.</p>
     </div>
   </section>
 
@@ -38,6 +39,7 @@
     <button id="fdLocate" class="fd-big" type="button">Where am I?</button>
     <label class="fd-follow"><input id="fdFollow" type="checkbox"> Keep updating</label>
     <p id="fdGpsMsg" class="fd-msg" role="status"></p>
+    <p id="fdTrail" class="fd-trail" hidden></p>
     <form id="fdKmForm" class="fd-km" autocomplete="off"><label for="fdKm">No GPS? Enter the km</label>
       <div><input id="fdKm" type="text" inputmode="decimal" placeholder="e.g. 87.3"><button class="btn" type="submit">Go</button></div></form>
   </section>

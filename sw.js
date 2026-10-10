@@ -1,6 +1,6 @@
 // Offline support. App files use network first (so updates land), falling back to the cache.
 // Leaflet, fonts and map tiles are cached as they're used.
-const VERSION = 'gpt100-v24';
+const VERSION = 'gpt100-v25';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'js/engine.js', 'js/app.js',
   'data/config.js', 'data/course.js', 'data/courses.js', 'data/access-edits.js', 'data/medplan.enc.js', 'data/safety-officers.js', 'js/medplan.js',
@@ -36,7 +36,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  if (url.hostname.endsWith('tile.openstreetmap.org')) {
+  if (url.hostname.endsWith('tile.openstreetmap.org') || url.hostname.endsWith('tile.opentopomap.org')) {
     e.respondWith(caches.open(TILES).then(async c => {
       const hit = await c.match(req);
       if (hit) return hit;
