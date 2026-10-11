@@ -187,6 +187,7 @@ These are planning estimates. Always check access, gates and closures on the day
 | `index.html` | Staff app (Find, Weather, Medical and Control) |
 | `js/rc.js` | Race Control board |
 | `field.html`, `js/field.js`, `css/field.css` | Field app |
+| `tools/CUSTOM_DOMAIN.md` | Steps to move the apps to app.gpt100.com.au |
 | `tools/refresh-worker.js` | Cloudflare Worker: weather refresh relay and the Race Control database |
 | `admin.html` | Planning map and access point editor |
 | `js/engine.js` | Response calculations for Find, the Medical tab and Race Control |

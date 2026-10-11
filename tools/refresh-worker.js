@@ -14,13 +14,13 @@
 //   POST /rc/log             add a radio log entry: { text, incident?, who }
 //
 // Secret:    GITHUB_TOKEN   fine-grained key, this repository only, Actions read and write
-// Optional:  REPO, WORKFLOW, BRANCH, ALLOWED_ORIGIN (defaults below)
+// Optional:  REPO, WORKFLOW, BRANCH, ALLOWED_ORIGIN (defaults below; several origins separated by commas)
 
 const DEFAULTS = {
   REPO: 'SingleTrackEvents/GPT100Safety',
   WORKFLOW: 'weather.yml',
   BRANCH: 'main',
-  ALLOWED_ORIGIN: 'https://singletrackevents.github.io'
+  ALLOWED_ORIGIN: 'https://singletrackevents.github.io,https://app.gpt100.com.au'
 };
 const COOLDOWN_MIN = 10;        // no new run within 10 minutes of the last one
 const MODELS_COOLDOWN_MIN = 30; // a full refresh at most every 30 minutes
@@ -68,11 +68,12 @@ async function maybeStart(env, models) {
 function cors(env, req) {
   const origin = req.headers.get('Origin') || '';
   const c = cfg(env);
-  const ok = origin === c.ALLOWED_ORIGIN || /^http:\/\/localhost(:\d+)?$/.test(origin);
+  const allowed = c.ALLOWED_ORIGIN.split(',').map(s => s.trim());
+  const ok = allowed.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin);
   return {
     ok,
     headers: {
-      'Access-Control-Allow-Origin': ok ? origin : c.ALLOWED_ORIGIN,
+      'Access-Control-Allow-Origin': ok ? origin : allowed[0],
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, X-RC-Password',
       'Cache-Control': 'no-store',

@@ -2,7 +2,7 @@
   "name": "GPT100 Safety",
   "short_name": "GPT100 Safety",
   "description": "Race-day medical access for the GPT100: which team to send, where to park and how long it takes.",
-  "start_url": "./",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
