@@ -9,6 +9,36 @@
   const tf = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   let here = null, watchId = null, map = null, layer = null;
 
+  // ---------- Safety Officer posts (data/safety-officers.js: public, no names) ----------
+  // Shift times are hours from t0 (Melbourne; the race is in daylight saving, UTC+11). During the event,
+  // posts not staffed right now are faded; before it, every post shows with its shifts.
+  const SO = window.GPT100_SO;
+  let soLayer = null, soKey = null;
+  const soT0 = SO ? new Date(SO.t0 + '+11:00').getTime() : 0;
+  const soTime = h => new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(soT0 + h * 3600e3)).replace(',', '');
+  function drawSO() {
+    if (!SO || !soLayer) return;
+    soLayer.clearLayers();
+    const h = (Date.now() - soT0) / 3600e3, live = h >= 0 && h <= SO.n;
+    if (!soKey) {
+      soKey = L.control({ position: 'bottomright' });
+      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on fd-so-key">SO</span>Safety Officers' + (live ? '<br><span class="so-mark fd-so-key" style="opacity:.5">SO</span>Not on post now' : ''); return d; };
+      soKey.addTo(map);
+    }
+    SO.stations.forEach(s => {
+      const posts = SO.posts.filter(p => p.station === s.name && !/passage/i.test(p.label));
+      if (!posts.length) return;
+      const now = posts.filter(p => p.a <= h && p.z > h), lit = !live || now.length;
+      L.marker([s.lat, s.lon], {
+        zIndexOffset: 400, opacity: lit ? 1 : 0.45, title: s.name + ' Safety Officers',
+        icon: L.divIcon({ className: '', html: `<div class="so-mark${lit ? ' on' : ''}">SO</div>`, iconSize: [24, 18], iconAnchor: [12, 9] })
+      }).bindPopup(`<b>${esc(s.name)}</b> · Safety Officers<br>${live ? (now.length ? '<b>On post now</b><br>' : 'Not on post now<br>') : ''}` +
+        posts.map(p => `${esc(p.label)}: ${soTime(p.a)} to ${soTime(p.z)}`).join('<br>')).addTo(soLayer);
+    });
+  }
+  // Keep on post / not on post current during the event.
+  setInterval(() => { if (!document.hidden) drawSO(); }, 5 * 60e3);
+
   // ---------- where am I ----------
   // Snap to whichever course is nearest (the GPT100, or the 14k when it's clearly closer).
   function place(lat, lon, gps) {
@@ -205,6 +235,8 @@
       L.polyline(E.route.map(p => [p[0], p[1]]), { color: E.main ? '#d9531e' : '#1666c9', weight: 4, opacity: .8 }).addTo(map);
       E.AID.forEach(a => { const p = E.route[E.idxAtKm(a.trail_km)]; L.circleMarker([p[0], p[1]], { radius: 5, color: '#fff', weight: 2, fillColor: '#111', fillOpacity: 1 }).bindTooltip(`${esc(a.name)}<br>km ${one(a.trail_km)}${E.main ? '' : ' (' + esc(E.name) + ')'}`).addTo(map); });
     });
+    soLayer = L.layerGroup().addTo(map);
+    drawSO();
     trailLine = L.polyline([], { color: '#7a3db8', weight: 3, opacity: .9, dashArray: '1 6', lineCap: 'round', interactive: false }).addTo(map);
     layer = L.layerGroup().addTo(map);
     map.fitBounds(L.latLngBounds(MAIN.route.map(p => [p[0], p[1]])).pad(0.03));

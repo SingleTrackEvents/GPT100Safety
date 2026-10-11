@@ -58,3 +58,4 @@ body.field { background: #f4f3ef; font-size: 16px; }
 .fd-big:disabled { opacity: .7; cursor: default; }
 #fdOut.far > section:not(.fd-where) { display: none; }
 #fdOut.long .fd-wayout { display: none; }
+.fd-so-key { display: inline-block; width: 22px; margin-right: 5px; }
