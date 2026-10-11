@@ -44,7 +44,7 @@
 /* Weather here without the internal trigger badges */
 .runner .wx-near .wx-pill { display: none; }
 .rn-help button.fd-big { font-size: 26px; }
-#rnCallMed { font-size: 22px; }
+#rnCallMed { font-size: 26px; }
 .rn-day { font: 400 20px/1.1 var(--head); letter-spacing: .5px; margin: 14px 0 4px; }
 .rn-day:first-child { margin-top: 4px; }
 .rn-sch { display: grid; grid-template-columns: 52px 1fr; gap: 8px; padding: 5px 0; font-size: 14px; border-top: 1px solid var(--line); }
@@ -55,3 +55,25 @@
 .rn-gear small { display: block; font-size: 12px; color: var(--muted); }
 .rn-gear.rec span { color: var(--muted); }
 .rn-gearcount { font-weight: 700; margin: 6px 0 2px; }
+/* Tabs along the bottom */
+.rn-page { padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
+.rn-top { margin-bottom: 4px; }
+.rn-top .rn-mode { margin-bottom: 8px; }
+.rn-top .rn-mode button { min-height: 40px; font-size: 19px; }
+.rn-top .rn-pick { margin-bottom: 4px; }
+.rn-top .rn-pick select { min-height: 44px; }
+.rn-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.rn-tab > .fd-card:first-child, .rn-tab > section:first-child { margin-top: 8px; }
+.rn-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1200; display: grid; grid-template-columns: repeat(6, 1fr);
+  background: var(--ink); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -2px 10px rgba(0,0,0,.25); }
+.rn-nav button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 58px; border: 0; border-radius: 10px;
+  background: none; color: #bdb7ad; font: 600 11px var(--body); cursor: pointer; padding: 4px 0; -webkit-tap-highlight-color: transparent; }
+.rn-nav svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.rn-nav button.on { color: #fff; background: rgba(255,255,255,.12); }
+.rn-nav button.rn-nav-help { color: #ff8a80; }
+.rn-nav button.rn-nav-help.on { color: #fff; background: var(--red); }
+@media (min-width: 600px) { .rn-nav { left: 50%; right: auto; width: 560px; transform: translateX(-50%); border-radius: 14px 14px 0 0; } }
+#rnCallMed { flex-direction: column; gap: 2px; padding: 8px 0; }
+#rnCallMed small { font: 600 14px var(--body); letter-spacing: .5px; color: #ddd; }
+.rn-tab[data-tab="course"] .fd-locate { margin-top: 8px; }
+.rn-tab[data-tab="course"] #rnWhere { margin-top: 10px; }

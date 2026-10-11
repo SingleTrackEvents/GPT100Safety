@@ -68,6 +68,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 **Runner app** (`runner.html`, for runners and their crews; public, kept separate from the staff and field apps)
 
+- **Tabs along the bottom** (for thumbs while running): Course, Aid (Crew in crew mode), Help, Weather, Schedule and Gear. The race picker stays at the top, and the app remembers the last tab.
 - **Pick your race:** Miler, Stage race (opens on today's stage), 50k, 33k, 14k, 6k, 5k Family or 2k Kids. Distances, climb, cut-offs, drop bags and crew access come from the course sheet (`tools/import_races.mjs`).
 - **I'm running:** your race on the topo map (saved for offline) with its elevation profile in race km. **Where am I?** gives your race km, the next aid station with distance, climb and descent, what's there (drop bag, crew), its cut-off, and at your pace when you'd get there. Off the course, it says which way the course is.
 - **Aid stations and cut-offs:** every point with race km, leg distance and climb, cut-off, and your expected time from a target time (between the first runner's time and the cut-off).

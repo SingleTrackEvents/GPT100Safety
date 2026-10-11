@@ -23,31 +23,58 @@
   <span id="net" class="net" hidden>Offline</span>
 </header>
 
-<main class="fd">
-  <div class="rn-mode" role="group" aria-label="Mode"><button type="button" data-m="runner" class="on">I'm running</button><button type="button" data-m="crew">I'm crewing</button></div>
-  <section class="rn-pick">
-    <label for="rnRace">Race</label>
-    <select id="rnRace"></select>
-    <div id="rnStages" class="rn-stages" role="group" aria-label="Stage" hidden></div>
-    <p id="rnStart" class="fd-hint"></p>
-  </section>
-  <div id="rnNotices"></div>
-  <section id="fdOffline" class="fd-offline" hidden></section>
-
-  <section class="fd-card fd-mapcard" id="rnMapCard">
-    <div id="fdMap" aria-label="Map"></div>
-    <div id="rnProf" class="fd-prof"></div>
-  </section>
-  <p id="rnNoMap" class="fd-card muted" hidden>The map for this race isn't in the app yet. The aid stations and times below still work.</p>
-
-  <!-- Runner -->
-  <div data-for="runner">
-    <section class="fd-locate">
-      <button id="fdLocate" class="fd-big" type="button">Where am I?</button>
-      <p id="fdGpsMsg" class="fd-msg" role="status"></p>
+<main class="fd rn-page">
+  <div class="rn-top">
+    <div class="rn-mode" role="group" aria-label="Mode"><button type="button" data-m="runner" class="on">I'm running</button><button type="button" data-m="crew">I'm crewing</button></div>
+    <section class="rn-pick">
+      <label for="rnRace" class="rn-vh">Race</label>
+      <select id="rnRace" aria-label="Race"></select>
+      <div id="rnStages" class="rn-stages" role="group" aria-label="Stage" hidden></div>
+      <p id="rnStart" class="fd-hint"></p>
     </section>
-    <section class="fd-card fd-where" id="rnWhere" hidden></section>
+    <div id="rnNotices"></div>
+  </div>
 
+  <!-- Course: map, profile and where am I -->
+  <div class="rn-tab" data-tab="course">
+    <section id="fdOffline" class="fd-offline" hidden></section>
+    <div data-for="runner">
+      <section class="fd-locate">
+        <button id="fdLocate" class="fd-big" type="button">Where am I?</button>
+        <p id="fdGpsMsg" class="fd-msg" role="status"></p>
+      </section>
+      <section class="fd-card fd-where" id="rnWhere" hidden></section>
+    </div>
+    <section class="fd-card fd-mapcard" id="rnMapCard">
+      <div id="fdMap" aria-label="Map"></div>
+      <div id="rnProf" class="fd-prof"></div>
+    </section>
+    <p id="rnNoMap" class="fd-card muted" hidden>The map for this race isn't in the app yet. The aid stations and times still work.</p>
+    <p id="fdTrack" class="fd-track" hidden></p>
+  </div>
+
+  <!-- Aid stations (crew points for crews) -->
+  <div class="rn-tab" data-tab="aid" hidden>
+    <div data-for="crew" hidden>
+      <section class="fd-card">
+        <h2>Your runner</h2>
+        <p class="fd-hint">Their expected times come from their target time, or from where they were last seen.</p>
+        <div class="rn-seen">
+          <label>Last seen at <select id="rnSeenAt"><option value="">(not yet)</option></select></label>
+          <label>at <input id="rnSeenTime" type="time"></label>
+        </div>
+        <p id="rnSeenMsg" class="fd-hint"></p>
+      </section>
+    </div>
+    <section class="fd-card">
+      <h2 id="rnPlanTitle">Aid stations and cut-offs</h2>
+      <div class="rn-target"><label for="rnTarget">Target time</label><input id="rnTarget" type="text" inputmode="numeric" placeholder="e.g. 32:00"><span class="fd-hint" id="rnTargetMsg"></span></div>
+      <div id="rnPlan"></div>
+    </section>
+  </div>
+
+  <!-- Help -->
+  <div class="rn-tab" data-tab="help" hidden>
     <section class="fd-card rn-safety">
       <h2>Need help?</h2>
       <div class="rn-help">
@@ -55,50 +82,49 @@
         <a class="fd-big" id="rnCallMed" href="#" hidden>Call race medical</a>
         <button class="fd-big fd-wa" id="rnShare" type="button">Share my location</button>
       </div>
-      <p class="fd-hint" id="rnShareMsg">Tap Where am I? first, then Share my location to send it by text or WhatsApp.</p>
+      <p class="fd-hint" id="rnShareMsg"></p>
       <p class="fd-hint">If you're hurt or lost, stay on the course if you can: it's where we'll look for you. Keep warm and tell the next runner.</p>
       <p class="fd-hint" id="rnWithdraw"></p>
     </section>
   </div>
 
-  <!-- Crew -->
-  <div data-for="crew" hidden>
+  <!-- Weather -->
+  <div class="rn-tab" data-tab="weather" hidden>
     <section class="fd-card">
-      <h2>Your runner</h2>
-      <p class="fd-hint">Their expected times come from their target time, or from where they were last seen.</p>
-      <div class="rn-seen">
-        <label>Last seen at <select id="rnSeenAt"><option value="">(not yet)</option></select></label>
-        <label>at <input id="rnSeenTime" type="time"></label>
-      </div>
-      <p id="rnSeenMsg" class="fd-hint"></p>
+      <h2>Weather</h2>
+      <div id="rnWx"><p class="muted">Loading…</p></div>
     </section>
   </div>
 
-  <section class="fd-card">
-    <h2 id="rnPlanTitle">Aid stations and cut-offs</h2>
-    <div class="rn-target"><label for="rnTarget">Target time</label><input id="rnTarget" type="text" inputmode="numeric" placeholder="e.g. 32:00"><span class="fd-hint" id="rnTargetMsg"></span></div>
-    <div id="rnPlan"></div>
-  </section>
+  <!-- Schedule -->
+  <div class="rn-tab" data-tab="schedule" hidden>
+    <section class="fd-card">
+      <h2>Schedule</h2>
+      <p class="fd-hint" id="rnVillage"></p>
+      <div id="rnSched"></div>
+    </section>
+  </div>
 
-  <section class="fd-card">
-    <h2>Schedule</h2>
-    <p class="fd-hint" id="rnVillage"></p>
-    <div id="rnSched"></div>
-  </section>
+  <!-- Gear -->
+  <div class="rn-tab" data-tab="gear" hidden>
+    <section class="fd-card" id="rnGearCard">
+      <h2>Mandatory gear</h2>
+      <div id="rnGear"></div>
+    </section>
+  </div>
 
-  <section class="fd-card">
-    <h2>Weather</h2>
-    <div id="rnWx"><p class="muted">Loading…</p></div>
-  </section>
-
-  <section class="fd-card" id="rnGearCard">
-    <h2>Mandatory gear</h2>
-    <div id="rnGear"></div>
-  </section>
-
-  <p id="fdTrack" class="fd-track" hidden></p>
   <p class="fd-foot">A guide only: check the race briefing and follow the course markings. In an emergency call 000.</p>
 </main>
+
+<!-- Tabs along the bottom, for thumbs -->
+<nav class="rn-nav" aria-label="Sections">
+  <button type="button" data-tab="course" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></svg><span>Course</span></button>
+  <button type="button" data-tab="aid"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z M9 8h6 M9 12h6 M9 16h4"/></svg><span id="rnAidTab">Aid</span></button>
+  <button type="button" data-tab="help" class="rn-nav-help"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8v8 M8 12h8"/></svg><span>Help</span></button>
+  <button type="button" data-tab="weather"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 0-8 6 6 0 0 0-11.5 1.5A3.3 3.3 0 0 0 7 18z"/></svg><span>Weather</span></button>
+  <button type="button" data-tab="schedule"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7v5l3 2"/></svg><span>Schedule</span></button>
+  <button type="button" data-tab="gear"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V5a4 4 0 0 1 8 0v2 M5 7h14l-1 13H6z M10 12l2 2 3-4"/></svg><span>Gear</span></button>
+</nav>
 
 <div id="wxBody" hidden></div>
 

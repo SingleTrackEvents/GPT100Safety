@@ -112,8 +112,22 @@
   $('rnRace').value = race.id;
   $('rnRace').addEventListener('change', () => { race = R.races.find(r => r.id === $('rnRace').value); store.set('race', race.id); here = null; setStage(pickStage()); });
   document.querySelectorAll('.rn-mode button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.m)));
+  // ---------- tabs (along the bottom, for thumbs) ----------
+  let tab = store.get('tab', 'course');
+  function setTab(t) {
+    if (!document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = 'course';
+    tab = t; store.set('tab', t);
+    document.querySelectorAll('.rn-tab').forEach(el => el.hidden = el.dataset.tab !== t);
+    document.querySelectorAll('.rn-nav button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
+    if (t === 'course') setTimeout(() => { if (map) { map.invalidateSize(); if (needFit) { needFit = false; drawCourse(true); if (here) drawMe(); } } if (profile) profile.redraw(); }, 0);
+    if (t === 'help') textLink();
+    scrollTo(0, 0);
+  }
+  document.querySelectorAll('.rn-nav button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+
   function setMode(m) {
     mode = m; store.set('mode', m);
+    $('rnAidTab').textContent = m === 'crew' ? 'Crew' : 'Aid';
     document.querySelectorAll('.rn-mode button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
     document.querySelectorAll('[data-for]').forEach(el => el.hidden = el.dataset.for !== m);
     $('rnAppName').textContent = m === 'crew' ? 'Crew' : 'Runner';
@@ -141,7 +155,7 @@
   }
 
   // ---------- map and profile ----------
-  let map = null, courseLayer = null, meLayer = null;
+  let map = null, courseLayer = null, meLayer = null, needFit = false;
   function initMap() {
     if (!window.L) { $('fdMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
     map = L.map('fdMap', { zoomControl: true });
@@ -160,21 +174,24 @@
       L.circleMarker([p.lat, p.lon], { radius: crewPt ? 8 : 6, color: crewPt ? '#128c4a' : '#fff', weight: crewPt ? 3 : 2, fillColor: '#111', fillOpacity: 1 })
         .bindTooltip(`<b>${esc(p.name)}</b><br>km ${one(p.km)}${p.ct && p !== P[0] && !p.noCut ? '<br>Cut-off ' + when(p.ct) : ''}`).addTo(courseLayer);
     });
-    if (fit) map.fitBounds(line.getBounds().pad(0.08));
+    // A hidden map can't size itself: fit when the Course tab opens.
+    if (fit) { if ($('fdMap').offsetWidth) map.fitBounds(line.getBounds().pad(0.08)); else needFit = true; }
   }
   let profile = null;
 
   // ---------- where am I ----------
   let here = null;
   function msg(t, bad) { const m = $('fdGpsMsg'); m.textContent = t; m.classList.toggle('bad', !!bad); }
-  $('fdLocate').addEventListener('click', () => {
+  // GPS fix; then() runs once you're placed (the Help tab's Share uses it too).
+  function locate(then) {
     if (!E()) { msg('Where am I? needs this race\'s map, which isn\'t in the app yet.', true); return; }
     if (!navigator.geolocation) { msg('This phone can\'t share its location with the app.', true); return; }
     msg('Finding you… (stand in the open for the best fix)');
-    navigator.geolocation.getCurrentPosition(p => { msg(`GPS fix ${hm.format(new Date(p.timestamp))}, accurate to about ${Math.round(p.coords.accuracy)} m.`); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); },
-      e => msg(e.code === 1 ? 'Location is blocked for this site. Allow location in the phone settings.' : 'No GPS fix yet. Try again in the open.', true),
+    navigator.geolocation.getCurrentPosition(p => { msg(`GPS fix ${hm.format(new Date(p.timestamp))}, accurate to about ${Math.round(p.coords.accuracy)} m.`); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
+      e => { msg(e.code === 1 ? 'Location is blocked for this site. Allow location in the phone settings.' : 'No GPS fix yet. Try again in the open.', true); $('rnShareMsg').textContent = $('fdGpsMsg').textContent; },
       { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
-  });
+  }
+  $('fdLocate').addEventListener('click', () => locate());
   const DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
   function compass(a, b) {
     const r = Math.PI / 180, y = Math.sin((b[1] - a[1]) * r) * Math.cos(b[0] * r), x = Math.cos(a[0] * r) * Math.sin(b[0] * r) - Math.sin(a[0] * r) * Math.cos(b[0] * r) * Math.cos((b[1] - a[1]) * r);
@@ -248,15 +265,18 @@
     if (here.acc) L.circle(me, { radius: here.acc, color: '#1666c9', weight: 1, fillOpacity: .12, interactive: false }).addTo(meLayer);
     if (here.offM > 50) L.polyline([me, here.cp], { color: '#111', weight: 2, dashArray: '4 6', interactive: false }).addTo(meLayer);
     L.circleMarker(me, { radius: 9, color: '#fff', weight: 3, fillColor: '#1666c9', fillOpacity: 1 }).bindTooltip('You').addTo(meLayer);
-    map.fitBounds(L.latLngBounds([me, here.cp]).pad(0.6), { maxZoom: 15 });
+    if ($('fdMap').offsetWidth) map.fitBounds(L.latLngBounds([me, here.cp]).pad(0.6), { maxZoom: 15 }); else needFit = true;
   }
   // Share my location: the race, km and position, by text or WhatsApp (the phone's share sheet).
   function locationText() {
     return `GPT100 runner location: ${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}`;
   }
-  function textLink() { $('rnShareMsg').textContent = here ? 'Sends your race km and position. Pick who to send it to.' : 'Tap Where am I? first, then Share my location to send it by text or WhatsApp.'; }
+  const fresh = () => here && Date.now() - here.t < 5 * 60e3;
+  function textLink() { $('rnShareMsg').textContent = fresh() ? `Ready: km ${one(here.rk)}, GPS ±${Math.round(here.acc)} m. Sends your race km and position by text or WhatsApp.` : 'Finds your position first, then sends your race km and position by text or WhatsApp.'; }
   $('rnShare').addEventListener('click', async () => {
-    if (!here) { $('fdLocate').scrollIntoView({ block: 'center' }); msg('Tap Where am I? first.', true); return; }
+    // The phone only opens the share sheet straight from a tap, so a new fix needs a second tap.
+    if (!fresh()) { $('rnShareMsg').textContent = 'Finding you… (stand in the open)'; locate(() => { $('rnShareMsg').textContent = `Found you at km ${one(here.rk)} (GPS ±${Math.round(here.acc)} m). Tap Share my location again to send it.`; $('rnShare').textContent = 'Send my location'; }); return; }
+    $('rnShare').textContent = 'Share my location';
     const text = locationText();
     if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
     location.href = 'sms:?&body=' + encodeURIComponent(text);
@@ -389,12 +409,13 @@
     km: { toRace: k => stage ? toRace(stage, k) : k, toCourse: k => stage ? toCourse(stage, k) : k },
     title: () => !stage ? '' : `${race.short}${race.stages.length > 1 ? ' ' + stage.label : ''}: ${one(stage.points[stage.points.length - 1].km)} km`
   });
-  if (INFO.medicalPhone) { $('rnCallMed').hidden = false; $('rnCallMed').href = 'tel:' + INFO.medicalPhone.replace(/\s/g, ''); $('rnCallMed').textContent = 'Call race medical ' + INFO.medicalPhone; }
+  if (INFO.medicalPhone) { $('rnCallMed').hidden = false; $('rnCallMed').href = 'tel:' + INFO.medicalPhone.replace(/\s/g, ''); $('rnCallMed').innerHTML = `Call race medical<small>${esc(INFO.medicalPhone)}</small>`; }
   $('rnWithdraw').textContent = INFO.withdraw || '';
   $('rnNotices').innerHTML = (INFO.notices || []).map(n => `<p class="notice">${esc(n.text)}</p>`).join('');
   if (C.tracking && C.tracking.url) { const t = $('fdTrack'); t.hidden = false; t.innerHTML = `<a class="btn" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>`; }
   setStage(pickStage());
   setMode(mode);
+  setTab(tab);
   offlineCard();
   let rz = null; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (map) map.invalidateSize(); }, 200); });
   function netStatus() { $('net').hidden = navigator.onLine; }
