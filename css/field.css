@@ -58,13 +58,3 @@ body.field { background: #f4f3ef; font-size: 16px; }
 .fd-big:disabled { opacity: .7; cursor: default; }
 #fdOut.far > section:not(.fd-where) { display: none; }
 #fdOut.long .fd-wayout { display: none; }
-/* Marshal points */
-.fd-mk { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 5px; background: #f2a900; color: #111; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); font: 700 12px/1 var(--body); }
-.leaflet-marker-icon.fd-mk { line-height: 18px; }
-.fd-mk-note { margin: 6px 0 0; font-size: 13px; line-height: 1.4; }
-.fd-marshal { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; padding: 9px 0; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; color: inherit; cursor: pointer; }
-.fd-marshal:first-child { border-top: 0; }
-.fd-marshal .fd-mk { flex: none; margin-top: 1px; }
-.fd-marshal b { display: block; font-size: 15px; }
-.fd-marshal small { display: block; font-size: 12px; color: var(--muted); font-weight: 600; }
-.fd-marshal em { display: block; font-style: normal; font-size: 13px; color: var(--muted); margin-top: 2px; }

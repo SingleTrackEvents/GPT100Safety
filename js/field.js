@@ -9,34 +9,6 @@
   const tf = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   let here = null, watchId = null, map = null, layer = null;
 
-  // ---------- marshal points (data/marshals.js, from the management map) ----------
-  // In Where am I?: a marshal point within 1 km of you, and which way it is.
-  function marshalNear() {
-    if (!here || !MARSHALS.length) return '';
-    const me = [here.lat, here.lon], m = MARSHALS.map(x => ({ x, d: MAIN.metres(me, [x.lat, x.lon]) })).sort((a, b) => a.d - b.d)[0];
-    if (m.d > 1000) return '';
-    return `<p class="fd-facts">Marshal point: <b>${esc(m.x.name)}</b>, ${m.d < 30 ? 'you\'re there' : `${Math.round(m.d / 10) * 10} m ${compass(me, [m.x.lat, m.x.lon])} of you`}</p>`;
-  }
-  function marshalList() {
-    if (!MARSHALS.length) return;
-    $('fdMarshalsCard').hidden = false;
-    $('fdMarshals').innerHTML = MARSHALS.map((m, i) => `<button type="button" class="fd-marshal" data-i="${i}"><span class="fd-mk">M</span><span><b>${esc(m.name)}</b><small>${esc(marshalKm(m))}</small>${m.note ? `<em>${esc(m.note.split('\n')[0].slice(0, 140))}${m.note.length > 140 ? '…' : ''}</em>` : ''}</span></button>`).join('');
-    $('fdMarshals').querySelectorAll('.fd-marshal').forEach(b => b.onclick = () => {
-      const m = MARSHALS[+b.dataset.i], mk = marshalMarks[+b.dataset.i];
-      if (!map || !mk) return;
-      $('fdMap').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      map.setView([m.lat, m.lon], 16); mk.openPopup();
-    });
-  }
-  // Each gets the course and km it's on (the 14k only when it's clearly closer, as for Where am I?).
-  const MARSHALS = (window.GPT_MARSHALS || []).map(m => {
-    let best = null;
-    MAIN.courses.forEach(E => { const s = E.snap(m.lat, m.lon); if (!best || s.offM < best.s.offM - (E.main ? 0 : 50)) best = { E, s }; });
-    return Object.assign({}, m, { E: best.E, km: best.E.route[best.s.ic][2], offM: best.s.offM });
-  }).sort((a, b) => (a.E.main ? 0 : 1) - (b.E.main ? 0 : 1) || a.km - b.km);
-  const marshalKm = m => `${m.E.main ? '' : m.E.name + ' '}km ${one(m.km)}${m.offM > 100 ? `, ${m.offM < 1000 ? m.offM + ' m' : one(m.offM / 1000) + ' km'} off the course` : ''}`;
-  let marshalMarks = [];
-
   // ---------- where am I ----------
   // Snap to whichever course is nearest (the GPT100, or the 14k when it's clearly closer).
   function place(lat, lon, gps) {
@@ -163,7 +135,7 @@
       <div class="fd-kmrow"><span class="fd-kmbig">KM ${one(r.km)}</span>${kmTag}</div>
       <p class="fd-between">${esc(between(r))}</p>
       <p class="fd-facts fd-off-${S.tier}"><b>${off}</b> · ${Math.round(r.ele)} m high</p>
-      ${pos}${marshalNear()}`;
+      ${pos}`;
     // Nearest way out: the closest vehicle access (by walking time), and the aid stations either side.
     const opts = r.results.slice().sort((a, b) => a.walk - b.walk);
     const w = opts[0], seen = new Set();
@@ -233,9 +205,6 @@
       L.polyline(E.route.map(p => [p[0], p[1]]), { color: E.main ? '#d9531e' : '#1666c9', weight: 4, opacity: .8 }).addTo(map);
       E.AID.forEach(a => { const p = E.route[E.idxAtKm(a.trail_km)]; L.circleMarker([p[0], p[1]], { radius: 5, color: '#fff', weight: 2, fillColor: '#111', fillOpacity: 1 }).bindTooltip(`${esc(a.name)}<br>km ${one(a.trail_km)}${E.main ? '' : ' (' + esc(E.name) + ')'}`).addTo(map); });
     });
-    const mIcon = L.divIcon({ className: 'fd-mk', html: 'M', iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -10] });
-    marshalMarks = MARSHALS.map(m => L.marker([m.lat, m.lon], { icon: mIcon, zIndexOffset: 400, title: m.name })
-      .bindPopup(`<b>${esc(m.name)}</b><br><small>Marshal point · ${esc(marshalKm(m))}</small>${m.note ? `<p class="fd-mk-note">${esc(m.note).replace(/\n/g, '<br>')}</p>` : ''}`, { maxWidth: 260 }).addTo(map));
     trailLine = L.polyline([], { color: '#7a3db8', weight: 3, opacity: .9, dashArray: '1 6', lineCap: 'round', interactive: false }).addTo(map);
     layer = L.layerGroup().addTo(map);
     map.fitBounds(L.latLngBounds(MAIN.route.map(p => [p[0], p[1]])).pad(0.03));
@@ -331,7 +300,6 @@
   profile = GPTProfile({ el: $('fdProf'), course: MAIN, map: () => map, who: 'you', empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.' });
   showTrail();
   offlineCard();
-  marshalList();
   let rz = null; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (map) map.invalidateSize(); }, 200); });
   $('fdLocate').addEventListener('click', locate);
   $('fdFollow').addEventListener('change', e => follow(e.target.checked));
