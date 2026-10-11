@@ -1,5 +1,5 @@
 // GPT100 Runner: for runners and their crews. Your race on the map, where you are, the next aid station,
-// cut-offs and expected times, crew points, the weather and how to get help.
+// cut-offs and expected times, crew points, the schedule and how to get help.
 // Race details come from data/races.js (tools/import_races.mjs, from the course sheet). Works offline once opened.
 // Nothing internal is here: no Safety Officer posts, access roads, medical plan or weather triggers.
 (function () {
@@ -48,7 +48,7 @@
     if (stage.ready) return stage;
     stage.course = course; stage.ready = true;
     const E = engineFor(stage), P = stage.points;
-    // Races without a map yet (6k, 5k, 2k): place the start by name for the weather.
+    // Races without a map: place the start by name.
     if (!E) { const a = MAIN.AID.find(a => words(P[0].name).some(w => !STOP.has(w) && words(a.name).includes(w))); P.forEach(p => { p.ft = mel(p.first); p.ct = mel(p.cutoff); if (a) { p.lat = a.lat; p.lon = a.lon; } }); return stage; }
     let from = 0;
     P.forEach((p, i) => {
@@ -152,7 +152,7 @@
     $('rnMapCard').hidden = !E(); $('rnNoMap').hidden = !!E();
     if (E()) { profile.setCourse(E()); profile.setHere(null); }
     if (hasMap) drawCourse(true);
-    plan(); gear(); weather(); schedule();
+    plan(); gear(); schedule();
   }
 
   // ---------- map and profile ----------
@@ -226,7 +226,7 @@
       el.innerHTML = `${poor}<div class="fd-kmrow"><span class="fd-kmbig">${one(here.offM / 1000)} KM</span></div>
         <p class="fd-between">from the ${esc(race.short)}${race.stages.length > 1 ? ' ' + esc(S.label) : ''} course</p>
         <p class="fd-facts">The nearest point is km ${one(here.rk)}, ${dir} of you.</p>`;
-      profile.setHere(null); weather(); textLink(); return;
+      profile.setHere(null); textLink(); return;
     }
     const nx = P.find(p => p.km > here.rk + 0.05), pv = [...P].reverse().find(p => p.km <= here.rk + 0.05) || P[0];
     const off = here.offM <= 50 ? 'On the course' : here.offM <= 300 ? `Just off the course. The course is ${dist(here.offM)} ${dir} of you`
@@ -241,7 +241,7 @@
     }
     el.innerHTML = h;
     profile.setHere({ E: En, km: here.gk, ele: here.ele });
-    weather(); textLink();
+    textLink();
   }
   // At your pace (from where you are now and the time), when you'd reach the next point.
   function pace(nx) {
@@ -383,17 +383,6 @@
   const saveSeen = () => { store.set('seen.' + KEY(), $('rnSeenAt').value ? { i: $('rnSeenAt').value, t: $('rnSeenTime').value } : null); plan(); };
   $('rnSeenAt').addEventListener('change', saveSeen); $('rnSeenTime').addEventListener('input', saveSeen);
 
-  // ---------- weather (no internal triggers) ----------
-  let wxFor = null;
-  async function weather() {
-    const pt = here || (stage.points[0].lat != null ? { lat: stage.points[0].lat, lon: stage.points[0].lon, ele: 500 } : null);
-    const box = $('rnWx');
-    if (!pt || !window.WeatherTab) { box.innerHTML = '<p class="muted">Weather isn\'t available.</p>'; return; }
-    const key = pt.lat.toFixed(3) + ',' + pt.lon.toFixed(3); if (key === wxFor) return; wxFor = key;
-    const html = await window.WeatherTab.nearHTML(pt.lat, pt.lon, pt.ele || 500).catch(() => '');
-    box.innerHTML = (html ? `<p class="fd-hint">${here ? 'Where you are' : 'At the start'}:</p>` + html : '<p class="muted">No weather on this phone yet. Open the app once with signal.</p>');
-  }
-
   // ---------- mandatory gear ----------
   function gear() {
     const list = (INFO.gear || {})[race.id], ticks = store.get('gear.' + race.id, {});
@@ -462,7 +451,7 @@
     let h = '';
     if (i === 0) h = `<img class="rn-intro-logo" src="icons/logo.png" alt="GPT100 Miler">
       <h2 id="rnIntroTitle">Your race in your pocket</h2>
-      <p>The course map, where you are, the next aid station, cut-offs, the weather and how to get help. Once it's set up it works with no signal.</p>
+      <p>The course map, where you are, the next aid station, cut-offs, the schedule and how to get help. Once it's set up it works with no signal.</p>
       <div class="rn-mode rn-intro-mode" role="group"><button type="button" data-m="runner"${mode === 'runner' ? ' class="on"' : ''}>I'm running</button><button type="button" data-m="crew"${mode === 'crew' ? ' class="on"' : ''}>I'm crewing</button></div>
       <label class="rn-intro-l" for="rnIntroRace">Race</label><select id="rnIntroRace" class="rn-schedfor">${R.races.map(r => `<option value="${r.id}"${r === race ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select>
       <p class="fd-hint">You can change these at the top of the app any time.</p>`;
@@ -484,7 +473,6 @@
         <li><b>Course</b> Tap <b>Where am I?</b> for your race km, the next aid station, the climb to it and when you'll get there.</li>
         <li><b>${mode === 'crew' ? 'Crew' : 'Aid'}</b> ${mode === 'crew' ? 'Crew points with directions and your runner’s expected times.' : 'Every aid station with cut-offs. Add a target time to see your splits.'}</li>
         <li><b>Help</b> Call 000 or race medical, or share your location.</li>
-        <li><b>Weather</b> Conditions where you are, and BOM warnings.</li>
         <li><b>Schedule</b> What's on now, what's next, and the full schedule.</li>
         <li><b>Gear</b> Tick off your mandatory gear.</li>
       </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. A guide only: follow the course markings and the race briefing.</p>`;
