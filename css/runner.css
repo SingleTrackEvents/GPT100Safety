@@ -77,3 +77,16 @@
 #rnCallMed small { font: 600 14px var(--body); letter-spacing: .5px; color: #ddd; }
 .rn-tab[data-tab="course"] .fd-locate { margin-top: 8px; }
 .rn-tab[data-tab="course"] #rnWhere { margin-top: 10px; }
+/* Schedule: on now and up next */
+.rn-now { background: #111; color: #fff; border-radius: 12px; padding: 10px 12px; margin: 4px 0 12px; }
+.rn-now h3 { font: 400 18px/1 var(--head); letter-spacing: .5px; color: #ffcf33; margin: 6px 0 4px; }
+.rn-now h3:first-child { margin-top: 0; }
+.rn-now-i { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,.15); font-size: 14px; }
+.rn-now h3 + .rn-now-i { border-top: 0; }
+.rn-now-i b { white-space: nowrap; }
+.rn-now-i em { grid-column: 2; font-style: normal; font-size: 12px; font-weight: 700; color: #ffcf33; }
+.rn-now .muted { color: #bbb; margin: 0; }
+.rn-schedfor { width: 100%; min-height: 44px; font: 600 15px var(--body); border: 2px solid var(--ink); border-radius: 10px; background: #fff; padding: 0 10px; margin-bottom: 4px; }
+.rn-sch small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
+.rn-sch.live { background: #fff6d6; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
+.rn-sch.live b { color: #b0181d; }

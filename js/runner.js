@@ -121,6 +121,7 @@
     document.querySelectorAll('.rn-nav button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
     if (t === 'course') setTimeout(() => { if (map) { map.invalidateSize(); if (needFit) { needFit = false; drawCourse(true); if (here) drawMe(); } } if (profile) profile.redraw(); }, 0);
     if (t === 'help') textLink();
+    if (t === 'schedule') drawSchedule();
     scrollTo(0, 0);
   }
   document.querySelectorAll('.rn-nav button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -284,18 +285,51 @@
 
   // ---------- schedule (for this race, or its crews) ----------
   const dayFmt = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'long', day: 'numeric', month: 'short' });
-  function schedule() {
-    const tag = race.id, now = Date.now();
-    $('rnVillage').textContent = INFO.village || '';
-    $('rnSched').innerHTML = (INFO.schedule || []).map(d => {
-      const items = d.items.filter(([, , f]) => { const w = f.split(' '); return w.includes('all') || w.includes(tag) || (mode === 'crew' && w.includes('crew')); });
-      if (!items.length) return '';
-      return `<h3 class="rn-day">${dayFmt.format(mel(d.day + 'T12:00'))}</h3>` + items.map(([t, what]) => {
-        const past = mel(d.day + 'T' + t).getTime() < now - 3600e3;
-        return `<div class="rn-sch${past ? ' past' : ''}"><b>${t.replace(/^0/, '')}</b><span>${esc(what)}</span></div>`;
-      }).join('');
-    }).join('') || '<p class="muted">Nothing listed for this race.</p>';
+  // Each item as times: start, and end when the text says "until …" (otherwise it's a moment: on now for 20 min).
+  const untilRe = /until (\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
+  function events() {
+    const out = [];
+    (INFO.schedule || []).forEach(d => d.items.forEach(([t, what, f]) => {
+      const start = mel(d.day + 'T' + t).getTime(), u = untilRe.exec(what);
+      let end = null;
+      if (u) { let h = +u[1] % 12 + (/pm/i.test(u[3]) ? 12 : 0); end = mel(d.day + 'T' + String(h).padStart(2, '0') + ':' + (u[2] || '00')).getTime(); if (end <= start) end += 864e5; }
+      out.push({ day: d.day, t, what, tags: f.split(' '), start, end });
+    }));
+    return out;
   }
+  // Which items to show: one race (and its crews), or everything.
+  const showFor = () => $('rnSchedFor').value || race.id;
+  const wanted = (e, tag) => tag === 'full' || e.tags.includes('all') || e.tags.includes(tag) || (mode === 'crew' && e.tags.includes('crew'));
+  const until = ms => { const m = Math.round(ms / 60000); if (m < 1) return 'now'; if (m < 60) return `in ${m} min`; const h = Math.floor(m / 60); return h < 24 ? `in ${h} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `in ${Math.round(h / 24)} day${Math.round(h / 24) > 1 ? 's' : ''}`; };
+  const tm = e => e.t.replace(/^0/, '');
+  function schedule() {
+    const sel = $('rnSchedFor'), keep = store.get('schedFor', 'race');
+    sel.innerHTML = `<option value="${race.id}">${esc(race.label)}${mode === 'crew' ? ' (and crews)' : ''}</option><option value="full">Full schedule</option>` +
+      R.races.filter(r => r !== race).map(r => `<option value="${r.id}">${esc(r.label)}</option>`).join('');
+    sel.value = keep === 'full' ? 'full' : keep !== 'race' && R.races.find(r => r.id === keep) ? keep : race.id;
+    drawSchedule();
+  }
+  function drawSchedule() {
+    const tag = showFor(), now = Date.now(), all = events().filter(e => wanted(e, tag));
+    $('rnVillage').textContent = INFO.village || '';
+    // On now: inside an "until" window, or started in the last 20 minutes. Up next: the next three.
+    const on = all.filter(e => e.start <= now && (e.end ? now < e.end : now - e.start < 20 * 60e3));
+    const next = all.filter(e => e.start > now).slice(0, 3);
+    const line = (e, right) => `<div class="rn-now-i"><b>${when(new Date(e.start))}</b><span>${esc(e.what)}</span><em>${right}</em></div>`;
+    $('rnNow').innerHTML = (on.length ? `<h3>On now</h3>` + on.map(e => line(e, e.end ? 'until ' + hm.format(new Date(e.end)) : 'now')).join('') : '') +
+      (next.length ? `<h3>Up next</h3>` + next.map(e => line(e, until(e.start - now))).join('') : '') ||
+      '<p class="muted">Nothing more on the schedule.</p>';
+    let html = '', day = null;
+    all.forEach(e => {
+      if (e.day !== day) { day = e.day; html += `<h3 class="rn-day">${dayFmt.format(mel(e.day + 'T12:00'))}</h3>`; }
+      const past = (e.end || e.start + 20 * 60e3) < now, live = on.includes(e);
+      html += `<div class="rn-sch${past ? ' past' : ''}${live ? ' live' : ''}"><b>${tm(e)}</b><span>${esc(e.what)}${tag === 'full' && !e.tags.includes('all') ? `<small>${esc(e.tags.map(x => x === 'crew' ? 'Crews' : (R.races.find(r => r.id === x) || {}).short || x).join(', '))}</small>` : ''}</span></div>`;
+    });
+    $('rnSched').innerHTML = html || '<p class="muted">Nothing listed for this race.</p>';
+  }
+  $('rnSchedFor').addEventListener('change', () => { const v = $('rnSchedFor').value; store.set('schedFor', v === race.id ? 'race' : v); drawSchedule(); });
+  // Keep On now and Up next current while the tab is open.
+  setInterval(() => { if (tab === 'schedule' && !document.hidden) drawSchedule(); }, 60e3);
 
   // ---------- the plan: aid stations, cut-offs and expected times ----------
   // Pace p from the target time (0 = the first runner's time, 1 = the cut-off), or for crews from where

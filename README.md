@@ -74,7 +74,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Aid stations and cut-offs:** every point with race km, leg distance and climb, cut-off, and your expected time from a target time (between the first runner's time and the cut-off).
 - **I'm crewing:** just the crew points (shuttle-only ones marked), with directions, cut-offs and the runner's expected times, from their target time or from where they were last seen.
 - **Need help?** Call 000, call race medical (1300 375 352), Share my location (text or WhatsApp, with race km and position), and how to withdraw (only through an aid station manager).
-- **Schedule** from gpt100.com.au, filtered to your race (and crew shuttles in crew mode), with past items greyed.
+- **Schedule** from gpt100.com.au, with **On now** and **Up next** at the top (refreshed every minute). Its own dropdown shows your race (and crew shuttles in crew mode), the Full schedule, or any other race. Past items are greyed and the ones on now highlighted.
 - **Weather** where you are (no internal triggers).
 - **Mandatory gear checklist** for each race from gpt100.com.au/mandatory-gear, with the spec for each item, ticks kept on the phone and a packed count. The 6k, 5k and 2k have no mandatory gear.
 - The GPT6k and the Dunkeld 5k and 2k courses come from their Strava GPX files (`tools/import_gpx.mjs`, into `data/runner-courses.js`), with the turnaround shown. On out-and-back courses, Where am I? tells the way out from the way back using your last fix or the race clock.
