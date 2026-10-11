@@ -90,7 +90,7 @@
     document.querySelectorAll('[data-for]').forEach(el => el.hidden = el.dataset.for !== m);
     $('rnAppName').textContent = m === 'crew' ? 'Crew' : 'Runner';
     $('rnPlanTitle').textContent = m === 'crew' ? 'Crew points' : 'Aid stations and cut-offs';
-    drawCourse(); plan();
+    drawCourse(); plan(); schedule();
   }
   function setStage(S) {
     stage = S; store.set('stage.' + race.id, S.id);
@@ -109,7 +109,7 @@
     $('rnMapCard').hidden = !E(); $('rnNoMap').hidden = !!E();
     if (E()) { profile.setCourse(E()); profile.setHere(null); }
     if (hasMap) drawCourse(true);
-    plan(); gear(); weather();
+    plan(); gear(); weather(); schedule();
   }
 
   // ---------- map and profile ----------
@@ -214,11 +214,31 @@
     L.circleMarker(me, { radius: 9, color: '#fff', weight: 3, fillColor: '#1666c9', fillOpacity: 1 }).bindTooltip('You').addTo(meLayer);
     map.fitBounds(L.latLngBounds([me, here.cp]).pad(0.6), { maxZoom: 15 });
   }
-  // Text race control: the race, km and position, ready to send (works on weak signal).
-  function textLink() {
-    const t = $('rnTextRc'); if (t.hidden || !here) return;
-    const body = `GPT100 runner location: ${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}`;
-    t.href = `sms:${INFO.raceControlPhone}?&body=${encodeURIComponent(body)}`;
+  // Share my location: the race, km and position, by text or WhatsApp (the phone's share sheet).
+  function locationText() {
+    return `GPT100 runner location: ${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}`;
+  }
+  function textLink() { $('rnShareMsg').textContent = here ? 'Sends your race km and position. Pick who to send it to.' : 'Tap Where am I? first, then Share my location to send it by text or WhatsApp.'; }
+  $('rnShare').addEventListener('click', async () => {
+    if (!here) { $('fdLocate').scrollIntoView({ block: 'center' }); msg('Tap Where am I? first.', true); return; }
+    const text = locationText();
+    if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+    location.href = 'sms:?&body=' + encodeURIComponent(text);
+  });
+
+  // ---------- schedule (for this race, or its crews) ----------
+  const dayFmt = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'long', day: 'numeric', month: 'short' });
+  function schedule() {
+    const tag = race.id, now = Date.now();
+    $('rnVillage').textContent = INFO.village || '';
+    $('rnSched').innerHTML = (INFO.schedule || []).map(d => {
+      const items = d.items.filter(([, , f]) => { const w = f.split(' '); return w.includes('all') || w.includes(tag) || (mode === 'crew' && w.includes('crew')); });
+      if (!items.length) return '';
+      return `<h3 class="rn-day">${dayFmt.format(mel(d.day + 'T12:00'))}</h3>` + items.map(([t, what]) => {
+        const past = mel(d.day + 'T' + t).getTime() < now - 3600e3;
+        return `<div class="rn-sch${past ? ' past' : ''}"><b>${t.replace(/^0/, '')}</b><span>${esc(what)}</span></div>`;
+      }).join('');
+    }).join('') || '<p class="muted">Nothing listed for this race.</p>';
   }
 
   // ---------- the plan: aid stations, cut-offs and expected times ----------
@@ -325,7 +345,7 @@
     km: { toRace: k => stage ? toRace(stage, k) : k, toCourse: k => stage ? toCourse(stage, k) : k },
     title: () => !stage ? '' : `${race.short}${race.stages.length > 1 ? ' ' + stage.label : ''}: ${one(stage.points[stage.points.length - 1].km)} km`
   });
-  if (INFO.raceControlPhone) { $('rnCallRc').hidden = false; $('rnCallRc').href = 'tel:' + INFO.raceControlPhone.replace(/\s/g, ''); $('rnTextRc').hidden = false; }
+  if (INFO.medicalPhone) { $('rnCallMed').hidden = false; $('rnCallMed').href = 'tel:' + INFO.medicalPhone.replace(/\s/g, ''); $('rnCallMed').textContent = 'Call race medical ' + INFO.medicalPhone; }
   $('rnWithdraw').textContent = INFO.withdraw || '';
   $('rnNotices').innerHTML = (INFO.notices || []).map(n => `<p class="notice">${esc(n.text)}</p>`).join('');
   if (C.tracking && C.tracking.url) { const t = $('fdTrack'); t.hidden = false; t.innerHTML = `<a class="btn" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>`; }

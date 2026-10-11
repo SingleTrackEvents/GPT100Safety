@@ -43,3 +43,10 @@
 .rn-gear input { width: 20px; height: 20px; }
 /* Weather here without the internal trigger badges */
 .runner .wx-near .wx-pill { display: none; }
+.rn-help button.fd-big { font-size: 26px; }
+#rnCallMed { font-size: 22px; }
+.rn-day { font: 400 20px/1.1 var(--head); letter-spacing: .5px; margin: 14px 0 4px; }
+.rn-day:first-child { margin-top: 4px; }
+.rn-sch { display: grid; grid-template-columns: 52px 1fr; gap: 8px; padding: 5px 0; font-size: 14px; border-top: 1px solid var(--line); }
+.rn-sch b { font-weight: 700; }
+.rn-sch.past { color: #a49e94; }

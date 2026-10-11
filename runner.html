@@ -52,9 +52,10 @@
       <h2>Need help?</h2>
       <div class="rn-help">
         <a class="fd-big fd-urgent" href="tel:000">Call 000</a>
-        <a class="fd-big" id="rnCallRc" href="#" hidden>Call race control</a>
-        <a class="fd-big fd-wa" id="rnTextRc" href="#" hidden>Text my location</a>
+        <a class="fd-big" id="rnCallMed" href="#" hidden>Call race medical</a>
+        <button class="fd-big fd-wa" id="rnShare" type="button">Share my location</button>
       </div>
+      <p class="fd-hint" id="rnShareMsg">Tap Where am I? first, then Share my location to send it by text or WhatsApp.</p>
       <p class="fd-hint">If you're hurt or lost, stay on the course if you can: it's where we'll look for you. Keep warm and tell the next runner.</p>
       <p class="fd-hint" id="rnWithdraw"></p>
     </section>
@@ -77,6 +78,12 @@
     <h2 id="rnPlanTitle">Aid stations and cut-offs</h2>
     <div class="rn-target"><label for="rnTarget">Target time</label><input id="rnTarget" type="text" inputmode="numeric" placeholder="e.g. 32:00"><span class="fd-hint" id="rnTargetMsg"></span></div>
     <div id="rnPlan"></div>
+  </section>
+
+  <section class="fd-card">
+    <h2>Schedule</h2>
+    <p class="fd-hint" id="rnVillage"></p>
+    <div id="rnSched"></div>
   </section>
 
   <section class="fd-card">

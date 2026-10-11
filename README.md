@@ -72,7 +72,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **I'm running:** your race on the topo map (saved for offline) with its elevation profile in race km. **Where am I?** gives your race km, the next aid station with distance, climb and descent, what's there (drop bag, crew), its cut-off, and at your pace when you'd get there. Off the course, it says which way the course is.
 - **Aid stations and cut-offs:** every point with race km, leg distance and climb, cut-off, and your expected time from a target time (between the first runner's time and the cut-off).
 - **I'm crewing:** just the crew points (shuttle-only ones marked), with directions, cut-offs and the runner's expected times, from their target time or from where they were last seen.
-- **Need help?** Call 000, call or text race control (when the number is set in `data/runner-info.js`), and how to withdraw (only through an aid station manager).
+- **Need help?** Call 000, call race medical (1300 375 352), Share my location (text or WhatsApp, with race km and position), and how to withdraw (only through an aid station manager).
+- **Schedule** from gpt100.com.au, filtered to your race (and crew shuttles in crew mode), with past items greyed.
 - **Weather** where you are (no internal triggers) and the mandatory gear checklist.
 - The 6k, 5k and 2k have no map yet: their aid stations and times still show.
 
