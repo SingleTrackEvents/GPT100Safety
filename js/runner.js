@@ -413,6 +413,24 @@
   // ---------- save the map for offline (as in the field app) ----------
   const OM = window.GPTOfflineMap;
   let saving = false;
+  // On iPhone a home screen app keeps its own storage, apart from Safari: a map saved in Safari isn't in the
+  // installed app, so it would download twice. There the app asks to be installed first. (Android shares it.)
+  const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const installFirst = () => IOS && !STANDALONE && !store.get('saveInBrowser', false);
+  let installPrompt = null;
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; if (introStep === 1) introDraw(); });
+  // Save with a progress bar on any button (the Course tab card and the intro use it).
+  async function saveMap(btn, bar, out) {
+    if (!navigator.onLine) { out.textContent = 'No signal. Try again with wifi or good signal.'; return; }
+    saving = true; btn.disabled = true; bar.hidden = false; out.classList.remove('bad'); out.textContent = 'Keep the app open until it finishes.';
+    const r = await OM.save((d, t) => { bar.firstChild.style.width = (100 * d / t).toFixed(1) + '%'; btn.textContent = `Saving ${Math.round(100 * d / t)}%`; });
+    saving = false; btn.disabled = false;
+    if (r.failed) { btn.textContent = 'Save again'; out.textContent = `${r.failed} map squares didn't save. Tap Save again with better signal.`; out.classList.add('bad'); }
+    else { btn.textContent = 'Map saved ✓'; btn.disabled = true; out.textContent = 'Saved. The map now works without signal.'; }
+    offlineCard();
+  }
+  const iosSteps = '<ol class="rn-steps"><li>Tap <b>Share</b> <span class="rn-ico">⬆︎</span> at the bottom of Safari (or the top on iPad).</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open <b>GPT100</b> from your home screen and save the map there.</li></ol>';
   async function offlineCard() {
     const el = $('fdOffline');
     if (!OM || !OM.available()) { el.hidden = true; return; }
@@ -421,18 +439,70 @@
     if (saving) return;
     if (st.saved) { el.className = 'fd-offline ok'; el.innerHTML = '<span class="fd-tick">✓</span> Map saved for use without signal.'; return; }
     el.className = 'fd-offline fd-card todo';
+    if (installFirst()) {
+      el.innerHTML = `<h2>Install the app first</h2>
+        <p>Add GPT100 to your home screen, then save the map from there. On iPhone a map saved in Safari isn't shared with the home screen app, so it would download twice (about ${mb} MB).</p>${iosSteps}
+        <button type="button" class="fd-linkbtn" id="fdSaveHere">Save in Safari anyway</button>`;
+      $('fdSaveHere').onclick = () => { store.set('saveInBrowser', true); offlineCard(); };
+      return;
+    }
     el.innerHTML = `<h2>Save the map before race day</h2>
       <p>There's little signal on the course. Save the topo map now so it works without signal. About ${mb} MB: best on wifi.</p>
       <button id="fdSaveMap" class="fd-big" type="button">Save map for offline</button><div class="fd-bar" hidden><i></i></div><p class="fd-hint" id="fdSaveMsg"></p>`;
-    $('fdSaveMap').onclick = async () => {
-      if (!navigator.onLine) { $('fdSaveMsg').textContent = 'No signal. Try again with wifi or good signal.'; return; }
-      saving = true;
-      const btn = $('fdSaveMap'), bar = el.querySelector('.fd-bar'); btn.disabled = true; bar.hidden = false; $('fdSaveMsg').textContent = 'Keep the app open until it finishes.';
-      const r = await OM.save((d, t) => { bar.firstChild.style.width = (100 * d / t).toFixed(1) + '%'; btn.textContent = `Saving ${Math.round(100 * d / t)}%`; });
-      saving = false; await offlineCard();
-      if (r.failed) { $('fdSaveMsg').textContent = `${r.failed} map squares didn't save. Tap Save again with better signal.`; $('fdSaveMsg').classList.add('bad'); }
-    };
+    $('fdSaveMap').onclick = () => saveMap($('fdSaveMap'), el.querySelector('.fd-bar'), $('fdSaveMsg'));
   }
+
+  // ---------- intro (first time, and from the ? button) ----------
+  let introStep = -1;
+  const STEPS = 4;
+  function introOpen() { introStep = 0; $('rnIntro').hidden = false; document.body.classList.add('rn-noscroll'); introDraw(); }
+  function introClose() { $('rnIntro').hidden = true; introStep = -1; document.body.classList.remove('rn-noscroll'); store.set('introDone', true); offlineCard(); }
+  async function introDraw() {
+    const body = $('rnIntroBody'), i = introStep, mb = Math.round(((OM && OM.bytes) || 0) / 1e6);
+    let h = '';
+    if (i === 0) h = `<img class="rn-intro-logo" src="icons/logo.png" alt="GPT100 Miler">
+      <h2 id="rnIntroTitle">Your race in your pocket</h2>
+      <p>The course map, where you are, the next aid station, cut-offs, the weather and how to get help. Once it's set up it works with no signal.</p>
+      <div class="rn-mode rn-intro-mode" role="group"><button type="button" data-m="runner"${mode === 'runner' ? ' class="on"' : ''}>I'm running</button><button type="button" data-m="crew"${mode === 'crew' ? ' class="on"' : ''}>I'm crewing</button></div>
+      <label class="rn-intro-l" for="rnIntroRace">Race</label><select id="rnIntroRace" class="rn-schedfor">${R.races.map(r => `<option value="${r.id}"${r === race ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select>
+      <p class="fd-hint">You can change these at the top of the app any time.</p>`;
+    else if (i === 1) {
+      h = `<h2 id="rnIntroTitle">1. Install the app</h2>`;
+      if (STANDALONE) h += `<p class="rn-ok">✓ You're using the installed app. Nice.</p><p>It opens straight from your home screen, like any other app.</p>`;
+      else if (IOS) h += `<p>Do this first, before saving the map. On iPhone, the home screen app keeps its own copy, so a map saved here in the browser would have to download again.</p>${iosSteps}<p class="fd-hint">Not in Safari? Open this page in Safari to add it.</p>`;
+      else if (installPrompt) h += `<p>Install it so it opens from your home screen, like any other app.</p><button type="button" class="fd-big" id="rnInstall">Install app</button><p class="fd-hint" id="rnInstallMsg"></p>`;
+      else h += `<p>Add it to your home screen so it opens like any other app.</p><ol class="rn-steps"><li>Open the browser menu <span class="rn-ico">⋮</span>.</li><li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li></ol><p class="fd-hint">On a computer it works in the browser as it is.</p>`;
+    } else if (i === 2) {
+      h = `<h2 id="rnIntroTitle">2. Save the map</h2><p>There's little signal on the course. Save the topo map along the course (about ${mb} MB) on wifi, a few days before.</p>`;
+      const st = OM && OM.available() ? await OM.status() : null;
+      if (!st) h += '<p class="muted">This browser can\'t save the map. Try Safari or Chrome.</p>';
+      else if (st.saved) h += '<p class="rn-ok">✓ The map is saved on this phone.</p>';
+      else if (installFirst()) h += '<p class="notice warn">Install the app first (step 1), then open it from your home screen. You\'ll see this guide again there, with the Save button.</p>';
+      else h += '<button type="button" class="fd-big" id="rnIntroSave">Save map now</button><div class="fd-bar" hidden><i></i></div><p class="fd-hint" id="rnIntroSaveMsg">You can also do this later on the Course tab.</p>';
+    } else h = `<h2 id="rnIntroTitle">3. How it works</h2>
+      <ul class="rn-tablist">
+        <li><b>Course</b> Tap <b>Where am I?</b> for your race km, the next aid station, the climb to it and when you'll get there.</li>
+        <li><b>${mode === 'crew' ? 'Crew' : 'Aid'}</b> ${mode === 'crew' ? 'Crew points with directions and your runner’s expected times.' : 'Every aid station with cut-offs. Add a target time to see your splits.'}</li>
+        <li><b>Help</b> Call 000 or race medical, or share your location.</li>
+        <li><b>Weather</b> Conditions where you are, and BOM warnings.</li>
+        <li><b>Schedule</b> What's on now, what's next, and the full schedule.</li>
+        <li><b>Gear</b> Tick off your mandatory gear.</li>
+      </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. A guide only: follow the course markings and the race briefing.</p>`;
+    body.innerHTML = h;
+    $('rnIntroDots').innerHTML = Array.from({ length: STEPS }, (_, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('');
+    $('rnIntroBack').style.visibility = i ? 'visible' : 'hidden';
+    $('rnIntroNext').textContent = i === STEPS - 1 ? 'Let\'s go' : 'Next';
+    if (i === 0) {
+      body.querySelectorAll('.rn-intro-mode button').forEach(b => b.onclick = () => { setMode(b.dataset.m); introDraw(); });
+      $('rnIntroRace').onchange = () => { $('rnRace').value = $('rnIntroRace').value; $('rnRace').dispatchEvent(new Event('change')); };
+    }
+    if ($('rnInstall')) $('rnInstall').onclick = async () => { installPrompt.prompt(); const c = await installPrompt.userChoice.catch(() => null); installPrompt = null; $('rnInstallMsg') && ($('rnInstallMsg').textContent = c && c.outcome === 'accepted' ? 'Installed. You can open it from your home screen.' : ''); };
+    if ($('rnIntroSave')) $('rnIntroSave').onclick = () => saveMap($('rnIntroSave'), body.querySelector('.fd-bar'), $('rnIntroSaveMsg'));
+  }
+  $('rnIntroNext').onclick = () => { if (introStep >= STEPS - 1) introClose(); else { introStep++; introDraw(); } };
+  $('rnIntroBack').onclick = () => { if (introStep > 0) { introStep--; introDraw(); } };
+  $('rnIntroSkip').onclick = introClose;
+  $('rnHelpIntro').onclick = introOpen;
 
   // ---------- start ----------
   initMap();
@@ -451,6 +521,7 @@
   setMode(mode);
   setTab(tab);
   offlineCard();
+  if (!store.get('introDone', false)) introOpen();
   let rz = null; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (map) map.invalidateSize(); }, 200); });
   function netStatus() { $('net').hidden = navigator.onLine; }
   addEventListener('online', netStatus); addEventListener('offline', netStatus); netStatus();

@@ -21,7 +21,18 @@
 <header class="top">
   <a class="brand" href="runner.html" aria-label="GPT100 Runner"><img class="brand-logo" src="icons/mark.png" alt="GPT100 Miler" width="53" height="34"><span class="brand-app fd-app" id="rnAppName">Runner</span></a>
   <span id="net" class="net" hidden>Offline</span>
+  <button type="button" id="rnHelpIntro" class="rn-q" aria-label="How the app works">?</button>
 </header>
+
+<!-- First-run intro (also from the ? button) -->
+<div id="rnIntro" class="rn-intro" role="dialog" aria-modal="true" aria-labelledby="rnIntroTitle" hidden>
+  <div class="rn-intro-card">
+    <button type="button" class="rn-intro-skip" id="rnIntroSkip">Skip</button>
+    <div id="rnIntroBody"></div>
+    <div class="rn-intro-dots" id="rnIntroDots" aria-hidden="true"></div>
+    <div class="rn-intro-nav"><button type="button" class="btn" id="rnIntroBack">Back</button><button type="button" class="fd-big" id="rnIntroNext">Next</button></div>
+  </div>
+</div>
 
 <main class="fd rn-page">
   <div class="rn-top">
