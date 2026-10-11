@@ -7,8 +7,47 @@ window.GPT_RUNNER_INFO = {
   withdraw: 'To withdraw, tell the aid station manager at the next aid station. Never leave the course without telling them: we will search for you.',
   // Shuttle-only crew points. Placeholder until the shuttle plan is set.
   shuttleNote: 'Crew access by shuttle only. Shuttles run every 30 minutes from the crew car park (pick-up point to be confirmed).',
-  // Mandatory gear, by race id (miler, stage, 50k, 33k, 14k, 6k, 5k, 2k). Each item is one line.
-  gear: {},
+  // Mandatory gear, by race id, from https://www.gpt100.com.au/mandatory-gear (2026). [item, tip].
+  // Items marked (recommended) aren't checked. SingleTrack may change the list before race day for the forecast.
+  gearSource: 'https://www.gpt100.com.au/mandatory-gear',
+  gearNote: 'No gear = no bib. Gear is checked at registration and on course: one missing item is a 30 minute penalty, two is a DQ.',
+  gear: (() => {
+    const T = {
+      water3: ['3L liquid storage capacity', 'Bottles, soft flasks or bladders. No zip-lock bags.'],
+      filter: ['Water filtration or purification device (recommended)'],
+      phone: ['Fully charged phone'],
+      power: ['Portable power bank and charging cable', '10,000 mAh minimum.'],
+      maps: ['Digital offline mapping', 'The event GPX on your watch or phone. Save this app\'s map too.'],
+      snake: ['Snake bite bandage (minimum 10 cm × 2 m)', 'Crepe bandages aren\'t accepted.'],
+      jacket: ['Waterproof jacket with hood', 'Seam sealed, 10,000 mm or more.'],
+      thermal: ['Long sleeve thermal top', 'Merino 140 GSM, synthetic 110 GSM or hybrid 130 GSM minimum.'],
+      bivvy: ['Emergency bivvy bag / survival bag', 'A standard emergency blanket isn\'t enough.'],
+      blanket: ['Emergency survival blanket'],
+      beanie: ['Warm headwear'],
+      gloves: ['Warm full finger gloves'],
+      wgloves: ['Waterproof gloves', 'Dishwashing gloves are OK; disposable gloves aren\'t.'],
+      torch2: ['Two (2) working torches'],
+      batt: ['Two (2) spare torch batteries', 'Your phone power bank doesn\'t count.'],
+      torch1: ['One working torch'],
+      food: ['Emergency food (500 kcal minimum)'],
+      wpants: ['Waterproof pants'],
+      tpants: ['Thermal long pants'],
+      layer: ['Additional warm layer (weather dependant)', 'Microfleece 150 GSM, grid fleece 140 GSM or merino 250 GSM minimum.'],
+      ice: ['Ice bandana or neck cooler (recommended)'],
+      cup: ['Collapsible cup (recommended)', '150 ml.'],
+      telstra: ['Telstra mobile coverage', 'Full Telstra network or Boost. Belong and other providers aren\'t accepted.']
+    };
+    const L = keys => keys.split(' ').map(k => T[k]);
+    const stage = 'water3 filter phone maps snake jacket thermal bivvy beanie gloves wgloves torch1 wpants tpants layer ice cup telstra';
+    return {
+      miler: L('water3 filter phone power maps snake jacket thermal bivvy beanie gloves wgloves torch2 batt food wpants tpants layer ice cup telstra'),
+      stage: L(stage),
+      '50k': L(stage.replace('bivvy', 'blanket')),
+      '33k': [['2L liquid storage capacity', 'Bottles, soft flasks or bladders. No zip-lock bags.']].concat(L('phone maps snake jacket thermal blanket beanie gloves wgloves wpants tpants layer ice cup')),
+      '14k': [['500 ml liquid storage capacity']].concat(L('phone maps snake'), [['Waterproof jacket with hood (weather dependant)', 'Seam sealed, 10,000 mm or more.']], L('cup')),
+      '6k': 'none', '5k': 'none', '2k': 'none'
+    };
+  })(),
   // Short notices shown at the top, e.g. course changes. { text: '...' }
   notices: [],
   // Event village.

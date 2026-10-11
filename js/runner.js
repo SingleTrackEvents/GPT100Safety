@@ -306,10 +306,18 @@
 
   // ---------- mandatory gear ----------
   function gear() {
-    const list = (INFO.gear || {})[race.id] || [], ticks = store.get('gear.' + race.id, {});
-    $('rnGear').innerHTML = list.length ? list.map((g, i) => `<label class="rn-gear"><input type="checkbox" data-i="${i}"${ticks[i] ? ' checked' : ''}> ${esc(g)}</label>`).join('') + '<p class="fd-hint">Ticks are kept on this phone.</p>'
-      : '<p class="muted">The gear list for this race will be here before race week. Check the race information.</p>';
-    $('rnGear').querySelectorAll('input').forEach(c => c.onchange = () => { ticks[c.dataset.i] = c.checked; store.set('gear.' + race.id, ticks); });
+    const list = (INFO.gear || {})[race.id], ticks = store.get('gear.' + race.id, {});
+    const src = INFO.gearSource ? ` <a href="${esc(INFO.gearSource)}" target="_blank" rel="noopener">Full details</a>` : '';
+    if (list === 'none') { $('rnGear').innerHTML = `<p>No mandatory gear for this race, but see the other races' lists for what's worth carrying.${src}</p>`; return; }
+    if (!list || !list.length) { $('rnGear').innerHTML = '<p class="muted">The gear list for this race will be here before race week.</p>'; return; }
+    const need = list.filter(g => !/recommended/i.test(g[0])).length;
+    const count = () => list.filter((g, i) => ticks[i] && !/recommended/i.test(g[0])).length;
+    $('rnGear').innerHTML = `<p class="fd-hint">${esc(INFO.gearNote || '')}${src}</p><p class="rn-gearcount"></p>` +
+      list.map((g, i) => `<label class="rn-gear${/recommended/i.test(g[0]) ? ' rec' : ''}"><input type="checkbox" data-i="${i}"${ticks[i] ? ' checked' : ''}><span>${esc(g[0])}${g[1] ? `<small>${esc(g[1])}</small>` : ''}</span></label>`).join('') +
+      '<p class="fd-hint">Ticks are kept on this phone.</p>';
+    const show = () => { const n = count(); $('rnGear').querySelector('.rn-gearcount').textContent = n >= need ? `All ${need} mandatory items packed.` : `${n} of ${need} mandatory items packed.`; };
+    $('rnGear').querySelectorAll('input').forEach(c => c.onchange = () => { ticks[c.dataset.i] = c.checked; store.set('gear.' + race.id, ticks); show(); });
+    show();
   }
 
   // ---------- save the map for offline (as in the field app) ----------

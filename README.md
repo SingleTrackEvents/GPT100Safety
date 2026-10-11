@@ -74,7 +74,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **I'm crewing:** just the crew points (shuttle-only ones marked), with directions, cut-offs and the runner's expected times, from their target time or from where they were last seen.
 - **Need help?** Call 000, call race medical (1300 375 352), Share my location (text or WhatsApp, with race km and position), and how to withdraw (only through an aid station manager).
 - **Schedule** from gpt100.com.au, filtered to your race (and crew shuttles in crew mode), with past items greyed.
-- **Weather** where you are (no internal triggers) and the mandatory gear checklist.
+- **Weather** where you are (no internal triggers).
+- **Mandatory gear checklist** for each race from gpt100.com.au/mandatory-gear, with the spec for each item, ticks kept on the phone and a packed count. The 6k, 5k and 2k have no mandatory gear.
 - The 6k, 5k and 2k have no map yet: their aid stations and times still show.
 
 **Field app** (`field.html`, for Safety Officers, sweeps, aid station crews and medics on the course; open to all, and kept separate from the staff app with no links into it)
