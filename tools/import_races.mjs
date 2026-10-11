@@ -60,8 +60,8 @@ const RACES = [
   { id: '33k', label: 'GPT33k', short: '33k', course: '100', stages: ['s4'] },
   { id: '14k', label: 'GPT14k', short: '14k', course: '14k', stages: ['14k'] },
   { id: '6k', label: 'GPT6k', short: '6k', course: null, stages: ['6k'] },
-  { id: '5k', label: '5k Family Race', short: '5k', course: null, stages: ['5k'] },
-  { id: '2k', label: '2k Kids Trail', short: '2k', course: null, stages: ['2k'] }
+  { id: '5k', label: '5k Family Race', short: '5k', course: '5k', stages: ['5k'] },
+  { id: '2k', label: '2k Kids Trail', short: '2k', course: '2k', stages: ['2k'] }
 ];
 const STAGE_LABEL = { miler: 'Miler', s1: 'Stage 1', s2: 'Stage 2', s3: 'Stage 3', s4: 'Stage 4', '14k': '14k', '6k': '6k', '5k': '5k', '2k': '2k' };
 const out = { stages: {}, races: RACES };

@@ -614,7 +614,7 @@ window.GPT_RACES = {
    "id": "5k",
    "label": "5k Family Race",
    "short": "5k",
-   "course": null,
+   "course": "5k",
    "stages": [
     "5k"
    ]
@@ -623,7 +623,7 @@ window.GPT_RACES = {
    "id": "2k",
    "label": "2k Kids Trail",
    "short": "2k",
-   "course": null,
+   "course": "2k",
    "stages": [
     "2k"
    ]

@@ -76,7 +76,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Schedule** from gpt100.com.au, filtered to your race (and crew shuttles in crew mode), with past items greyed.
 - **Weather** where you are (no internal triggers).
 - **Mandatory gear checklist** for each race from gpt100.com.au/mandatory-gear, with the spec for each item, ticks kept on the phone and a packed count. The 6k, 5k and 2k have no mandatory gear.
-- The 6k, 5k and 2k have no map yet: their aid stations and times still show.
+- The Dunkeld 5k and 2k courses come from their Strava GPX files (`tools/import_gpx.mjs`, into `data/runner-courses.js`), with the turnaround shown. On out-and-back courses, Where am I? tells the way out from the way back using your last fix or the race clock.
+- The 6k has no map yet (the website's GPX link is broken): its times still show. Add it with `node tools/import_gpx.mjs 6k "GPT6k" GPT6k.gpx`, set its course to `6k` in `tools/import_races.mjs` and re-run that.
 
 **Field app** (`field.html`, for Safety Officers, sweeps, aid station crews and medics on the course; open to all, and kept separate from the staff app with no links into it)
 
@@ -190,6 +191,7 @@ These are planning estimates. Always check access, gates and closures on the day
 | `js/engine.js` | Response calculations for Find, the Medical tab and Race Control |
 | `js/app.js` | Staff app screens |
 | `runner.html`, `js/runner.js`, `css/runner.css` | Runner app |
+| `data/runner-courses.js` | Runner app courses from GPX (5k, 2k) |
 | `data/races.js`, `data/runner-info.js` | Races from the course sheet, and the runner app's contact, gear and notices |
 | `js/profile.js` | Elevation profile (Find tab and field app) |
 | `js/basemap.js` | Topo and street map backgrounds for every map, and saving the topo map for offline |

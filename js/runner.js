@@ -21,7 +21,27 @@
   // Sheet names that look like a course stop but aren't it (placed in proportion instead).
   const NOT_A_STOP = new Set(['wonderland trailhead']);
   const words = s => s.toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean);
-  const engineFor = stage => stage.course === '100' ? MAIN : stage.course === '14k' ? MAIN.course('14k') : null;
+  // Courses from GPX (data/runner-courses.js, tools/import_gpx.mjs) get the few engine pieces the app uses.
+  const MINI = {};
+  function mini(def) {
+    const route = def.route, asc = [0], desc = [0];
+    for (let i = 1; i < route.length; i++) { const d = route[i][3] - route[i - 1][3]; asc.push(asc[i - 1] + Math.max(0, d)); desc.push(desc[i - 1] + Math.max(0, -d)); }
+    const idxAtKm = km => { let lo = 0, hi = route.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (route[m][2] < km) lo = m + 1; else hi = m; } return lo; };
+    const E = {
+      id: def.id, name: def.name, main: false, route, metres: MAIN.metres, idxAtKm,
+      AID: def.stops.map(s => ({ name: s.name, lat: s.lat, lon: s.lon, trail_km: s.km, kind: s.kind })),
+      climb: (a, b) => a <= b ? asc[b] - asc[a] : desc[a] - desc[b],
+      snap(lat, lon) { let bi = 0, bd = Infinity; route.forEach((p, i) => { const d = MAIN.metres([lat, lon], [p[0], p[1]]); if (d < bd) { bd = d; bi = i; } }); return { ic: bi, offM: Math.round(bd) }; }
+    };
+    E.courses = [E];
+    return E;
+  }
+  const engineFor = stage => {
+    if (stage.course === '100') return MAIN;
+    if (stage.course === '14k') return MAIN.course('14k');
+    const def = (window.GPT_RUNNER_COURSES || {})[stage.course];
+    return def ? (MINI[def.id] = MINI[def.id] || mini(def)) : null;
+  };
   // Each race point gets gk: its km on the course line. Aid stations are matched by name (in order);
   // points that don't match (e.g. Stockyard Track) sit between their neighbours in proportion.
   function prepare(stage, course) {
@@ -52,6 +72,12 @@
       P[i].gk = P[a].gk + (P[b].gk - P[a].gk) * (P[i].km - P[a].km) / ((P[b].km - P[a].km) || 1);
     }
     P.forEach(p => { if (p.lat == null) { const q = E.route[E.idxAtKm(p.gk)]; p.lat = q[0]; p.lon = q[1]; } p.ft = mel(p.first); p.ct = mel(p.cutoff); });
+    // Out-and-back courses: the turnaround becomes a point too (its times are in proportion; no cut-off).
+    E.AID.filter(a => a.kind === 'turn').forEach(a => {
+      const i = P.findIndex(p => p.gk > a.trail_km); if (i < 1) return;
+      const b = P[i - 1], c = P[i], f = (a.trail_km - b.gk) / ((c.gk - b.gk) || 1), at = (x, y) => new Date(x.getTime() + (y - x) * f);
+      P.splice(i, 0, { name: a.name, kind: 'turn', km: b.km + (c.km - b.km) * f, gk: a.trail_km, lat: a.lat, lon: a.lon, ft: at(b.ft, c.ft), ct: at(b.ct, c.ct), noCut: true, crew: 'no', drop: false, up: Math.round(b.up + (c.up - b.up) * f), down: Math.round(b.down + (c.down - b.down) * f) });
+    });
     return stage;
   }
   // Course km and race km, through the matched aid stations.
@@ -64,6 +90,8 @@
   const toCourse = (S, rk) => interp(S.points, rk, 'km', 'gk');
   // Expected time of day at a race km for a pace p: 0 is the first runner, 1 is the cut-off.
   const timeAt = (S, rk, p) => { const P = S.points; let i = 1; while (i < P.length - 1 && P[i].km < rk) i++; const a = P[i - 1], b = P[i], f = (rk - a.km) / ((b.km - a.km) || 1); const t = k => k.ft.getTime() + p * (k.ct - k.ft); return t(a) + (t(b) - t(a)) * Math.max(0, Math.min(1, f)); };
+  // Race km a mid-pack runner would be at, at time t.
+  const interpKm = (S, t) => { const P = S.points; for (let i = 1; i < P.length; i++) { const a = (P[i - 1].ft.getTime() + P[i - 1].ct.getTime()) / 2, b = (P[i].ft.getTime() + P[i].ct.getTime()) / 2; if (t <= b) return P[i - 1].km + (P[i].km - P[i - 1].km) * Math.max(0, (t - a) / ((b - a) || 1)); } return P[P.length - 1].km; };
   const paceAt = (S, rk, t) => { const lo = timeAt(S, rk, 0), hi = timeAt(S, rk, 1); return hi > lo ? (t - lo) / (hi - lo) : 0; };
 
   // ---------- what's picked ----------
@@ -130,7 +158,7 @@
     P.forEach(p => {
       const crewPt = mode === 'crew' && p.crew !== 'no';
       L.circleMarker([p.lat, p.lon], { radius: crewPt ? 8 : 6, color: crewPt ? '#128c4a' : '#fff', weight: crewPt ? 3 : 2, fillColor: '#111', fillOpacity: 1 })
-        .bindTooltip(`<b>${esc(p.name)}</b><br>km ${one(p.km)}${p.ct && p !== P[0] ? '<br>Cut-off ' + when(p.ct) : ''}`).addTo(courseLayer);
+        .bindTooltip(`<b>${esc(p.name)}</b><br>km ${one(p.km)}${p.ct && p !== P[0] && !p.noCut ? '<br>Cut-off ' + when(p.ct) : ''}`).addTo(courseLayer);
     });
     if (fit) map.fitBounds(line.getBounds().pad(0.08));
   }
@@ -156,10 +184,17 @@
   // Nearest point on this race's part of the course.
   function place(lat, lon, acc) {
     const En = E(), P = stage.points, i0 = En.idxAtKm(P[0].gk), i1 = En.idxAtKm(P[P.length - 1].gk);
-    let bi = i0, bd = Infinity;
-    for (let i = i0; i <= i1; i++) { const d = En.metres([lat, lon], [En.route[i][0], En.route[i][1]]); if (d < bd) { bd = d; bi = i; } }
+    const ds = [];
+    for (let i = i0; i <= i1; i++) ds.push(En.metres([lat, lon], [En.route[i][0], En.route[i][1]]));
+    const bd = Math.min(...ds);
+    // Where the course doubles back (out and back), pick the pass that fits: near your last fix, or the race clock.
+    const cands = ds.map((d, k) => d <= bd + 25 ? i0 + k : -1).filter(i => i >= 0);
+    const now = Date.now(), prev = here && here.stage === stage && now - here.t < 20 * 60e3 ? here.gk : null;
+    const started = now > stage.points[0].ft.getTime();
+    const expect = prev != null ? prev + 0.3 : started ? toCourse(stage, Math.max(0, interpKm(stage, now))) : En.route[cands[0]][2];
+    const bi = cands.reduce((a, b) => Math.abs(En.route[b][2] - expect) < Math.abs(En.route[a][2] - expect) ? b : a, cands[0]);
     const q = En.route[bi];
-    here = { lat, lon, acc, ic: bi, gk: q[2], rk: Math.max(0, toRace(stage, q[2])), ele: q[3], offM: Math.round(bd), cp: [q[0], q[1]] };
+    here = { stage, t: now, lat, lon, acc, ic: bi, gk: q[2], rk: Math.max(0, toRace(stage, q[2])), ele: q[3], offM: Math.round(bd), cp: [q[0], q[1]] };
     render();
   }
   function render() {
@@ -184,7 +219,7 @@
     if (nx) {
       const j = En.idxAtKm(nx.gk), up = En.climb(here.ic, j), down = En.climb(j, here.ic);
       h += `<div class="rn-next"><span class="rn-next-l">Next</span><b>${esc(nx.name)}</b> in <b>${one(nx.km - here.rk)} km</b>, +${Math.round(up)} m / −${Math.round(down)} m
-        <div class="rn-tags">${tags(nx)}</div>${nx.ct ? `<div>Cut-off <b>${when(nx.ct)}</b></div>` : ''}${pace(nx)}</div>`;
+        <div class="rn-tags">${tags(nx)}</div>${nx.ct && !nx.noCut ? `<div>Cut-off <b>${when(nx.ct)}</b></div>` : ''}${pace(nx)}</div>`;
     }
     el.innerHTML = h;
     profile.setHere({ E: En, km: here.gk, ele: here.ele });
@@ -196,11 +231,12 @@
     if (now < start) return `<p class="fd-hint">Race starts ${when(S.points[0].ft)}.</p>`;
     if (now > S.points[S.points.length - 1].ct.getTime() + 6 * 3600e3) return '';
     const p = paceAt(S, here.rk, now), eta = timeAt(S, nx.km, p), margin = nx.ct - eta;
+    if (nx.noCut) return `<p class="rn-ok">At your pace you'll get there about <b>${hm.format(new Date(eta))}</b>.</p>`;
     if (margin >= 0) return `<p class="rn-ok">At your pace you'll get there about <b>${hm.format(new Date(eta))}</b>, ${dur(margin)} before the cut-off.</p>`;
     return `<p class="notice warn">At your pace you'd reach ${esc(nx.name)} about ${hm.format(new Date(eta))}, after the cut-off. Talk to the aid station team.</p>`;
   }
   function tags(p) {
-    const t = [{ start: 'Start', finish: 'Finish', aid: 'Aid station', water: 'Water point', emergency: 'Emergency aid', checkpoint: 'Checkpoint' }[p.kind] || 'Aid station'];
+    const t = [{ start: 'Start', finish: 'Finish', turn: 'Turnaround', aid: 'Aid station', water: 'Water point', emergency: 'Emergency aid', checkpoint: 'Checkpoint' }[p.kind] || 'Aid station'];
     if (p.drop) t.push('Drop bag');
     if (p.crew === 'yes') t.push('Crew'); else if (p.crew === 'shuttle') t.push('Crew by shuttle');
     return t.map(x => `<span class="rn-tag${/Crew/.test(x) ? ' crew' : ''}">${x}</span>`).join('');
@@ -279,13 +315,13 @@
       if (crew && x.crew === 'no' && i && i < P.length - 1) return '';
       const eta = p != null && i ? timeAt(S, x.km, p) : null, prev = last; last = x;
       const leg = prev ? `${one(x.km - prev.km)} km, +${x.up - prev.up} / −${x.down - prev.down} m` : '';
-      const late = eta && x.ct && eta > x.ct;
+      const late = eta && x.ct && !x.noCut && eta > x.ct;
       const dirs = crew && x.crew !== 'no' ? `<a class="rn-dir" href="https://www.google.com/maps/dir/?api=1&destination=${x.lat.toFixed(5)},${x.lon.toFixed(5)}" target="_blank" rel="noopener">Directions</a>` : '';
       return `<div class="rn-row${late ? ' late' : ''}${seen && seen.i === i ? ' seen' : ''}">
         <div class="rn-km">${one(x.km)}<small>km</small></div>
         <div class="rn-main"><b>${esc(x.name)}</b><div class="rn-tags">${tags(x)}</div>${leg ? `<div class="rn-leg">${leg}</div>` : ''}
           ${crew && x.crew === 'shuttle' ? `<div class="rn-leg">${esc(INFO.shuttleNote || '')}</div>` : ''}${dirs}</div>
-        <div class="rn-times">${eta ? `<div class="rn-eta">${when(new Date(eta))}</div>` : i ? '' : `<div class="rn-eta">${when(x.ft)}</div>`}${i && x.ct ? `<div class="rn-cut">Cut-off ${when(x.ct)}</div>` : ''}</div></div>`;
+        <div class="rn-times">${eta ? `<div class="rn-eta">${when(new Date(eta))}</div>` : i ? '' : `<div class="rn-eta">${when(x.ft)}</div>`}${i && x.ct && !x.noCut ? `<div class="rn-cut">Cut-off ${when(x.ct)}</div>` : ''}</div></div>`;
     }).join('');
     $('rnPlan').innerHTML = rows;
   }
