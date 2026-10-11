@@ -66,6 +66,16 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Export** downloads all incidents and the radio log as a spreadsheet for the incident report.
 - The log is kept in a database on the Cloudflare Worker, locked with the medical password. Setup: [`tools/RACE_CONTROL.md`](tools/RACE_CONTROL.md).
 
+**Runner app** (`runner.html`, for runners and their crews; public, kept separate from the staff and field apps)
+
+- **Pick your race:** Miler, Stage race (opens on today's stage), 50k, 33k, 14k, 6k, 5k Family or 2k Kids. Distances, climb, cut-offs, drop bags and crew access come from the course sheet (`tools/import_races.mjs`).
+- **I'm running:** your race on the topo map (saved for offline) with its elevation profile in race km. **Where am I?** gives your race km, the next aid station with distance, climb and descent, what's there (drop bag, crew), its cut-off, and at your pace when you'd get there. Off the course, it says which way the course is.
+- **Aid stations and cut-offs:** every point with race km, leg distance and climb, cut-off, and your expected time from a target time (between the first runner's time and the cut-off).
+- **I'm crewing:** just the crew points (shuttle-only ones marked), with directions, cut-offs and the runner's expected times, from their target time or from where they were last seen.
+- **Need help?** Call 000, call or text race control (when the number is set in `data/runner-info.js`), and how to withdraw (only through an aid station manager).
+- **Weather** where you are (no internal triggers) and the mandatory gear checklist.
+- The 6k, 5k and 2k have no map yet: their aid stations and times still show.
+
 **Field app** (`field.html`, for Safety Officers, sweeps, aid station crews and medics on the course; open to all, and kept separate from the staff app with no links into it)
 
 - **Map and elevation profile** are up from the start: both courses and the aid stations on a topo map (switch to the street map with the layers button), with the whole course profile underneath, coloured by steepness (under 5%, 5 to 10%, 10 to 15%, 15% and over). After Where am I?, the profile shows your section (the aid stations either side), you on it, the way ahead in blue, and the distance, climb and descent to the next aid station and back to the last. Switch between This section and Whole course. Drag along the profile, or tap the course on the map, to see any point: km, height, steepness, and how far and how much climb from you.
@@ -177,6 +187,8 @@ These are planning estimates. Always check access, gates and closures on the day
 | `admin.html` | Planning map and access point editor |
 | `js/engine.js` | Response calculations for Find, the Medical tab and Race Control |
 | `js/app.js` | Staff app screens |
+| `runner.html`, `js/runner.js`, `css/runner.css` | Runner app |
+| `data/races.js`, `data/runner-info.js` | Races from the course sheet, and the runner app's contact, gear and notices |
 | `js/profile.js` | Elevation profile (Find tab and field app) |
 | `js/basemap.js` | Topo and street map backgrounds for every map, and saving the topo map for offline |
 | `tiles/topo/`, `data/tiles.js` | Our copy of the OpenTopoMap tiles along the course (CC-BY-SA), made once with `tools/fetch_topo_tiles.mjs` |

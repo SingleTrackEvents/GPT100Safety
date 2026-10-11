@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GPT100 Runner</title>
+<meta name="description" content="GPT100 runner and crew app: your race on the map, where you are, the next aid station, cut-offs, crew points and the weather.">
+<meta name="theme-color" content="#111111">
+<link rel="manifest" href="manifest-runner.webmanifest">
+<link rel="icon" href="icons/icon-48.png" type="image/png" sizes="48x48">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/field.css">
+<link rel="stylesheet" href="css/runner.css">
+</head>
+<body class="field runner">
+<header class="top">
+  <a class="brand" href="runner.html" aria-label="GPT100 Runner"><img class="brand-logo" src="icons/mark.png" alt="GPT100 Miler" width="53" height="34"><span class="brand-app fd-app" id="rnAppName">Runner</span></a>
+  <span id="net" class="net" hidden>Offline</span>
+</header>
+
+<main class="fd">
+  <div class="rn-mode" role="group" aria-label="Mode"><button type="button" data-m="runner" class="on">I'm running</button><button type="button" data-m="crew">I'm crewing</button></div>
+  <section class="rn-pick">
+    <label for="rnRace">Race</label>
+    <select id="rnRace"></select>
+    <div id="rnStages" class="rn-stages" role="group" aria-label="Stage" hidden></div>
+    <p id="rnStart" class="fd-hint"></p>
+  </section>
+  <div id="rnNotices"></div>
+  <section id="fdOffline" class="fd-offline" hidden></section>
+
+  <section class="fd-card fd-mapcard" id="rnMapCard">
+    <div id="fdMap" aria-label="Map"></div>
+    <div id="rnProf" class="fd-prof"></div>
+  </section>
+  <p id="rnNoMap" class="fd-card muted" hidden>The map for this race isn't in the app yet. The aid stations and times below still work.</p>
+
+  <!-- Runner -->
+  <div data-for="runner">
+    <section class="fd-locate">
+      <button id="fdLocate" class="fd-big" type="button">Where am I?</button>
+      <p id="fdGpsMsg" class="fd-msg" role="status"></p>
+    </section>
+    <section class="fd-card fd-where" id="rnWhere" hidden></section>
+
+    <section class="fd-card rn-safety">
+      <h2>Need help?</h2>
+      <div class="rn-help">
+        <a class="fd-big fd-urgent" href="tel:000">Call 000</a>
+        <a class="fd-big" id="rnCallRc" href="#" hidden>Call race control</a>
+        <a class="fd-big fd-wa" id="rnTextRc" href="#" hidden>Text my location</a>
+      </div>
+      <p class="fd-hint">If you're hurt or lost, stay on the course if you can: it's where we'll look for you. Keep warm and tell the next runner.</p>
+      <p class="fd-hint" id="rnWithdraw"></p>
+    </section>
+  </div>
+
+  <!-- Crew -->
+  <div data-for="crew" hidden>
+    <section class="fd-card">
+      <h2>Your runner</h2>
+      <p class="fd-hint">Their expected times come from their target time, or from where they were last seen.</p>
+      <div class="rn-seen">
+        <label>Last seen at <select id="rnSeenAt"><option value="">(not yet)</option></select></label>
+        <label>at <input id="rnSeenTime" type="time"></label>
+      </div>
+      <p id="rnSeenMsg" class="fd-hint"></p>
+    </section>
+  </div>
+
+  <section class="fd-card">
+    <h2 id="rnPlanTitle">Aid stations and cut-offs</h2>
+    <div class="rn-target"><label for="rnTarget">Target time</label><input id="rnTarget" type="text" inputmode="numeric" placeholder="e.g. 32:00"><span class="fd-hint" id="rnTargetMsg"></span></div>
+    <div id="rnPlan"></div>
+  </section>
+
+  <section class="fd-card">
+    <h2>Weather</h2>
+    <div id="rnWx"><p class="muted">Loading…</p></div>
+  </section>
+
+  <section class="fd-card" id="rnGearCard">
+    <h2>Mandatory gear</h2>
+    <div id="rnGear"></div>
+  </section>
+
+  <p id="fdTrack" class="fd-track" hidden></p>
+  <p class="fd-foot">A guide only: check the race briefing and follow the course markings. In an emergency call 000.</p>
+</main>
+
+<div id="wxBody" hidden></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="data/config.js"></script>
+<script src="data/course.js"></script>
+<script src="data/courses.js"></script>
+<script src="data/access-edits.js"></script>
+<script src="js/engine.js"></script>
+<script src="data/tiles.js"></script>
+<script src="js/basemap.js"></script>
+<script src="js/profile.js"></script>
+<script src="data/pacing.js"></script>
+<script src="data/races.js"></script>
+<script src="data/runner-info.js"></script>
+<script src="js/weather-core.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/runner.js"></script>
+</body>
+</html>

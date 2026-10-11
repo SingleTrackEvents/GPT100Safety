@@ -15,7 +15,9 @@
     return b[2] - a[2] > 0.01 ? (b[3] - a[3]) / ((b[2] - a[2]) * 10) : 0;
   }
 
-  // o: { el, course, map() → Leaflet map or null, who ('you' or 'the casualty'), colour, empty (text before a point is set) }
+  // o: { el, course, map() → Leaflet map or null, who ('you' or 'the casualty'), colour, empty (text before a point is set),
+  //       window(E) → { k0, k1 } to show only part of a course (one race), km { toRace(k), toCourse(rk) } to label in race km,
+  //       title(E) → the whole-view title }
   window.GPTProfile = function (o) {
     const root = o.el, who = o.who || 'you', colour = o.colour || '#1666c9';
     root.classList.add('prof');
@@ -38,13 +40,14 @@
 
     function range() {
       const E = viewE || (here ? here.E : base), route = E.route, last = route[route.length - 1][2];
-      if (mode !== 'section' || !here || E !== here.E) return { E, k0: 0, k1: last };
+      const W = (o.window && o.window(E)) || { k0: 0, k1: last };
+      if (mode !== 'section' || !here || E !== here.E) return { E, k0: W.k0, k1: W.k1 };
       const km = here.km, A = E.AID;
       let a = A[0], b = A[A.length - 1];
       for (let i = 1; i < A.length; i++) if (A[i].trail_km >= km) { a = A[i - 1]; b = A[i]; break; }
       // A short section still gets a useful width.
       let k0 = a.trail_km, k1 = b.trail_km;
-      if (k1 - k0 < 3) { const m = (k0 + k1) / 2; k0 = Math.max(0, m - 1.5); k1 = Math.min(last, m + 1.5); }
+      if (k1 - k0 < 3) { const m = (k0 + k1) / 2; k0 = Math.max(W.k0, m - 1.5); k1 = Math.min(W.k1, m + 1.5); }
       return { E, k0, k1, a, b };
     }
 
@@ -81,7 +84,8 @@
       // Height and km axes.
       [lo + (hi - lo) * 0.15, (lo + hi) / 2, hi - (hi - lo) * 0.15].forEach(e => { svg += `<text x="${L0 - 4}" y="${Y(e) + 3}" text-anchor="end">${Math.round(e / 10) * 10}</text><line x1="${L0}" x2="${Wd - R0}" y1="${Y(e)}" y2="${Y(e)}" stroke="#111" stroke-opacity=".12"/>`; });
       const span = R.k1 - R.k0, tick = span > 80 ? 20 : span > 30 ? 10 : span > 12 ? 5 : span > 5 ? 2 : 1;
-      for (let k = Math.ceil(R.k0 / tick) * tick; k <= R.k1; k += tick) svg += `<text x="${X(k)}" y="${Ht - 4}" text-anchor="middle">${k}</text>`;
+      const KM = o.km || { toRace: k => k, toCourse: k => k }, r0 = KM.toRace(R.k0), r1 = KM.toRace(R.k1);
+      for (let k = Math.ceil(r0 / tick - 1e-6) * tick; k <= r1 + 1e-6; k += tick) svg += `<text x="${X(KM.toCourse(k))}" y="${Ht - 4}" text-anchor="middle">${k}</text>`;
       // Two rows of names; a name that won't fit in either is left off (the line and dot stay).
       const ends = [-1e9, -1e9];
       E.AID.filter(a => a.trail_km >= R.k0 - 0.01 && a.trail_km <= R.k1 + 0.01).forEach(a => {
@@ -101,7 +105,7 @@
       }
       svg += `<g class="prof-hover" visibility="hidden"><line x1="0" x2="0" y1="${T0}" y2="${Ht - B0}" stroke="#111" stroke-width="1.5"/><circle r="5" fill="#fff" stroke="#111" stroke-width="2"/></g>`;
       box.innerHTML = `<svg viewBox="0 0 ${Wd} ${Ht}" width="${Wd}" height="${Ht}">${svg}</svg>`;
-      q('.prof-title').textContent = mode === 'section' && R.a ? `${short(R.a.name)} to ${short(R.b.name)}` : `${E.name} course, ${Math.round(route[route.length - 1][2])} km`;
+      q('.prof-title').textContent = mode === 'section' && R.a ? `${short(R.a.name)} to ${short(R.b.name)}` : o.title ? o.title(E) : `${E.name} course, ${Math.round(route[route.length - 1][2])} km`;
       const el = box.querySelector('svg');
       prof = { R, X, Y, hov: el.querySelector('.prof-hover') };
       if (mk) mk.remove();
@@ -124,7 +128,7 @@
       hov.setAttribute('visibility', 'visible');
       hov.querySelector('line').setAttribute('x1', X(p[2])); hov.querySelector('line').setAttribute('x2', X(p[2]));
       hov.querySelector('circle').setAttribute('cx', X(p[2])); hov.querySelector('circle').setAttribute('cy', Y(p[3]));
-      let h = `<b>km ${one(p[2])}</b> · ${Math.round(p[3])} m · <span class="prof-grade" style="background:${gradeCol(g)}">${g >= 0 ? '+' : '−'}${Math.abs(Math.round(g))}%</span>`;
+      let h = `<b>km ${one(o.km ? o.km.toRace(p[2]) : p[2])}</b> · ${Math.round(p[3])} m · <span class="prof-grade" style="background:${gradeCol(g)}">${g >= 0 ? '+' : '−'}${Math.abs(Math.round(g))}%</span>`;
       if (here && here.E === E) {
         const ic = E.idxAtKm(here.km), d = p[2] - here.km;
         if (Math.abs(d) >= 0.05) h += `<br>From ${who}: ${one(Math.abs(d))} km ${d > 0 ? 'ahead' : 'back'}, +${Math.round(E.climb(ic, j))} m / −${Math.round(E.climb(j, ic))} m`;

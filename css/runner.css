@@ -1,0 +1,45 @@
+/* GPT100 Runner (on top of field.css) */
+.rn-mode { display: flex; border: 2px solid var(--ink); border-radius: 12px; overflow: hidden; margin: 0 0 12px; }
+.rn-mode button { flex: 1; min-height: 48px; border: 0; background: #fff; font: 400 22px/1 var(--head); letter-spacing: .5px; cursor: pointer; color: var(--ink); }
+.rn-mode button.on { background: var(--ink); color: #fff; }
+.rn-pick label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.rn-pick select { width: 100%; min-height: 48px; font: 600 17px var(--body); border: 2px solid var(--ink); border-radius: 10px; background: #fff; padding: 0 10px; }
+.rn-stages { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.rn-stages button { flex: 1; min-height: 38px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font: 600 13px var(--body); cursor: pointer; }
+.rn-stages button.on { background: var(--ink); color: #fff; }
+.rn-pick { margin-bottom: 12px; }
+.rn-pick .fd-hint { margin-top: 6px; }
+.rn-of { font: 400 24px/1 var(--head); color: var(--muted); }
+.rn-next { margin-top: 10px; padding: 10px 12px; background: #f4f3ef; border-radius: 10px; font-size: 15px; line-height: 1.45; }
+.rn-next-l { display: block; font: 400 16px/1 var(--head); letter-spacing: .5px; color: var(--muted); margin-bottom: 4px; }
+.rn-ok { margin: 6px 0 0; color: #1f6b3a; font-weight: 600; font-size: 14px; }
+.rn-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.rn-tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; background: #e7e3da; color: var(--ink); }
+.rn-tag.crew { background: #d7efdf; color: #1f6b3a; }
+.rn-help { display: grid; gap: 10px; }
+.rn-help .fd-big { font-size: 26px; min-height: 56px; }
+.rn-target { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.rn-target label { font-size: 13px; font-weight: 600; }
+.rn-target input, .rn-seen input, .rn-seen select { min-height: 40px; font: 600 16px var(--body); border: 2px solid var(--ink); border-radius: 8px; padding: 0 8px; background: #fff; }
+.rn-target input { width: 110px; }
+.rn-target .fd-hint { margin: 0; flex-basis: 100%; }
+.rn-target .fd-hint.bad { color: var(--red); font-weight: 600; }
+.rn-seen { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 600; }
+.rn-seen label { display: flex; align-items: center; gap: 6px; }
+.rn-seen select { max-width: 200px; }
+.rn-row { display: grid; grid-template-columns: 70px 1fr auto; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); align-items: start; }
+.rn-row:first-child { border-top: 0; }
+.rn-row.late .rn-eta { color: var(--red); }
+.rn-row.seen { background: #eef4fc; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
+.rn-km { font: 400 24px/1 var(--head); white-space: nowrap; }
+.rn-km small { font: 600 10px var(--body); color: var(--muted); margin-left: 2px; }
+.rn-main b { font-size: 15px; }
+.rn-leg { font-size: 12px; color: var(--muted); }
+.rn-times { text-align: right; font-size: 13px; white-space: nowrap; }
+.rn-eta { font-weight: 700; font-size: 15px; }
+.rn-cut { color: var(--muted); font-size: 12px; }
+.rn-dir { display: inline-block; margin-top: 4px; font-size: 13px; font-weight: 700; color: #1666c9; }
+.rn-gear { display: flex; gap: 8px; align-items: center; padding: 6px 0; font-size: 15px; }
+.rn-gear input { width: 20px; height: 20px; }
+/* Weather here without the internal trigger badges */
+.runner .wx-near .wx-pill { display: none; }
