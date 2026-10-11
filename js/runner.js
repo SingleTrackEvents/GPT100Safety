@@ -214,7 +214,7 @@
     const off = here.offM <= 50 ? 'On the course' : here.offM <= 300 ? `Just off the course. The course is ${dist(here.offM)} ${dir} of you`
       : `${dist(here.offM)} off the course. The course is ${dir} of you (straight line, may not be walkable)`;
     let h = `${poor}<div class="fd-kmrow"><span class="fd-kmbig">KM ${one(here.rk)}</span><span class="rn-of">of ${one(fin.km)}</span></div>
-      <p class="fd-between">${nx ? `${esc(pv.name)} to ${esc(nx.name)}` : 'At the finish'}</p>
+      <p class="fd-between">${nx ? (pv.name === nx.name ? `${pv.kind === 'start' ? 'Start' : esc(pv.name)} to ${nx.kind === 'finish' ? 'Finish' : esc(nx.name)}` : `${esc(pv.name)} to ${esc(nx.name)}`) : 'At the finish'}</p>
       <p class="fd-facts"><b>${off}</b> · ${Math.round(here.ele)} m high</p>`;
     if (nx) {
       const j = En.idxAtKm(nx.gk), up = En.climb(here.ic, j), down = En.climb(j, here.ic);

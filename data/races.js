@@ -605,7 +605,7 @@ window.GPT_RACES = {
    "id": "6k",
    "label": "GPT6k",
    "short": "6k",
-   "course": null,
+   "course": "6k",
    "stages": [
     "6k"
    ]
