@@ -46,8 +46,8 @@
     <div id="rnNotices"></div>
   </div>
 
-  <!-- Course: map, profile and where am I -->
-  <div class="rn-tab" data-tab="course">
+  <!-- Where: save the map, where am I and the answer -->
+  <div class="rn-tab" data-tab="where">
     <section id="fdOffline" class="fd-offline" hidden></section>
     <div data-for="runner">
       <section class="fd-locate">
@@ -56,12 +56,17 @@
       </section>
       <section class="fd-card fd-where" id="rnWhere" hidden></section>
     </div>
+    <p id="fdTrack" class="fd-track" hidden></p>
+  </div>
+
+  <!-- Map: fills the screen, with the profile pinned at the bottom -->
+  <div class="rn-tab fd-maptab" data-tab="map" hidden>
+    <p class="fd-mapfor"><span id="rnMapFor"></span> <button type="button" class="fd-linkbtn" id="rnChangeRace">Change race</button></p>
     <section class="fd-card fd-mapcard" id="rnMapCard">
       <div id="fdMap" aria-label="Map"></div>
       <div id="rnProf" class="fd-prof"></div>
     </section>
     <p id="rnNoMap" class="fd-card muted" hidden>The map for this race isn't in the app yet. The aid stations and times still work.</p>
-    <p id="fdTrack" class="fd-track" hidden></p>
   </div>
 
   <!-- Aid stations (crew points for crews) -->
@@ -124,7 +129,8 @@
 
 <!-- Tabs along the bottom, for thumbs -->
 <nav class="rn-nav" aria-label="Sections">
-  <button type="button" data-tab="course" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></svg><span>Course</span></button>
+  <button type="button" data-tab="where" data-for-nav="runner" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z M12 7.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg><span>Where</span></button>
+  <button type="button" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></svg><span>Map</span></button>
   <button type="button" data-tab="aid"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z M9 8h6 M9 12h6 M9 16h4"/></svg><span id="rnAidTab">Aid</span></button>
   <button type="button" data-tab="help" class="rn-nav-help"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8v8 M8 12h8"/></svg><span>Help</span></button>
   <button type="button" data-tab="schedule"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7v5l3 2"/></svg><span>Schedule</span></button>

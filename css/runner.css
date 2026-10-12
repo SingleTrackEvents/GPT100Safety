@@ -89,3 +89,11 @@
 .rn-sch.live { background: #fff6d6; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
 .rn-sch.live b { color: #b0181d; }
 .fd-offline.todo .rn-steps { margin-bottom: 8px; }
+/* Where and Map tabs: on the Map tab the race picker gives way to a one-line title, and the map fills the screen
+   with the profile pinned at the bottom (the layout is shared with the field app: .fd-maptab in field.css). */
+.rn-nav { grid-template-columns: repeat(6, 1fr); }
+.rn-nav.rn-nav-5 { grid-template-columns: repeat(5, 1fr); }
+.rn-nav button[hidden] { display: none; }
+.rn-nav button span { font-size: 10.5px; }
+.rn-on-map .rn-top { display: none; }
+.runner .fd-maptab:not([hidden]) ~ .fd-foot { display: none; }

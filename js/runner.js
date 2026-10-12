@@ -31,11 +31,15 @@
   // ---------- tabs (along the bottom, for thumbs) ----------
   let tab = store.get('tab', 'course');
   function setTab(t) {
-    if (!document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = 'course';
+    // Older phones remember 'course'; crews have no Where tab.
+    if (t === 'course') t = mode === 'crew' ? 'aid' : 'where';
+    if (t === 'where' && mode === 'crew') t = 'aid';
+    if (!document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = mode === 'crew' ? 'aid' : 'where';
     tab = t; store.set('tab', t);
     document.querySelectorAll('.rn-tab').forEach(el => el.hidden = el.dataset.tab !== t);
     document.querySelectorAll('.rn-nav button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
-    if (t === 'course') setTimeout(() => { if (map) { map.invalidateSize(); if (needFit) { needFit = false; drawCourse(true); if (here) drawMe(); } } if (profile) profile.redraw(); }, 0);
+    document.body.classList.toggle('rn-on-map', t === 'map');
+    if (t === 'map') setTimeout(() => { if (map) { map.invalidateSize(); if (needFit) { needFit = false; drawCourse(true); if (here) drawMe(); } } if (profile) profile.redraw(); }, 0);
     if (t === 'help') textLink();
     if (t === 'schedule') drawSchedule();
     scrollTo(0, 0);
@@ -49,6 +53,9 @@
     document.querySelectorAll('[data-for]').forEach(el => el.hidden = el.dataset.for !== m);
     $('rnAppName').textContent = m === 'crew' ? 'Crew' : 'Runner';
     $('rnPlanTitle').textContent = m === 'crew' ? 'Crew points' : 'Aid stations and cut-offs';
+    document.querySelectorAll('[data-for-nav]').forEach(b => b.hidden = b.dataset.forNav !== m);
+    document.querySelector('.rn-nav').classList.toggle('rn-nav-5', m === 'crew');
+    if (m === 'crew' && tab === 'where') setTab('aid');
     drawCourse(); plan(); schedule();
   }
   function setStage(S) {
@@ -59,6 +66,7 @@
     $('rnStages').querySelectorAll('button').forEach(b => b.onclick = () => { here = null; setStage(R.stages[b.dataset.s]); });
     const P = S.points, fin = P[P.length - 1];
     $('rnStart').textContent = `${one(fin.km)} km, +${fin.up} m. Starts ${when(P[0].ft)} at ${P[0].name}. Final cut-off ${when(fin.ct)}.`;
+    $('rnMapFor').textContent = `${race.label}${race.stages.length > 1 ? ', ' + S.label : ''}: ${one(fin.km)} km`;
     $('rnTarget').value = store.get('target.' + KEY(), '');
     $('rnSeenAt').innerHTML = '<option value="">(not yet)</option>' + P.slice(1).map((p, i) => `<option value="${i + 1}">${esc(p.name)}</option>`).join('');
     const seen = store.get('seen.' + KEY(), null);
@@ -155,7 +163,8 @@
       h += `<div class="rn-next"><span class="rn-next-l">Next</span><b>${esc(nx.name)}</b> in <b>${one(nx.km - here.rk)} km</b>, +${Math.round(up)} m / −${Math.round(down)} m
         <div class="rn-tags">${tags(nx)}</div>${nx.ct && !nx.noCut ? `<div>Cut-off <b>${when(nx.ct)}</b></div>` : ''}${pace(nx)}</div>`;
     }
-    el.innerHTML = h;
+    el.innerHTML = h + '<button type="button" class="fd-linkbtn fd-seemap" id="rnSeeMap">See it on the map</button>';
+    $('rnSeeMap').onclick = () => setTab('map');
     profile.setHere({ E: En, km: here.gk, ele: here.ele });
     textLink();
   }
@@ -386,7 +395,8 @@
       else h += '<button type="button" class="fd-big" id="rnIntroSave">Save map now</button><div class="fd-bar" hidden><i></i></div><p class="fd-hint" id="rnIntroSaveMsg">You can also do this later on the Course tab.</p>';
     } else h = `<h2 id="rnIntroTitle">3. How it works</h2>
       <ul class="rn-tablist">
-        <li><b>Course</b> Tap <b>Where am I?</b> for your race km, the next aid station, the climb to it and when you'll get there.</li>
+        <li><b>Where</b> Tap <b>Where am I?</b> for your race km, the next aid station, the climb to it and when you'll get there.</li>
+        <li><b>Map</b> Your race on a big topo map, with the climb ahead on the profile underneath.</li>
         <li><b>${mode === 'crew' ? 'Crew' : 'Aid'}</b> ${mode === 'crew' ? 'Crew points with directions and your runner’s expected times.' : 'Every aid station with cut-offs. Add a target time to see your splits.'}</li>
         <li><b>Help</b> Call 000 or race medical, or share your location.</li>
         <li><b>Schedule</b> What's on now, what's next, and the full schedule.</li>
@@ -410,7 +420,8 @@
 
   // ---------- start ----------
   initMap();
-  profile = GPTProfile({
+  $('rnChangeRace').onclick = () => { setTab(mode === 'crew' ? 'aid' : 'where'); $('rnRace').focus(); };
+  profile = GPTProfile({ height: 118,
     el: $('rnProf'), course: engineFor(R.stages[race.stages[0]]) || MAIN, map: () => map, who: 'you',
     empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.',
     window: En => stage && En === E() ? { k0: stage.points[0].gk, k1: stage.points[stage.points.length - 1].gk } : null,
