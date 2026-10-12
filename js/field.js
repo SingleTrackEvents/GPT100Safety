@@ -9,6 +9,88 @@
   const tf = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   let here = null, watchId = null, map = null, layer = null;
 
+  // ---------- race and cut-offs (js/races.js, shared with the runner app) ----------
+  // Pick a race (and stage): every aid station with its cut-off and expected time. Once you've tapped Where
+  // am I? during the race, the times come from your position and the clock (for sweeps); otherwise from a
+  // target time. Where am I? also shows your race km and the next cut-off.
+  const RX = window.GPTRaces;
+  const rstore = { get(k, d) { try { const v = localStorage.getItem('fd.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('fd.' + k, JSON.stringify(v)); } catch (e) { } } };
+  let race = null, stage = null;
+  if (RX) race = RX.R.races.find(x => x.id === rstore.get('race')) || RX.R.races[0];
+  const rkey = () => race.id + '.' + stage.id;
+  function setRace(r) {
+    race = r; rstore.set('race', r.id);
+    const saved = rstore.get('stage.' + r.id), list = RX.stagesOf(r);
+    setStage(list.find(x => x.id === saved) || RX.currentStage(r));
+  }
+  function setStage(S) {
+    stage = S; rstore.set('stage.' + race.id, S.id);
+    const list = RX.stagesOf(race), P = S.points, fin = P[P.length - 1];
+    $('fdStages').hidden = list.length < 2;
+    $('fdStages').innerHTML = list.map(x => `<button type="button" data-s="${x.id}"${x === S ? ' class="on"' : ''}>${esc(x.label)}</button>`).join('');
+    $('fdStages').querySelectorAll('button').forEach(b => b.onclick = () => setStage(RX.R.stages[b.dataset.s]));
+    $('fdRaceStart').textContent = `${one(fin.km)} km, +${fin.up} m. Starts ${RX.when(P[0].ft)} at ${P[0].name}. Final cut-off ${RX.when(fin.ct)}.`;
+    $('fdTarget').value = rstore.get('target.' + rkey(), '');
+    raceDraw();
+  }
+  // Where you are on the picked race: race km, how far off its course, or null when not near it.
+  function racePos() {
+    if (!here || !stage) return null;
+    const En = RX.engineFor(stage), P = stage.points;
+    if (!En) return null;
+    const i0 = En.idxAtKm(P[0].gk), i1 = En.idxAtKm(P[P.length - 1].gk), ds = [];
+    for (let i = i0; i <= i1; i++) ds.push(En.metres([here.lat, here.lon], [En.route[i][0], En.route[i][1]]));
+    const bd = Math.min(...ds);
+    if (bd > 2000) return null;
+    // Where the course doubles back, pick the pass that fits the race clock.
+    const cands = ds.map((d, k) => d <= bd + 25 ? i0 + k : -1).filter(i => i >= 0), now = Date.now();
+    const expect = now > P[0].ft.getTime() ? RX.toCourse(stage, Math.max(0, RX.interpKm(stage, now))) : En.route[cands[0]][2];
+    const bi = cands.reduce((a, b) => Math.abs(En.route[b][2] - expect) < Math.abs(En.route[a][2] - expect) ? b : a, cands[0]);
+    return { E: En, ic: bi, rk: Math.max(0, RX.toRace(stage, En.route[bi][2])), offM: Math.round(bd) };
+  }
+  // Pace: 0 = the first runner's time, 1 = the cut-off. From the target time, else from where you are now.
+  function racePace() {
+    const P = stage.points, fin = P[P.length - 1], v = $('fdTarget').value.trim(), m = /^(\d{1,2})(?:[:.h ](\d{1,2}))?$/.exec(v);
+    if (m) return { p: (P[0].ft.getTime() + (+m[1] * 60 + +(m[2] || 0)) * 60000 - fin.ft) / (fin.ct - fin.ft), from: 'target' };
+    const rp = racePos(), now = Date.now();
+    if (rp && now > P[0].ft.getTime() && now < fin.ct.getTime() + 6 * 3600e3) return { p: RX.paceAt(stage, rp.rk, now), from: 'here', rp };
+    return null;
+  }
+  function raceLine() {
+    const rp = racePos(); if (!rp) return '';
+    const P = stage.points, nx = P.find(x => x.km > rp.rk + 0.05), fin = P[P.length - 1];
+    let h = `<p class="fd-facts fd-raceline"><b>${esc(race.short)}${race.stages.length > 1 ? ' ' + esc(stage.label) : ''} km ${one(rp.rk)}</b> of ${one(fin.km)}`;
+    if (nx) {
+      const j = rp.E.idxAtKm(nx.gk);
+      h += ` · Next: <b>${esc(nx.name)}</b> in ${one(nx.km - rp.rk)} km, +${Math.round(rp.E.climb(rp.ic, j))} m`;
+      if (nx.ct && !nx.noCut) h += `, cut-off <b>${RX.when(nx.ct)}</b>`;
+      const now = Date.now();
+      if (now > P[0].ft.getTime() && now < fin.ct.getTime() + 6 * 3600e3) {
+        const eta = RX.timeAt(stage, nx.km, RX.paceAt(stage, rp.rk, now));
+        h += nx.noCut || !nx.ct ? `. At your pace about ${RX.hm.format(new Date(eta))}.` : eta <= nx.ct ? `. At your pace about ${RX.hm.format(new Date(eta))}, ${RX.dur(nx.ct - eta)} before the cut-off.` : `. <b class="fd-late">At your pace about ${RX.hm.format(new Date(eta))}, after the cut-off.</b>`;
+      }
+    }
+    return h + '</p>';
+  }
+  function raceDraw() {
+    if (!stage) return;
+    const S = stage, P = S.points, pc = racePace();
+    const p = pc && pc.p;
+    $('fdTargetMsg').textContent = !pc ? 'Add a target time (hours:minutes), or tap Where am I? during the race, to see expected times.'
+      : pc.from === 'here' ? `Expected times from where you are (km ${one(pc.rp.rk)}) at ${RX.hm.format(new Date())}.` : p > 1 ? 'Slower than the cut-offs allow.' : '';
+    $('fdTargetMsg').classList.toggle('bad', !!pc && p > 1);
+    let last = null;
+    $('fdPlan').innerHTML = P.map((x, i) => {
+      const eta = p != null && i ? RX.timeAt(S, x.km, p) : null, prev = last; last = x;
+      const leg = prev ? `${one(x.km - prev.km)} km, +${x.up - prev.up} / −${x.down - prev.down} m` : '';
+      const late = eta && x.ct && !x.noCut && eta > x.ct, past = pc && pc.from === 'here' && x.km <= pc.rp.rk;
+      const kind = { start: 'Start', finish: 'Finish', turn: 'Turnaround', aid: 'Aid station', water: 'Water point', emergency: 'Emergency aid', checkpoint: 'Checkpoint' }[x.kind] || 'Aid station';
+      return `<div class="rn-row${late ? ' late' : ''}${past ? ' fd-past' : ''}"><div class="rn-km">${one(x.km)}<small>km</small></div>
+        <div class="rn-main"><b>${esc(x.name)}</b><div class="rn-tags"><span class="rn-tag">${kind}</span>${x.drop ? '<span class="rn-tag">Drop bag</span>' : ''}</div>${leg ? `<div class="rn-leg">${leg}</div>` : ''}</div>
+        <div class="rn-times">${eta && !past ? `<div class="rn-eta">${RX.when(new Date(eta))}</div>` : i ? '' : `<div class="rn-eta">${RX.when(x.ft)}</div>`}${i && x.ct && !x.noCut ? `<div class="rn-cut">Cut-off ${RX.when(x.ct)}</div>` : ''}</div></div>`;
+    }).join('');
+  }
+
   // ---------- Safety Officer posts (data/safety-officers.js: public, no names) ----------
   // Shift times are hours from t0 (Melbourne; the race is in daylight saving, UTC+11). During the event,
   // posts not staffed right now are faded; before it, every post shows with its shifts.
@@ -165,7 +247,7 @@
       <div class="fd-kmrow"><span class="fd-kmbig">KM ${one(r.km)}</span>${kmTag}</div>
       <p class="fd-between">${esc(between(r))}</p>
       <p class="fd-facts fd-off-${S.tier}"><b>${off}</b> · ${Math.round(r.ele)} m high</p>
-      ${pos}`;
+      ${pos}${raceLine()}`;
     // Nearest way out: the closest vehicle access (by walking time), and the aid stations either side.
     const opts = r.results.slice().sort((a, b) => a.walk - b.walk);
     const w = opts[0], seen = new Set();
@@ -187,6 +269,7 @@
     weather();
     drawMap(w, S.tier);
     profile.setHere({ E, km: r.km, ele: r.ele });
+    raceDraw();
   }
 
   // ---------- elevation profile (js/profile.js) ----------
@@ -340,6 +423,14 @@
   profile = GPTProfile({ el: $('fdProf'), course: MAIN, map: () => map, who: 'you', empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.' });
   showTrail();
   offlineCard();
+  if (RX) {
+    $('fdRace').innerHTML = RX.R.races.map(x => `<option value="${x.id}">${esc(x.label)}</option>`).join('');
+    $('fdRace').value = race.id;
+    $('fdRace').onchange = () => { setRace(RX.R.races.find(x => x.id === $('fdRace').value)); if (here) render(); };
+    $('fdTarget').addEventListener('input', () => { rstore.set('target.' + rkey(), $('fdTarget').value); raceDraw(); });
+    setRace(race);
+    setInterval(() => { if (!document.hidden) raceDraw(); }, 60e3);
+  } else $('fdRaceCard').hidden = true;
   // First-time intro and how-to (and the ? button).
   if (window.GPTIntro) GPTIntro({
     key: 'gptIntroField', done: offlineCard,
@@ -353,6 +444,7 @@
         <li><b>Send</b> <b>Send my location</b> or <b>Urgent: casualty here</b> opens WhatsApp with the km, position, map link and nearest vehicle access ready. Add a note, pick the group, send.</li>
         <li><b>Way out</b> The nearest vehicle access and how long it takes on foot, and the aid stations either side.</li>
         <li><b>Map</b> The topo map with the course, aid stations and Safety Officer posts (SO). The profile shows the climb ahead; drag it or tap the course to see any point.</li>
+        <li><b>Cut-offs</b> Pick the race in <b>Race and cut-offs</b>: every aid station with its cut-off, and when you'll reach each one at your current pace (or from a target time). Handy for sweeps.</li>
         <li><b>Trail</b> Turn on <b>Keep updating</b> to follow your position and draw the trail you've walked.</li>
       </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. In an emergency call 000.</p>` })
     ]

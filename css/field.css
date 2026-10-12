@@ -59,3 +59,9 @@ body.field { background: #f4f3ef; font-size: 16px; }
 #fdOut.far > section:not(.fd-where) { display: none; }
 #fdOut.long .fd-wayout { display: none; }
 .fd-so-key { display: inline-block; width: 22px; margin-right: 5px; }
+/* Race and cut-offs */
+.fd-raceline { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.fd-late { color: var(--red); }
+.rn-row.fd-past { opacity: .45; }
+#fdRaceCard .rn-schedfor { margin-bottom: 4px; }
+#fdRaceCard .rn-stages { margin-bottom: 4px; }

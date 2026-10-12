@@ -1,0 +1,96 @@
+// Races, stages, cut-offs and expected times, shared by the runner and field apps.
+// Race details come from data/races.js (tools/import_races.mjs, from the course sheet); courses that aren't in
+// the safety app's data come from data/runner-courses.js (tools/import_gpx.mjs).
+(function () {
+  const MAIN = window.GPT, R = window.GPT_RACES;
+
+  // ---------- times (Melbourne; the race is in November, daylight saving, UTC+11) ----------
+  const mel = s => s ? new Date(s + ':00+11:00') : null;
+  const fmt = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const hm = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const when = d => d ? fmt.format(d).replace(',', '') : '';
+  const dur = ms => { const m = Math.round(Math.abs(ms) / 60000), h = Math.floor(m / 60); return h ? `${h} h ${m % 60} min` : `${m} min`; };
+
+  // ---------- races and stages, matched onto the course line ----------
+  const STOP = new Set(['mt', 'mount', 'car', 'park', 'carpark', 'camp', 'rd', 'road', 'track', 'water', 'point', 'trailhead', 'fireline', 'the', 'aid', 'station', 'start', 'finish', 'gap', 'emergency', 'checkpoint']);
+  // Sheet names that look like a course stop but aren't it (placed in proportion instead).
+  const NOT_A_STOP = new Set(['wonderland trailhead']);
+  const words = s => s.toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean);
+  // Courses from GPX (data/runner-courses.js, tools/import_gpx.mjs) get the few engine pieces the app uses.
+  const MINI = {};
+  function mini(def) {
+    const route = def.route, asc = [0], desc = [0];
+    for (let i = 1; i < route.length; i++) { const d = route[i][3] - route[i - 1][3]; asc.push(asc[i - 1] + Math.max(0, d)); desc.push(desc[i - 1] + Math.max(0, -d)); }
+    const idxAtKm = km => { let lo = 0, hi = route.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (route[m][2] < km) lo = m + 1; else hi = m; } return lo; };
+    const E = {
+      id: def.id, name: def.name, main: false, route, metres: MAIN.metres, idxAtKm,
+      AID: def.stops.map(s => ({ name: s.name, lat: s.lat, lon: s.lon, trail_km: s.km, kind: s.kind })),
+      climb: (a, b) => a <= b ? asc[b] - asc[a] : desc[a] - desc[b],
+      snap(lat, lon) { let bi = 0, bd = Infinity; route.forEach((p, i) => { const d = MAIN.metres([lat, lon], [p[0], p[1]]); if (d < bd) { bd = d; bi = i; } }); return { ic: bi, offM: Math.round(bd) }; }
+    };
+    E.courses = [E];
+    return E;
+  }
+  const engineFor = stage => {
+    if (stage.course === '100') return MAIN;
+    if (stage.course === '14k') return MAIN.course('14k');
+    const def = (window.GPT_RUNNER_COURSES || {})[stage.course];
+    return def ? (MINI[def.id] = MINI[def.id] || mini(def)) : null;
+  };
+  // Each race point gets gk: its km on the course line. Aid stations are matched by name (in order);
+  // points that don't match (e.g. Stockyard Track) sit between their neighbours in proportion.
+  function prepare(stage, course) {
+    if (stage.ready) return stage;
+    stage.course = course; stage.ready = true;
+    const E = engineFor(stage), P = stage.points;
+    // Races without a map: place the start by name.
+    if (!E) { const a = MAIN.AID.find(a => words(P[0].name).some(w => !STOP.has(w) && words(a.name).includes(w))); P.forEach(p => { p.ft = mel(p.first); p.ct = mel(p.cutoff); if (a) { p.lat = a.lat; p.lon = a.lon; } }); return stage; }
+    let from = 0;
+    P.forEach((p, i) => {
+      const w = words(p.name), key = w.filter(x => !STOP.has(x));
+      if (NOT_A_STOP.has(w.join(' '))) return;
+      let best = null;
+      E.AID.forEach(a => {
+        if (a.trail_km < from - 0.01) return;
+        const aw = words(a.name), compact = aw.join('');
+        if (!key.some(k => k.length >= 3 && compact.includes(k))) return;
+        const score = w.filter(x => aw.includes(x)).length + (key.every(k => compact.includes(k)) ? 2 : 0);
+        if (!best || score > best.score || (score === best.score && a.trail_km < best.a.trail_km)) best = { a, score };
+      });
+      if (best) { p.gk = best.a.trail_km; p.lat = best.a.lat; p.lon = best.a.lon; from = p.gk; }
+    });
+    const last = E.route[E.route.length - 1][2];
+    if (P[0].gk == null) P[0].gk = 0;
+    if (P[P.length - 1].gk == null) P[P.length - 1].gk = last;
+    for (let i = 1; i < P.length - 1; i++) if (P[i].gk == null) {
+      let a = i - 1, b = i + 1; while (P[b].gk == null) b++;
+      P[i].gk = P[a].gk + (P[b].gk - P[a].gk) * (P[i].km - P[a].km) / ((P[b].km - P[a].km) || 1);
+    }
+    P.forEach(p => { if (p.lat == null) { const q = E.route[E.idxAtKm(p.gk)]; p.lat = q[0]; p.lon = q[1]; } p.ft = mel(p.first); p.ct = mel(p.cutoff); });
+    // Out-and-back courses: the turnaround becomes a point too (its times are in proportion; no cut-off).
+    E.AID.filter(a => a.kind === 'turn').forEach(a => {
+      const i = P.findIndex(p => p.gk > a.trail_km); if (i < 1) return;
+      const b = P[i - 1], c = P[i], f = (a.trail_km - b.gk) / ((c.gk - b.gk) || 1), at = (x, y) => new Date(x.getTime() + (y - x) * f);
+      P.splice(i, 0, { name: a.name, kind: 'turn', km: b.km + (c.km - b.km) * f, gk: a.trail_km, lat: a.lat, lon: a.lon, ft: at(b.ft, c.ft), ct: at(b.ct, c.ct), noCut: true, crew: 'no', drop: false, up: Math.round(b.up + (c.up - b.up) * f), down: Math.round(b.down + (c.down - b.down) * f) });
+    });
+    return stage;
+  }
+  // Course km and race km, through the matched aid stations.
+  const interp = (P, x, from, to) => {
+    if (x <= P[0][from]) return P[0][to] + (x - P[0][from]);
+    for (let i = 1; i < P.length; i++) if (x <= P[i][from]) return P[i - 1][to] + (P[i][to] - P[i - 1][to]) * (x - P[i - 1][from]) / ((P[i][from] - P[i - 1][from]) || 1);
+    return P[P.length - 1][to] + (x - P[P.length - 1][from]);
+  };
+  const toRace = (S, gk) => interp(S.points, gk, 'gk', 'km');
+  const toCourse = (S, rk) => interp(S.points, rk, 'km', 'gk');
+  // Expected time of day at a race km for a pace p: 0 is the first runner, 1 is the cut-off.
+  const timeAt = (S, rk, p) => { const P = S.points; let i = 1; while (i < P.length - 1 && P[i].km < rk) i++; const a = P[i - 1], b = P[i], f = (rk - a.km) / ((b.km - a.km) || 1); const t = k => k.ft.getTime() + p * (k.ct - k.ft); return t(a) + (t(b) - t(a)) * Math.max(0, Math.min(1, f)); };
+  // Race km a mid-pack runner would be at, at time t.
+  const interpKm = (S, t) => { const P = S.points; for (let i = 1; i < P.length; i++) { const a = (P[i - 1].ft.getTime() + P[i - 1].ct.getTime()) / 2, b = (P[i].ft.getTime() + P[i].ct.getTime()) / 2; if (t <= b) return P[i - 1].km + (P[i].km - P[i - 1].km) * Math.max(0, (t - a) / ((b - a) || 1)); } return P[P.length - 1].km; };
+  const paceAt = (S, rk, t) => { const lo = timeAt(S, rk, 0), hi = timeAt(S, rk, 1); return hi > lo ? (t - lo) / (hi - lo) : 0; };
+
+  const stagesOf = r => r.stages.map(id => prepare(R.stages[id], r.course));
+  // A stage race opens on today's stage (or the next one).
+  const currentStage = (r, now) => { const list = stagesOf(r); return list.find(s => s.points[s.points.length - 1].ct.getTime() > (now || Date.now())) || list[0]; };
+  window.GPTRaces = { R, mel, fmt, hm, when, dur, words, engineFor, prepare, stagesOf, currentStage, toRace, toCourse, timeAt, interpKm, paceAt };
+})();

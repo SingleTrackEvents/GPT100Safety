@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/field.css">
+<link rel="stylesheet" href="css/runner.css">
 </head>
 <body class="field">
 <header class="top">
@@ -66,6 +67,16 @@
 
   </div>
 
+  <section class="fd-card" id="fdRaceCard">
+    <h2>Race and cut-offs</h2>
+    <label for="fdRace" class="fd-label">Race</label>
+    <select id="fdRace" class="rn-schedfor"></select>
+    <div id="fdStages" class="rn-stages" role="group" aria-label="Stage" hidden></div>
+    <p id="fdRaceStart" class="fd-hint"></p>
+    <div class="rn-target"><label for="fdTarget">Target time</label><input id="fdTarget" type="text" inputmode="numeric" placeholder="e.g. 32:00"><span class="fd-hint" id="fdTargetMsg"></span></div>
+    <div id="fdPlan"></div>
+  </section>
+
   <p id="fdTrack" class="fd-track" hidden></p>
   <p class="fd-foot">Planning guide only. Times are estimates at responder walking pace. In an emergency call 000.</p>
 </main>
@@ -86,6 +97,9 @@
 <script src="data/pacing.js"></script>
 <script src="js/weather-core.js"></script>
 <script src="js/weather.js"></script>
+<script src="data/races.js"></script>
+<script src="data/runner-courses.js"></script>
+<script src="js/races.js"></script>
 <script src="js/intro.js"></script>
 <script src="js/field.js"></script>
 </body>
