@@ -31,16 +31,15 @@
   // ---------- tabs (along the bottom, for thumbs) ----------
   let tab = store.get('tab', 'course');
   function setTab(t) {
-    // Older phones remember 'course'; crews have no Where tab.
-    if (t === 'course') t = mode === 'crew' ? 'aid' : 'where';
-    if (t === 'where' && mode === 'crew') t = 'aid';
-    if (!document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = mode === 'crew' ? 'aid' : 'where';
+    // Older phones remember 'course' or 'where'.
+    if (t === 'course' || t === 'where' || !document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = 'home';
     tab = t; store.set('tab', t);
     document.querySelectorAll('.rn-tab').forEach(el => el.hidden = el.dataset.tab !== t);
     document.querySelectorAll('.rn-nav button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
     document.body.classList.toggle('rn-on-map', t === 'map');
     if (t === 'map') setTimeout(() => { if (map) { map.invalidateSize(); if (needFit) { needFit = false; drawCourse(true); if (here) drawMe(); } } if (profile) profile.redraw(); }, 0);
     if (t === 'help') textLink();
+    if (t === 'home') home();
     if (t === 'schedule') drawSchedule();
     scrollTo(0, 0);
   }
@@ -53,10 +52,8 @@
     document.querySelectorAll('[data-for]').forEach(el => el.hidden = el.dataset.for !== m);
     $('rnAppName').textContent = m === 'crew' ? 'Crew' : 'Runner';
     $('rnPlanTitle').textContent = m === 'crew' ? 'Crew points' : 'Aid stations and cut-offs';
-    document.querySelectorAll('[data-for-nav]').forEach(b => b.hidden = b.dataset.forNav !== m);
-    document.querySelector('.rn-nav').classList.toggle('rn-nav-5', m === 'crew');
-    if (m === 'crew' && tab === 'where') setTab('aid');
-    drawCourse(); plan(); schedule();
+    $('rnQuickAid').innerHTML = m === 'crew' ? 'Crew points<br>and times' : 'Aid stations<br>and cut-offs';
+    drawCourse(); plan(); schedule(); home();
   }
   function setStage(S) {
     stage = S; store.set('stage.' + race.id, S.id);
@@ -71,12 +68,12 @@
     $('rnSeenAt').innerHTML = '<option value="">(not yet)</option>' + P.slice(1).map((p, i) => `<option value="${i + 1}">${esc(p.name)}</option>`).join('');
     const seen = store.get('seen.' + KEY(), null);
     $('rnSeenAt').value = seen ? seen.i : ''; $('rnSeenTime').value = seen ? seen.t : '';
-    $('rnWhere').hidden = true; msg('');
+    whereNow = null; if (meLayer) meLayer.clearLayers();
     const hasMap = !!E() && !!map;
     $('rnMapCard').hidden = !E(); $('rnNoMap').hidden = !!E();
     if (E()) { profile.setCourse(E()); profile.setHere(null); }
     if (hasMap) drawCourse(true);
-    plan(); gear(); schedule();
+    plan(); gear(); schedule(); home();
   }
 
   // ---------- map and profile ----------
@@ -87,6 +84,18 @@
     GPTBaseMap(map);
     courseLayer = L.layerGroup().addTo(map); meLayer = L.layerGroup().addTo(map);
     map.on('click', e => profile.showLL(e.latlng.lat, e.latlng.lng, map.getZoom()));
+    // A small location button on the map, as in Google Maps.
+    const loc = L.control({ position: 'bottomright' });
+    loc.onAdd = () => {
+      const d = L.DomUtil.create('div', 'leaflet-bar rn-locwrap');
+      d.innerHTML = '<button type="button" class="rn-locbtn" aria-label="Where am I?" title="Where am I?"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3 M12 20v3 M1 12h3 M20 12h3"/></svg></button>';
+      L.DomEvent.disableClickPropagation(d);
+      d.firstChild.onclick = () => locate();
+      return d;
+    };
+    loc.addTo(map);
+    const t = document.createElement('div'); t.id = 'rnToast'; t.className = 'rn-toast'; t.hidden = true; t.setAttribute('role', 'status');
+    $('fdMap').appendChild(t);
   }
   function drawCourse(fit) {
     if (!map || !E()) return;
@@ -106,17 +115,24 @@
 
   // ---------- where am I ----------
   let here = null;
-  function msg(t, bad) { const m = $('fdGpsMsg'); m.textContent = t; m.classList.toggle('bad', !!bad); }
+  // Short messages float over the map (Finding you…, GPS errors).
+  let toastT = null;
+  function msg(t, bad) {
+    const m = $('rnToast'); if (!m) return;
+    clearTimeout(toastT); m.textContent = t; m.hidden = !t; m.classList.toggle('bad', !!bad);
+    if (t && !/Finding/.test(t)) toastT = setTimeout(() => { m.hidden = true; }, bad ? 7000 : 3500);
+  }
+  const locBtn = () => document.querySelector('.rn-locbtn');
   // GPS fix; then() runs once you're placed (the Help tab's Share uses it too).
   function locate(then) {
     if (!E()) { msg('Where am I? needs this race\'s map, which isn\'t in the app yet.', true); return; }
     if (!navigator.geolocation) { msg('This phone can\'t share its location with the app.', true); return; }
     msg('Finding you… (stand in the open for the best fix)');
-    navigator.geolocation.getCurrentPosition(p => { msg(`GPS fix ${hm.format(new Date(p.timestamp))}, accurate to about ${Math.round(p.coords.accuracy)} m.`); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
-      e => { msg(e.code === 1 ? 'Location is blocked for this site. Allow location in the phone settings.' : 'No GPS fix yet. Try again in the open.', true); $('rnShareMsg').textContent = $('fdGpsMsg').textContent; },
+    const b = locBtn(); if (b) b.classList.add('busy');
+    navigator.geolocation.getCurrentPosition(p => { if (b) { b.classList.remove('busy'); b.classList.add('on'); } msg(`Found you: accurate to about ${Math.round(p.coords.accuracy)} m.`); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
+      e => { if (b) b.classList.remove('busy'); const t = e.code === 1 ? 'Location is blocked for this site. Allow location in the phone settings.' : 'No GPS fix yet. Try again in the open.'; msg(t, true); $('rnShareMsg').textContent = t; },
       { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
   }
-  $('fdLocate').addEventListener('click', () => locate());
   const DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
   function compass(a, b) {
     const r = Math.PI / 180, y = Math.sin((b[1] - a[1]) * r) * Math.cos(b[0] * r), x = Math.cos(a[0] * r) * Math.sin(b[0] * r) - Math.sin(a[0] * r) * Math.cos(b[0] * r) * Math.cos((b[1] - a[1]) * r);
@@ -139,44 +155,40 @@
     here = { stage, t: now, lat, lon, acc, ic: bi, gk: q[2], rk: Math.max(0, toRace(stage, q[2])), ele: q[3], offM: Math.round(bd), cp: [q[0], q[1]] };
     render();
   }
+  // Where you are, as the line under the profile on the Map tab: race km, the next aid station with its
+  // distance, climb, cut-off and when you'd get there, and any off-course or poor GPS warning.
+  let whereNow = null;
   function render() {
     if (!here) return;
-    const S = stage, P = S.points, En = E(), fin = P[P.length - 1], el = $('rnWhere');
-    el.hidden = false;
+    const S = stage, P = S.points, En = E(), fin = P[P.length - 1];
     const me = [here.lat, here.lon], dir = compass(me, here.cp);
-    const poor = here.acc > 100 ? `<p class="notice warn"><b>GPS isn't accurate enough yet</b> (±${Math.round(here.acc)} m). Stand in the open and tap Where am I? again.</p>` : '';
+    const poor = here.acc > 100 ? `<span class="rn-warn">GPS only ±${Math.round(here.acc)} m: stand in the open and tap ◎ again.</span><br>` : '';
     drawMe();
     if (here.offM > 2000) {
-      el.innerHTML = `${poor}<div class="fd-kmrow"><span class="fd-kmbig">${one(here.offM / 1000)} KM</span></div>
-        <p class="fd-between">from the ${esc(race.short)}${race.stages.length > 1 ? ' ' + esc(S.label) : ''} course</p>
-        <p class="fd-facts">The nearest point is km ${one(here.rk)}, ${dir} of you.</p>`;
-      profile.setHere(null); textLink(); return;
+      whereNow = `${poor}<b>You're ${one(here.offM / 1000)} km from the ${esc(race.short)}${race.stages.length > 1 ? ' ' + esc(S.label) : ''} course.</b> The nearest point is km ${one(here.rk)}, ${dir} of you.`;
+      profile.setHere(null); textLink(); home(); return;
     }
-    const nx = P.find(p => p.km > here.rk + 0.05), pv = [...P].reverse().find(p => p.km <= here.rk + 0.05) || P[0];
-    const off = here.offM <= 50 ? 'On the course' : here.offM <= 300 ? `Just off the course. The course is ${dist(here.offM)} ${dir} of you`
-      : `${dist(here.offM)} off the course. The course is ${dir} of you (straight line, may not be walkable)`;
-    let h = `${poor}<div class="fd-kmrow"><span class="fd-kmbig">KM ${one(here.rk)}</span><span class="rn-of">of ${one(fin.km)}</span></div>
-      <p class="fd-between">${nx ? (pv.name === nx.name ? `${pv.kind === 'start' ? 'Start' : esc(pv.name)} to ${nx.kind === 'finish' ? 'Finish' : esc(nx.name)}` : `${esc(pv.name)} to ${esc(nx.name)}`) : 'At the finish'}</p>
-      <p class="fd-facts"><b>${off}</b> · ${Math.round(here.ele)} m high</p>`;
+    const nx = P.find(p => p.km > here.rk + 0.05);
+    const off = here.offM <= 50 ? '' : here.offM <= 300 ? ` · <span class="rn-warn">${dist(here.offM)} off the course: it's ${dir} of you</span>`
+      : ` · <span class="rn-warn">${dist(here.offM)} off the course: it's ${dir} of you (may not be walkable)</span>`;
+    let h = `${poor}<b class="rn-km-now">Km ${one(here.rk)}</b> of ${one(fin.km)}${off}`;
     if (nx) {
       const j = En.idxAtKm(nx.gk), up = En.climb(here.ic, j), down = En.climb(j, here.ic);
-      h += `<div class="rn-next"><span class="rn-next-l">Next</span><b>${esc(nx.name)}</b> in <b>${one(nx.km - here.rk)} km</b>, +${Math.round(up)} m / −${Math.round(down)} m
-        <div class="rn-tags">${tags(nx)}</div>${nx.ct && !nx.noCut ? `<div>Cut-off <b>${when(nx.ct)}</b></div>` : ''}${pace(nx)}</div>`;
-    }
-    el.innerHTML = h + '<button type="button" class="fd-linkbtn fd-seemap" id="rnSeeMap">See it on the map</button>';
-    $('rnSeeMap').onclick = () => setTab('map');
+      h += `<br>Next: <b>${esc(nx.name)}</b> in <b>${one(nx.km - here.rk)} km</b>, +${Math.round(up)} / −${Math.round(down)} m${nx.ct && !nx.noCut ? `, cut-off <b>${when(nx.ct)}</b>` : ''}${pace(nx)}`;
+    } else h += '<br>At the finish.';
+    whereNow = h;
     profile.setHere({ E: En, km: here.gk, ele: here.ele });
-    textLink();
+    textLink(); home();
   }
   // At your pace (from where you are now and the time), when you'd reach the next point.
   function pace(nx) {
     const S = stage, now = Date.now(), start = S.points[0].ft.getTime();
-    if (now < start) return `<p class="fd-hint">Race starts ${when(S.points[0].ft)}.</p>`;
+    if (now < start) return `<br><span class="rn-dim">Race starts ${when(S.points[0].ft)}.</span>`;
     if (now > S.points[S.points.length - 1].ct.getTime() + 6 * 3600e3) return '';
     const p = paceAt(S, here.rk, now), eta = timeAt(S, nx.km, p), margin = nx.ct - eta;
-    if (nx.noCut) return `<p class="rn-ok">At your pace you'll get there about <b>${hm.format(new Date(eta))}</b>.</p>`;
-    if (margin >= 0) return `<p class="rn-ok">At your pace you'll get there about <b>${hm.format(new Date(eta))}</b>, ${dur(margin)} before the cut-off.</p>`;
-    return `<p class="notice warn">At your pace you'd reach ${esc(nx.name)} about ${hm.format(new Date(eta))}, after the cut-off. Talk to the aid station team.</p>`;
+    if (nx.noCut) return `<br><span class="rn-good">At your pace about <b>${hm.format(new Date(eta))}</b>.</span>`;
+    if (margin >= 0) return `<br><span class="rn-good">At your pace about <b>${hm.format(new Date(eta))}</b>, ${dur(margin)} before the cut-off.</span>`;
+    return `<br><span class="rn-warn"><b>At your pace about ${hm.format(new Date(eta))}, after the cut-off.</b> Talk to the aid station team.</span>`;
   }
   function tags(p) {
     const t = [{ start: 'Start', finish: 'Finish', turn: 'Turnaround', aid: 'Aid station', water: 'Water point', emergency: 'Emergency aid', checkpoint: 'Checkpoint' }[p.kind] || 'Aid station'];
@@ -207,6 +219,36 @@
     if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
     location.href = 'sms:?&body=' + encodeURIComponent(text);
   });
+
+  // ---------- Home: welcome and a summary of the race ----------
+  const nf = new Intl.NumberFormat('en-AU');
+  function home() {
+    if (!stage || !$('rnHero')) return;
+    const S = stage, P = S.points, fin = P[P.length - 1], now = Date.now(), t0 = P[0].ft.getTime(), t1 = fin.ct.getTime();
+    let count;
+    if (now < t0) {
+      const ms = t0 - now, d = Math.floor(ms / 864e5);
+      count = d >= 1 ? `${d} day${d > 1 ? 's' : ''} to go` : `Starts in ${dur(ms)}`;
+    } else if (now < t1) count = `Race on · ${dur(now - t0)} in`;
+    else count = 'Finished';
+    const tp = targetPace(), tgt = $('rnTarget').value.trim();
+    let extra = '';
+    if (mode === 'runner' && tp != null && tgt) extra = `<p>Your target <b>${esc(tgt)}</b>: finish about <b>${when(new Date(timeAt(S, fin.km, tp)))}</b>.</p>`;
+    else if (mode === 'runner') extra = '<p class="fd-hint">Add a target time on the Aid tab to see your splits.</p>';
+    else { const sp = seenPace(); extra = sp ? `<p>Last seen at <b>${esc(P[sp.i].name)}</b> ${when(new Date(sp.at))}. Expected at the finish about <b>${when(new Date(timeAt(S, fin.km, sp.p)))}</b>.</p>` : `<p class="fd-hint">${P.filter(x => x.crew !== 'no').length} crew points. Add where your runner was last seen on the Crew tab.</p>`; }
+    if (mode === 'runner' && whereNow && here && Date.now() - here.t < 30 * 60e3) extra += `<p class="rn-hero-now"><span class="rn-dim">Where you were at ${hm.format(new Date(here.t))}:</span><br>${whereNow}</p>`;
+    $('rnHero').innerHTML = `<p class="rn-hero-race">${esc(race.label)}${race.stages.length > 1 ? ' · ' + esc(S.label) : ''}</p>
+      <p class="rn-hero-count">${count}</p>
+      <div class="rn-hero-facts"><span><b>${one(fin.km)}</b> km</span><span><b>+${nf.format(fin.up)}</b> m</span><span><b>${P.length - 2}</b> aid points</span></div>
+      <p>Start <b>${when(P[0].ft)}</b> at ${esc(P[0].name)}<br>Final cut-off <b>${when(fin.ct)}</b> at ${esc(fin.name)}</p>${extra}`;
+    // Up next on the schedule for this race (and crews).
+    const nxt = events().filter(e => wanted(e, race.id) && e.start > now - 20 * 60e3).slice(0, 2);
+    $('rnHomeNext').innerHTML = `<h2>Up next</h2>` + (nxt.length ? nxt.map(e => `<div class="rn-now-i rn-home-i"><b>${when(new Date(e.start))}</b><span>${esc(e.what)}</span><em>${e.start <= now ? 'now' : until(e.start - now)}</em></div>`).join('') : '<p class="muted">Nothing more on the schedule.</p>') +
+      '<button type="button" class="fd-linkbtn" id="rnHomeSched">Full schedule</button>';
+    $('rnHomeSched').onclick = () => setTab('schedule');
+  }
+  document.querySelectorAll('.rn-quick button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.go)));
+  setInterval(() => { if (tab === 'home' && !document.hidden) home(); }, 60e3);
 
   // ---------- schedule (for this race, or its crews) ----------
   const dayFmt = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'long', day: 'numeric', month: 'short' });
@@ -304,8 +346,8 @@
     }).join('');
     $('rnPlan').innerHTML = rows;
   }
-  $('rnTarget').addEventListener('input', () => { store.set('target.' + KEY(), $('rnTarget').value); plan(); });
-  const saveSeen = () => { store.set('seen.' + KEY(), $('rnSeenAt').value ? { i: $('rnSeenAt').value, t: $('rnSeenTime').value } : null); plan(); };
+  $('rnTarget').addEventListener('input', () => { store.set('target.' + KEY(), $('rnTarget').value); plan(); home(); });
+  const saveSeen = () => { store.set('seen.' + KEY(), $('rnSeenAt').value ? { i: $('rnSeenAt').value, t: $('rnSeenTime').value } : null); plan(); home(); };
   $('rnSeenAt').addEventListener('change', saveSeen); $('rnSeenTime').addEventListener('input', saveSeen);
 
   // ---------- mandatory gear ----------
@@ -395,8 +437,8 @@
       else h += '<button type="button" class="fd-big" id="rnIntroSave">Save map now</button><div class="fd-bar" hidden><i></i></div><p class="fd-hint" id="rnIntroSaveMsg">You can also do this later on the Course tab.</p>';
     } else h = `<h2 id="rnIntroTitle">3. How it works</h2>
       <ul class="rn-tablist">
-        <li><b>Where</b> Tap <b>Where am I?</b> for your race km, the next aid station, the climb to it and when you'll get there.</li>
-        <li><b>Map</b> Your race on a big topo map, with the climb ahead on the profile underneath.</li>
+        <li><b>Home</b> Your race at a glance: the countdown, start and cut-off, and what's on next.</li>
+        <li><b>Map</b> Your race on a big topo map. Tap <b>◎</b> to see where you are: your race km, the next aid station, the climb to it, its cut-off and when you'll get there show under the profile.</li>
         <li><b>${mode === 'crew' ? 'Crew' : 'Aid'}</b> ${mode === 'crew' ? 'Crew points with directions and your runner’s expected times.' : 'Every aid station with cut-offs. Add a target time to see your splits.'}</li>
         <li><b>Help</b> Call 000 or race medical, or share your location.</li>
         <li><b>Schedule</b> What's on now, what's next, and the full schedule.</li>
@@ -420,10 +462,10 @@
 
   // ---------- start ----------
   initMap();
-  $('rnChangeRace').onclick = () => { setTab(mode === 'crew' ? 'aid' : 'where'); $('rnRace').focus(); };
-  profile = GPTProfile({ height: 118,
+  $('rnChangeRace').onclick = () => { setTab('home'); $('rnRace').focus(); };
+  profile = GPTProfile({ height: 118, summary: () => whereNow,
     el: $('rnProf'), course: engineFor(R.stages[race.stages[0]]) || MAIN, map: () => map, who: 'you',
-    empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.',
+    empty: 'Tap ◎ on the map to see where you are and how far to the next aid station. Drag along the profile to see any point.',
     window: En => stage && En === E() ? { k0: stage.points[0].gk, k1: stage.points[stage.points.length - 1].gk } : null,
     km: { toRace: k => stage ? toRace(stage, k) : k, toCourse: k => stage ? toCourse(stage, k) : k },
     title: () => !stage ? '' : `${race.short}${race.stages.length > 1 ? ' ' + stage.label : ''}: ${one(stage.points[stage.points.length - 1].km)} km`

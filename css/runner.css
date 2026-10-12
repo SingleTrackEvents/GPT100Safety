@@ -97,3 +97,42 @@
 .rn-nav button span { font-size: 10.5px; }
 .rn-on-map .rn-top { display: none; }
 .runner .fd-maptab:not([hidden]) ~ .fd-foot { display: none; }
+/* Home: welcome and a summary of your race */
+.rn-hero { background: var(--ink); color: #fff; border-color: var(--ink); }
+.rn-hero p { margin: 8px 0 0; font-size: 14px; line-height: 1.45; }
+.rn-hero .fd-hint, .rn-hero .rn-dim { color: #bdb7ad; }
+.rn-hero p.rn-hero-race { margin: 0; font: 600 13px var(--body); letter-spacing: 1px; text-transform: uppercase; color: #ffcf33; }
+.rn-hero p.rn-hero-count { margin: 2px 0 6px; font: 400 34px/1.05 var(--head); letter-spacing: .5px; }
+.rn-hero-facts { display: flex; gap: 6px; flex-wrap: wrap; }
+.rn-hero-facts span { background: rgba(255,255,255,.12); border-radius: 8px; padding: 4px 9px; font-size: 13px; }
+.rn-hero-facts b { font: 400 20px/1 var(--head); letter-spacing: .5px; margin-right: 2px; }
+.rn-hero p.rn-hero-now { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.18); }
+.rn-hero .rn-warn { color: #ff8a80; }
+.rn-hero .rn-good { color: #8fd6a6; }
+.rn-home-i { border-top: 1px solid var(--line); }
+#rnHomeNext h2 + .rn-home-i { border-top: 0; }
+.rn-home-i em { color: var(--muted); }
+#rnHomeSched { margin-top: 6px; }
+.rn-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+.rn-quick button { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 92px; padding: 12px 4px; border: 2px solid var(--ink);
+  border-radius: 12px; background: #fff; color: var(--ink); font: 600 13px/1.25 var(--body); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rn-quick svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.rn-quick button.rn-quick-help { background: var(--red); border-color: var(--red); color: #fff; }
+/* Map: a small round locate button, like Google Maps, and a short message over the map */
+.leaflet-bar.rn-locwrap { border: 0; border-radius: 50%; box-shadow: 0 1px 5px rgba(0,0,0,.35); }
+.rn-locbtn { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; background: #fff; color: #444; cursor: pointer; padding: 0; }
+.rn-locbtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.rn-locbtn.on { color: #1666c9; }
+.rn-locbtn.on circle:first-child { fill: currentColor; }
+.rn-locbtn.busy { color: #1666c9; animation: rn-pulse 1s ease-in-out infinite; }
+@keyframes rn-pulse { 50% { opacity: .35; } }
+.rn-toast { position: absolute; z-index: 1000; top: 10px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 100px); padding: 8px 12px;
+  border-radius: 10px; background: rgba(17,17,17,.9); color: #fff; font: 600 13px/1.35 var(--body); text-align: center; pointer-events: none; }
+.rn-toast.bad { background: var(--red); }
+/* The summary under the profile */
+.rn-warn { color: var(--red); font-weight: 600; }
+.rn-good { color: #1f6b3a; }
+.rn-dim { color: var(--muted); }
+.rn-km-now { font: 400 19px/1 var(--head); letter-spacing: .5px; }
+/* Short phones: the next aid station line under the profile takes the room the legend had */
+@media (max-height: 700px) { .runner .fd-maptab .prof-legend { display: none; } .runner .fd-maptab #fdMap { min-height: 180px; } }

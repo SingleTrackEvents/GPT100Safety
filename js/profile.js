@@ -17,7 +17,7 @@
 
   // o: { el, course, map() → Leaflet map or null, who ('you' or 'the casualty'), colour, empty (text before a point is set),
   //       window(E) → { k0, k1 } to show only part of a course (one race), km { toRace(k), toCourse(rk) } to label in race km,
-  //       title(E) → the whole-view title, height (px, default 164) }
+  //       title(E) → the whole-view title, height (px, default 164), summary() → HTML under the graph (or null) }
   window.GPTProfile = function (o) {
     const root = o.el, who = o.who || 'you', colour = o.colour || '#1666c9';
     root.classList.add('prof');
@@ -143,7 +143,9 @@
     }
     // Under the profile: the distance, climb and descent to the next aid station and back to the last.
     function summary() {
-      const R = prof.R;
+      const R = prof.R, custom = o.summary && o.summary();
+      // An app can supply its own line here (the runner app: the next aid station, cut-off and pace).
+      if (custom != null) { info.innerHTML = custom; return; }
       if (here && here.E !== R.E) { info.textContent = `Showing the ${R.E.name} course. Tap This section to go back.`; return; }
       if (!here) { info.textContent = o.empty || 'Drag along the profile to see any point.'; return; }
       const E = here.E, ic = E.idxAtKm(here.km);
