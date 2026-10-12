@@ -17,7 +17,7 @@
 
   // o: { el, course, map() → Leaflet map or null, who ('you' or 'the casualty'), colour, empty (text before a point is set),
   //       window(E) → { k0, k1 } to show only part of a course (one race), km { toRace(k), toCourse(rk) } to label in race km,
-  //       title(E) → the whole-view title }
+  //       title(E) → the whole-view title, height (px, default 164) }
   window.GPTProfile = function (o) {
     const root = o.el, who = o.who || 'you', colour = o.colour || '#1666c9';
     root.classList.add('prof');
@@ -53,7 +53,7 @@
 
     function draw() {
       const R = range(), E = R.E, route = E.route;
-      const Wd = Math.max(280, box.clientWidth || 340), Ht = 164, L0 = 34, R0 = 8, T0 = 32, B0 = 18;
+      const Wd = Math.max(280, box.clientWidth || 340), Ht = o.height || 164, L0 = 34, R0 = 8, T0 = 32, B0 = 18;
       const i0 = E.idxAtKm(R.k0), i1 = E.idxAtKm(R.k1);
       const step = Math.max(1, Math.floor((i1 - i0) / 500));
       const pts = []; for (let i = i0; i <= i1; i += step) pts.push(route[i]); if (pts[pts.length - 1] !== route[i1]) pts.push(route[i1]);

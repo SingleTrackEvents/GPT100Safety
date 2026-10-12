@@ -70,5 +70,17 @@ body.field { background: #f4f3ef; font-size: 16px; }
 .fd-mapfor { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 2px 2px 8px; font: 400 20px/1.1 var(--head); letter-spacing: .5px; }
 .fd-mapfor .fd-linkbtn { font: 700 13px var(--body); letter-spacing: 0; white-space: nowrap; }
 .fd-maptab .fd-mapcard { margin-top: 0; }
-.fd-maptab #fdMap { height: calc(100svh - 58px - 90px - 52px); min-height: 360px; }
+/* The Map tab fills the screen between the header and the tabs: the map takes the room, the profile sits at the bottom. */
+.fd-maptab:not([hidden]) { display: flex; flex-direction: column; height: calc(100svh - var(--fd-chrome, 156px) - env(safe-area-inset-bottom)); min-height: 440px; }
+.fd-maptab .fd-mapfor { flex: none; }
+.fd-maptab .fd-mapcard { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-bottom: 0; }
+.fd-maptab #fdMap { flex: 1; height: auto; min-height: 220px; }
+.fd-maptab .fd-prof { flex: none; padding: 6px 12px 8px; }
+.fd-maptab .prof-head { gap: 4px; }
+.fd-maptab .prof-title { font-size: 17px; }
+.fd-maptab .prof-seg button { min-height: 28px; font-size: 11px; padding: 0 8px; }
+.fd-maptab .prof-svg { margin-top: 4px; }
+.fd-maptab .prof-legend { margin-top: 2px; font-size: 10px; gap: 2px 10px; }
+.fd-maptab .prof-info { margin-top: 3px; font-size: 13px; line-height: 1.35; min-height: 0; }
+.fd-maptab:not([hidden]) ~ .fd-foot { display: none; }
 .fd-seemap { display: block; margin-top: 8px; padding: 0; }

@@ -446,7 +446,7 @@
   // ---------- start ----------
   initMap();
   profile = GPTProfile({
-    el: $('fdProf'), course: MAIN, map: () => map, who: 'you',
+    el: $('fdProf'), course: MAIN, map: () => map, who: 'you', height: 118,
     empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.',
     window: En => stage && En === RX.engineFor(stage) ? { k0: stage.points[0].gk, k1: stage.points[stage.points.length - 1].gk } : null,
     km: { toRace: k => stage ? RX.toRace(stage, k) : k, toCourse: k => stage ? RX.toCourse(stage, k) : k },
