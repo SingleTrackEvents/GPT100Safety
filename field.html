@@ -23,13 +23,10 @@
   <span id="net" class="net" hidden>Offline</span>
 </header>
 
-<main class="fd">
+<main class="fd rn-page">
+  <!-- Where: where am I, send my location, the way out and the weather -->
+  <div class="rn-tab" data-tab="where">
   <section id="fdOffline" class="fd-offline" hidden></section>
-  <section class="fd-card fd-mapcard fd-top">
-    <div id="fdMap" aria-label="Map"></div>
-    <div id="fdProf" class="fd-prof"></div>
-  </section>
-
   <section class="fd-locate">
     <button id="fdLocate" class="fd-big" type="button">Where am I?</button>
     <label class="fd-follow"><input id="fdFollow" type="checkbox"> Keep updating</label>
@@ -66,7 +63,20 @@
     </section>
 
   </div>
+  <p id="fdTrack" class="fd-track" hidden></p>
+  </div>
 
+  <!-- Map: big, kept to the picked race -->
+  <div class="rn-tab fd-maptab" data-tab="map" hidden>
+    <p class="fd-mapfor"><span id="fdMapFor"></span> <button type="button" class="fd-linkbtn" id="fdChangeRace">Change race</button></p>
+    <section class="fd-card fd-mapcard">
+      <div id="fdMap" aria-label="Map"></div>
+      <div id="fdProf" class="fd-prof"></div>
+    </section>
+  </div>
+
+  <!-- Race: the race picker and cut-offs -->
+  <div class="rn-tab" data-tab="race" hidden>
   <section class="fd-card" id="fdRaceCard">
     <h2>Race and cut-offs</h2>
     <label for="fdRace" class="fd-label">Race</label>
@@ -76,10 +86,17 @@
     <div class="rn-target"><label for="fdTarget">Target time</label><input id="fdTarget" type="text" inputmode="numeric" placeholder="e.g. 32:00"><span class="fd-hint" id="fdTargetMsg"></span></div>
     <div id="fdPlan"></div>
   </section>
+  </div>
 
-  <p id="fdTrack" class="fd-track" hidden></p>
   <p class="fd-foot">Planning guide only. Times are estimates at responder walking pace. In an emergency call 000.</p>
 </main>
+
+<!-- Tabs along the bottom, for thumbs -->
+<nav class="rn-nav fd-nav" aria-label="Sections">
+  <button type="button" data-tab="where" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z M12 7.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg><span>Where</span></button>
+  <button type="button" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></svg><span>Map</span></button>
+  <button type="button" data-tab="race"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4 M5 4h11l-2 4 2 4H5"/></svg><span>Race</span></button>
+</nav>
 
 <!-- The Weather tab code supplies the weather line; it stays hidden here. -->
 <div id="wxBody" hidden></div>

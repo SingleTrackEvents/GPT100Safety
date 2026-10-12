@@ -32,6 +32,9 @@
     $('fdRaceStart').textContent = `${one(fin.km)} km, +${fin.up} m. Starts ${RX.when(P[0].ft)} at ${P[0].name}. Final cut-off ${RX.when(fin.ct)}.`;
     $('fdTarget').value = rstore.get('target.' + rkey(), '');
     raceDraw();
+    const En = RX.engineFor(S);
+    if (profile && En) { profile.setCourse(En); profileHere(); }
+    drawRaceMap(true);
   }
   // Where you are on the picked race: race km, how far off its course, or null when not near it.
   function racePos() {
@@ -247,7 +250,7 @@
       <div class="fd-kmrow"><span class="fd-kmbig">KM ${one(r.km)}</span>${kmTag}</div>
       <p class="fd-between">${esc(between(r))}</p>
       <p class="fd-facts fd-off-${S.tier}"><b>${off}</b> · ${Math.round(r.ele)} m high</p>
-      ${pos}${raceLine()}`;
+      ${pos}${raceLine()}<button type="button" class="fd-linkbtn fd-seemap" onclick="GPTFieldTab('map')">See it on the map</button>`;
     // Nearest way out: the closest vehicle access (by walking time), and the aid stations either side.
     const opts = r.results.slice().sort((a, b) => a.walk - b.walk);
     const w = opts[0], seen = new Set();
@@ -268,7 +271,7 @@
     sendLinks();
     weather();
     drawMap(w, S.tier);
-    profile.setHere({ E, km: r.km, ele: r.ele });
+    profileHere();
     raceDraw();
   }
 
@@ -309,22 +312,45 @@
     const html = await window.WeatherTab.nearHTML(here.lat, here.lon, here.r.ele).catch(() => '');
     $('fdWx').innerHTML = html || '<p class="muted">No weather data on this phone yet. Open the app once with signal.</p>';
   }
-  // The map is up from the start: both courses, aid stations and water points, on a topo map (or the street map).
+  // The map, on its own tab: kept to the picked race (its course in orange, its aid stations with cut-offs),
+  // with the other courses faint, Safety Officer posts, you and the way out, on a topo map (or the street map).
+  let raceLayer = null, pendingFit = null;
+  const mapShown = () => !!map && $('fdMap').offsetWidth > 0;
+  // A hidden map can't size itself: fit when the Map tab opens.
+  function fitMap(bounds, opts) { if (mapShown()) map.fitBounds(bounds, opts); else pendingFit = [bounds, opts]; }
   function initMap() {
     if (!window.L) { $('fdMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
     map = L.map('fdMap', { zoomControl: true });
     GPTBaseMap(map);
-    MAIN.courses.forEach(E => {
-      L.polyline(E.route.map(p => [p[0], p[1]]), { color: E.main ? '#d9531e' : '#1666c9', weight: 4, opacity: .8 }).addTo(map);
-      E.AID.forEach(a => { const p = E.route[E.idxAtKm(a.trail_km)]; L.circleMarker([p[0], p[1]], { radius: 5, color: '#fff', weight: 2, fillColor: '#111', fillOpacity: 1 }).bindTooltip(`${esc(a.name)}<br>km ${one(a.trail_km)}${E.main ? '' : ' (' + esc(E.name) + ')'}`).addTo(map); });
-    });
+    MAIN.courses.forEach(E => L.polyline(E.route.map(p => [p[0], p[1]]), { color: '#8a8a8a', weight: 2, opacity: .55, interactive: false }).addTo(map));
+    raceLayer = L.layerGroup().addTo(map);
     soLayer = L.layerGroup().addTo(map);
     drawSO();
     trailLine = L.polyline([], { color: '#7a3db8', weight: 3, opacity: .9, dashArray: '1 6', lineCap: 'round', interactive: false }).addTo(map);
     layer = L.layerGroup().addTo(map);
-    map.fitBounds(L.latLngBounds(MAIN.route.map(p => [p[0], p[1]])).pad(0.03));
     map.on('click', e => profile.showLL(e.latlng.lat, e.latlng.lng, map.getZoom()));
     window.GPTField = { map };
+  }
+
+  function drawRaceMap(fit) {
+    if (!map || !stage) return;
+    raceLayer.clearLayers();
+    const En = RX.engineFor(stage), P = stage.points;
+    $('fdMapFor').textContent = `${race.label}${race.stages.length > 1 ? ', ' + stage.label : ''}: ${one(P[P.length - 1].km)} km`;
+    if (!En) return;
+    const i0 = En.idxAtKm(P[0].gk), i1 = En.idxAtKm(P[P.length - 1].gk);
+    if (!En.main && !MAIN.courses.includes(En)) L.polyline(En.route.map(p => [p[0], p[1]]), { color: '#8a8a8a', weight: 2, opacity: .55, interactive: false }).addTo(raceLayer);
+    const line = L.polyline(En.route.slice(i0, i1 + 1).map(p => [p[0], p[1]]), { color: '#d9531e', weight: 5, opacity: .95, interactive: false }).addTo(raceLayer);
+    P.forEach((x, i) => L.circleMarker([x.lat, x.lon], { radius: i && i < P.length - 1 ? 6 : 7, color: '#fff', weight: 2, fillColor: '#111', fillOpacity: 1 })
+      .bindTooltip(`<b>${esc(x.name)}</b><br>km ${one(x.km)}${x.ct && i && !x.noCut ? '<br>Cut-off ' + RX.when(x.ct) : i ? '' : '<br>Start ' + RX.when(x.ft)}`).addTo(raceLayer));
+    if (fit) fitMap(line.getBounds().pad(0.06));
+  }
+  // The profile follows the picked race; you're on it when Where am I? puts you on that race.
+  function profileHere() {
+    const rp = racePos();
+    if (!rp) { profile.setHere(null); return; }
+    const q = rp.E.route[rp.ic];
+    profile.setHere({ E: rp.E, km: q[2], ele: q[3] });
   }
 
   // ---------- breadcrumb trail ----------
@@ -366,11 +392,10 @@
       const line = w.connGeom && w.connGeom.length > 1 ? w.connGeom : null;
       if (line) L.polyline(line, { color: '#1666c9', weight: 4, dashArray: '2 8', lineCap: 'round' }).addTo(layer);
     }
-    map.invalidateSize();
     // Far away: show you and the course together.
-    if (tier === 'far') { map.fitBounds(L.latLngBounds(pts).extend(L.latLngBounds(MAIN.route.map(p => [p[0], p[1]]))).pad(0.1)); return; }
-    if (far) { map.fitBounds(L.latLngBounds(pts).pad(0.3), { maxZoom: 14 }); return; }
-    map.fitBounds(L.latLngBounds(pts).pad(0.5), { maxZoom: 15 });
+    if (tier === 'far') { fitMap(L.latLngBounds(pts).extend(L.latLngBounds(MAIN.route.map(p => [p[0], p[1]]))).pad(0.1)); return; }
+    if (far) { fitMap(L.latLngBounds(pts).pad(0.3), { maxZoom: 14 }); return; }
+    fitMap(L.latLngBounds(pts).pad(0.5), { maxZoom: 15 });
   }
 
   // ---------- save the map for offline ----------
@@ -420,17 +445,38 @@
 
   // ---------- start ----------
   initMap();
-  profile = GPTProfile({ el: $('fdProf'), course: MAIN, map: () => map, who: 'you', empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.' });
+  profile = GPTProfile({
+    el: $('fdProf'), course: MAIN, map: () => map, who: 'you',
+    empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.',
+    window: En => stage && En === RX.engineFor(stage) ? { k0: stage.points[0].gk, k1: stage.points[stage.points.length - 1].gk } : null,
+    km: { toRace: k => stage ? RX.toRace(stage, k) : k, toCourse: k => stage ? RX.toCourse(stage, k) : k },
+    title: () => !stage ? '' : `${race.short}${race.stages.length > 1 ? ' ' + stage.label : ''}: ${one(stage.points[stage.points.length - 1].km)} km`
+  });
   showTrail();
   offlineCard();
+  // Tabs along the bottom: Where, Map and Race. The last one used is remembered.
+  let tab = rstore.get('tab', 'where');
+  function setTab(t) {
+    if (!document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = 'where';
+    tab = t; rstore.set('tab', t);
+    document.querySelectorAll('.rn-tab').forEach(el => el.hidden = el.dataset.tab !== t);
+    document.querySelectorAll('.rn-nav button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
+    if (t === 'map') setTimeout(() => { if (map) { map.invalidateSize(); if (pendingFit) { map.fitBounds(...pendingFit); pendingFit = null; } } if (profile) profile.redraw(); }, 0);
+    scrollTo(0, 0);
+  }
+  document.querySelectorAll('.rn-nav button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  $('fdChangeRace').onclick = () => setTab('race');
+  window.GPTFieldTab = setTab;
   if (RX) {
     $('fdRace').innerHTML = RX.R.races.map(x => `<option value="${x.id}">${esc(x.label)}</option>`).join('');
     $('fdRace').value = race.id;
-    $('fdRace').onchange = () => { setRace(RX.R.races.find(x => x.id === $('fdRace').value)); if (here) render(); };
+    // A new race: the map shows that race (after Where am I? has redrawn you on it).
+    $('fdRace').onchange = () => { setRace(RX.R.races.find(x => x.id === $('fdRace').value)); if (here) { render(); drawRaceMap(true); } };
     $('fdTarget').addEventListener('input', () => { rstore.set('target.' + rkey(), $('fdTarget').value); raceDraw(); });
     setRace(race);
     setInterval(() => { if (!document.hidden) raceDraw(); }, 60e3);
   } else $('fdRaceCard').hidden = true;
+  setTab(tab);
   // First-time intro and how-to (and the ? button).
   if (window.GPTIntro) GPTIntro({
     key: 'gptIntroField', done: offlineCard,
@@ -440,11 +486,11 @@
       GPTIntro.installStep('GPT100 Field', 'Do this first, before saving the map. On iPhone, the home screen app keeps its own copy, so a map saved here in the browser would have to download again.'),
       GPTIntro.saveStep(offlineCard),
       () => ({ title: '3. How to use it', html: `<ul class="rn-tablist">
-        <li><b>Where am I?</b> Your course km, between which aid stations, and how far off the course you are (and which way the course is). No GPS? Type the km.</li>
+        <li><b>Where</b> Tap <b>Where am I?</b> for your course km, between which aid stations, and how far off the course you are (and which way the course is). No GPS? Type the km.</li>
         <li><b>Send</b> <b>Send my location</b> or <b>Urgent: casualty here</b> opens WhatsApp with the km, position, map link and nearest vehicle access ready. Add a note, pick the group, send.</li>
         <li><b>Way out</b> The nearest vehicle access and how long it takes on foot, and the aid stations either side.</li>
-        <li><b>Map</b> The topo map with the course, aid stations and Safety Officer posts (SO). The profile shows the climb ahead; drag it or tap the course to see any point.</li>
-        <li><b>Cut-offs</b> Pick the race in <b>Race and cut-offs</b>: every aid station with its cut-off, and when you'll reach each one at your current pace (or from a target time). Handy for sweeps.</li>
+        <li><b>Map</b> A big topo map of your race: its course, aid stations with cut-offs, and Safety Officer posts (SO). The profile shows the climb ahead; drag it or tap the course to see any point.</li>
+        <li><b>Race</b> Pick your race (it stays picked): every aid station with its cut-off, and when you'll reach each one at your current pace (or from a target time). Handy for sweeps.</li>
         <li><b>Trail</b> Turn on <b>Keep updating</b> to follow your position and draw the trail you've walked.</li>
       </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. In an emergency call 000.</p>` })
     ]
