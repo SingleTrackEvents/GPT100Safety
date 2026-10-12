@@ -510,6 +510,27 @@
   fromHash();
   addEventListener('hashchange', fromHash);
 
+  // ---------- First-time intro and how-to (js/intro.js; the ? button reopens it) ----------
+  if (window.GPTIntro) GPTIntro({
+    key: 'gptIntroSafety',
+    steps: [
+      () => ({ title: 'GPT100 Safety', html: `<p>The staff app for race control, the medical team and Safety Officers.</p>
+        <p>Find the fastest team for any casualty on the course, keep an eye on the weather triggers, see the medical plan, and run the Race Control board.</p>` }),
+      GPTIntro.installStep('GPT100 Safety'),
+      () => ({ title: '2. Find a casualty', html: `<ol class="rn-steps">
+        <li>Type what you've been told: a <b>km</b> (pick the runner's race first if it's a stage or shorter race), <b>coordinates</b> or a <b>what3words</b> address. Or use <b>My location</b>, or <b>Pick on map</b>.</li>
+        <li>You get one answer: <b>which team to send</b>, where to park (gated roads flagged), the walk in and the <b>ETA</b>, with the backup team and the stretcher carry-out time.</li>
+        <li>It also shows the <b>nearest Safety Officers on foot</b>, the weather there, and the climb either side on the profile.</li>
+        <li><b>WhatsApp</b> sends the job to the group, <b>Directions</b> opens Google Maps to the parking spot, and <b>Log incident</b> puts it on the Race Control board.</li>
+      </ol><p class="fd-hint">More than 2 hours to reach? A red warning says to escalate early.</p>` }),
+      () => ({ title: '3. The other tabs', html: `<ul class="rn-tablist">
+        <li><b>Weather</b> The race triggers (heat, wind, rain, storms, cloud), BOM warnings, fires nearby, radar and the models. <b>Refresh now</b> gets the latest; <b>Share update</b> writes the daily update.</li>
+        <li><b>Medical</b> Needs the medical password. Who's on duty where and when, the vehicles, and the plan for any time.</li>
+        <li><b>Control</b> Needs the medical password. The Race Control board: incidents, teams, the radio log and live tracking.</li>
+      </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. Planning guide only: in an emergency call 000.</p>` })
+    ]
+  });
+
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
   }

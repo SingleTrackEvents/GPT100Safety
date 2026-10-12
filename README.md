@@ -8,6 +8,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 **Courses:** a picker at the top of Find switches between the GPT100 course (which the 50k, 33k and stage races also run on) and the 14k (the 6k runs on part of it). Each course has its own km, sections and checkpoints, and shares the same access points and drive routes.
 
+**Intro:** each app (staff, field and runner) shows a short intro and how-to the first time it's opened on a phone, with a **?** button in the header to see it again (`js/intro.js` for the staff and field apps).
+
 **Find** (for whoever takes the call)
 
 - **Runner's race:** on the GPT100 course, pick the runner's race (Miler, 50k or Stage 1, Stage 2, Stage 3, Stage 4 or 33k) and type the km they give. The app converts it, for example Stage 2 km 10 is GPT100 km 59.2, and shows both in the result and the message. Races are set in `data/config.js` by their start and finish aid stations.
@@ -84,6 +86,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 - **Map and elevation profile** are up from the start: both courses and the aid stations on a topo map (switch to the street map with the layers button), with the whole course profile underneath, coloured by steepness (under 5%, 5 to 10%, 10 to 15%, 15% and over). After Where am I?, the profile shows your section (the aid stations either side), you on it, the way ahead in blue, and the distance, climb and descent to the next aid station and back to the last. Switch between This section and Whole course. Drag along the profile, or tap the course on the map, to see any point: km, height, steepness, and how far and how much climb from you.
 - **Save the map before you leave signal:** until the topo map is saved on the phone, a red card at the top asks for it. One tap saves the topo map 2 km either side of both courses (zoom 8 to 15, about 27 MB, best on wifi), with a progress bar. Then it shrinks to a green "Map saved" line. Zooming in closer enlarges the saved map; with signal, sharper tiles load on top. The saved map stays on the phone through app updates. The street map can't be saved (OpenStreetMap doesn't allow it).
+- **Intro the first time** (and from **?**): what it's for, install it, save the map (iPhone users install first, as in the runner app), and how to use it.
 - **Safety Officer posts** on the map (yellow SO, from the public `data/safety-officers.js`, no names): tap one for its shifts. During the event, posts not staffed right now are faded (refreshed every 5 minutes).
 - **Your trail:** every GPS fix (with Keep updating on, as you move) is kept on the phone for 24 hours and drawn on the map as a dotted purple line, with the distance covered. Clear it any time.
 - **Where am I?** One tap uses the phone's GPS: km on the course (the GPT100, or the 14k when that's nearer), between which aid stations, how far off the course, height, GPS accuracy, coordinates and what3words. No GPS? Type the km.
@@ -196,6 +199,7 @@ These are planning estimates. Always check access, gates and closures on the day
 | `runner.html`, `js/runner.js`, `css/runner.css` | Runner app |
 | `data/runner-courses.js` | Runner app courses from GPX (6k, 5k, 2k) |
 | `data/races.js`, `data/runner-info.js` | Races from the course sheet, and the runner app's contact, gear and notices |
+| `js/intro.js` | First-time intro and how-to for the staff and field apps |
 | `js/profile.js` | Elevation profile (Find tab and field app) |
 | `js/basemap.js` | Topo and street map backgrounds for every map, and saving the topo map for offline |
 | `tiles/topo/`, `data/tiles.js` | Our copy of the OpenTopoMap tiles along the course (CC-BY-SA), made once with `tools/fetch_topo_tiles.mjs` |

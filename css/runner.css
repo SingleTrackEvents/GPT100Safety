@@ -88,28 +88,4 @@
 .rn-sch small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
 .rn-sch.live { background: #fff6d6; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
 .rn-sch.live b { color: #b0181d; }
-/* First-run intro */
-.rn-q { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: 2px solid #bbb; background: none; color: #fff; font: 700 17px var(--body); cursor: pointer; }
-.rn-noscroll { overflow: hidden; }
-.rn-intro { position: fixed; inset: 0; z-index: 2000; background: rgba(17,17,17,.75); display: flex; align-items: flex-end; justify-content: center; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
-.rn-intro[hidden] { display: none; }
-.rn-intro-card { position: relative; width: 100%; max-width: 520px; max-height: calc(100vh - 24px); overflow-y: auto; background: var(--paper); border-radius: 18px; padding: 20px 18px 16px; }
-.rn-intro-card h2 { font-size: 30px; margin: 4px 0 8px; }
-.rn-intro-card p { font-size: 15px; line-height: 1.5; }
-.rn-intro-logo { display: block; height: 64px; margin: 4px 0 6px; }
-.rn-intro-skip { position: absolute; top: 12px; right: 12px; border: 0; background: none; font: 600 14px var(--body); color: var(--muted); cursor: pointer; padding: 6px; }
-.rn-intro-mode { margin: 10px 0; }
-.rn-intro-l { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 6px 0 4px; }
-.rn-steps { margin: 8px 0 12px; padding-left: 22px; font-size: 15px; line-height: 1.5; }
-.rn-steps li { margin: 4px 0; }
-.rn-ico { display: inline-block; min-width: 20px; text-align: center; font-weight: 700; }
-.rn-tablist { list-style: none; padding: 0; margin: 6px 0 10px; }
-.rn-tablist li { padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.45; }
-.rn-tablist li > b:first-child { display: inline-block; min-width: 76px; font: 400 18px/1 var(--head); letter-spacing: .5px; }
-.rn-intro-dots { display: flex; justify-content: center; gap: 6px; margin: 12px 0 10px; }
-.rn-intro-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
-.rn-intro-dots i.on { background: var(--ink); }
-.rn-intro-nav { display: grid; grid-template-columns: 100px 1fr; gap: 10px; align-items: center; }
-.rn-intro-nav .fd-big { min-height: 54px; font-size: 26px; }
-.rn-intro .fd-bar { margin-top: 10px; }
 .fd-offline.todo .rn-steps { margin-bottom: 8px; }

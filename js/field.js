@@ -306,6 +306,14 @@
       return;
     }
     el.className = 'fd-offline fd-card todo';
+    // iPhone in Safari: install first, or the map downloads twice (js/intro.js).
+    if (window.GPTIntro && GPTIntro.installFirst()) {
+      el.innerHTML = `<h2>Install the app first</h2>
+        <p>Add GPT100 Field to your home screen, then save the map from there. On iPhone a map saved in Safari isn't shared with the home screen app, so it would download twice (about ${mb} MB).</p>${GPTIntro.iosSteps('GPT100 Field')}
+        <button type="button" class="fd-linkbtn" id="fdSaveHere">Save in Safari anyway</button>`;
+      $('fdSaveHere').onclick = () => { GPTIntro.allowBrowserSave(); offlineCard(); };
+      return;
+    }
     el.innerHTML = `<h2>Save the map before you leave signal</h2>
       <p>The topo map 2 km either side of both courses, so it works with no signal. About ${mb} MB: best on wifi.${st.have ? ` ${st.have} of ${st.total} map squares already saved.` : ''}</p>
       <button id="fdSaveMap" class="fd-big" type="button">Save map for offline</button>
@@ -332,6 +340,23 @@
   profile = GPTProfile({ el: $('fdProf'), course: MAIN, map: () => map, who: 'you', empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.' });
   showTrail();
   offlineCard();
+  // First-time intro and how-to (and the ? button).
+  if (window.GPTIntro) GPTIntro({
+    key: 'gptIntroField', done: offlineCard,
+    steps: [
+      () => ({ title: 'GPT100 Field', html: `<p>For Safety Officers, sweeps, aid station crews and medics out on the course.</p>
+        <p>It tells you exactly where you are on the course, the quickest way out, and sends your location to race control in one tap. Once it's set up it works with no signal.</p>` }),
+      GPTIntro.installStep('GPT100 Field', 'Do this first, before saving the map. On iPhone, the home screen app keeps its own copy, so a map saved here in the browser would have to download again.'),
+      GPTIntro.saveStep(offlineCard),
+      () => ({ title: '3. How to use it', html: `<ul class="rn-tablist">
+        <li><b>Where am I?</b> Your course km, between which aid stations, and how far off the course you are (and which way the course is). No GPS? Type the km.</li>
+        <li><b>Send</b> <b>Send my location</b> or <b>Urgent: casualty here</b> opens WhatsApp with the km, position, map link and nearest vehicle access ready. Add a note, pick the group, send.</li>
+        <li><b>Way out</b> The nearest vehicle access and how long it takes on foot, and the aid stations either side.</li>
+        <li><b>Map</b> The topo map with the course, aid stations and Safety Officer posts (SO). The profile shows the climb ahead; drag it or tap the course to see any point.</li>
+        <li><b>Trail</b> Turn on <b>Keep updating</b> to follow your position and draw the trail you've walked.</li>
+      </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. In an emergency call 000.</p>` })
+    ]
+  });
   let rz = null; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (map) map.invalidateSize(); }, 200); });
   $('fdLocate').addEventListener('click', locate);
   $('fdFollow').addEventListener('change', e => follow(e.target.checked));
