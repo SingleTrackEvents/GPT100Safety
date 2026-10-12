@@ -24,9 +24,21 @@
 </header>
 
 <main class="fd rn-page">
+  <!-- Home: welcome and a summary of the race and your day -->
+  <div class="rn-tab" data-tab="home">
+    <section id="fdOffline" class="fd-offline" hidden></section>
+    <section class="fd-card rn-hero" id="fdHero"></section>
+    <section class="fd-card" id="fdHomeNext"></section>
+    <div class="rn-quick">
+      <button type="button" data-go="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></svg><span>Map and<br>where am I</span></button>
+      <button type="button" data-go="race"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4 M5 4h11l-2 4 2 4H5"/></svg><span>Race and<br>cut-offs</span></button>
+      <button type="button" data-go="where" class="rn-quick-help"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z M12 7.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg><span>Send my<br>location</span></button>
+    </div>
+    <p id="fdTrack" class="fd-track" hidden></p>
+  </div>
+
   <!-- Where: where am I, send my location, the way out and the weather -->
-  <div class="rn-tab" data-tab="where">
-  <section id="fdOffline" class="fd-offline" hidden></section>
+  <div class="rn-tab" data-tab="where" hidden>
   <section class="fd-locate">
     <button id="fdLocate" class="fd-big" type="button">Where am I?</button>
     <label class="fd-follow"><input id="fdFollow" type="checkbox"> Keep updating</label>
@@ -63,7 +75,6 @@
     </section>
 
   </div>
-  <p id="fdTrack" class="fd-track" hidden></p>
   </div>
 
   <!-- Map: big, kept to the picked race -->
@@ -93,8 +104,9 @@
 
 <!-- Tabs along the bottom, for thumbs -->
 <nav class="rn-nav fd-nav" aria-label="Sections">
-  <button type="button" data-tab="where" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z M12 7.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg><span>Where</span></button>
+  <button type="button" data-tab="home" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7 M5 10v10h5v-6h4v6h5V10"/></svg><span>Home</span></button>
   <button type="button" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></svg><span>Map</span></button>
+  <button type="button" data-tab="where"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z M12 7.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg><span>Where</span></button>
   <button type="button" data-tab="race"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4 M5 4h11l-2 4 2 4H5"/></svg><span>Race</span></button>
 </nav>
 

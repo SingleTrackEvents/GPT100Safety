@@ -40,6 +40,7 @@
     if (t === 'map') setTimeout(() => { if (map) { map.invalidateSize(); if (needFit) { needFit = false; drawCourse(true); if (here) drawMe(); } } if (profile) profile.redraw(); }, 0);
     if (t === 'help') textLink();
     if (t === 'home') home();
+    if (t === 'help') showW3w();
     if (t === 'schedule') drawSchedule();
     scrollTo(0, 0);
   }
@@ -130,7 +131,7 @@
     msg('Finding you… (stand in the open for the best fix)');
     const b = locBtn(); if (b) b.classList.add('busy');
     navigator.geolocation.getCurrentPosition(p => { if (b) { b.classList.remove('busy'); b.classList.add('on'); } msg(`Found you: accurate to about ${Math.round(p.coords.accuracy)} m.`); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
-      e => { if (b) b.classList.remove('busy'); const t = e.code === 1 ? 'Location is blocked for this site. Allow location in the phone settings.' : 'No GPS fix yet. Try again in the open.'; msg(t, true); $('rnShareMsg').textContent = t; },
+      e => { if (b) b.classList.remove('busy'); const t = e.code === 1 ? 'Location is blocked for this site. Allow location in the phone settings.' : 'No GPS fix yet. Try again in the open.'; msg(t, true); $('rnShareMsg').textContent = t; $('rnW3wMsg').textContent = t; },
       { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
   }
   const DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
@@ -152,8 +153,36 @@
     const expect = prev != null ? prev + 0.3 : started ? toCourse(stage, Math.max(0, interpKm(stage, now))) : En.route[cands[0]][2];
     const bi = cands.reduce((a, b) => Math.abs(En.route[b][2] - expect) < Math.abs(En.route[a][2] - expect) ? b : a, cands[0]);
     const q = En.route[bi];
-    here = { stage, t: now, lat, lon, acc, ic: bi, gk: q[2], rk: Math.max(0, toRace(stage, q[2])), ele: q[3], offM: Math.round(bd), cp: [q[0], q[1]] };
+    here = { stage, t: now, lat, lon, acc, ic: bi, gk: q[2], rk: Math.max(0, toRace(stage, q[2])), ele: q[3], offM: Math.round(bd), cp: [q[0], q[1]], w3w: null };
     render();
+    lookupW3w(lat, lon);
+  }
+  // what3words: three words for your 3 m square, easy to read out to 000 or race medical. Needs signal
+  // (the key only works on the live site); without it, the Help tab shows your position as numbers instead.
+  async function lookupW3w(lat, lon) {
+    showW3w();
+    if (!navigator.onLine || !C.what3wordsKey) return;
+    try {
+      const qs = new URLSearchParams({ key: C.what3wordsKey, coordinates: lat.toFixed(5) + ',' + lon.toFixed(5) });
+      const j = await (await fetch('https://api.what3words.com/v3/convert-to-3wa?' + qs)).json();
+      if (j.words && here && here.lat === lat && here.lon === lon) { here.w3w = j.words; showW3w(); }
+    } catch (e) { /* no signal or no key: the numbers will do */ }
+  }
+  function showW3w() {
+    const w = $('rnW3wWords'), m = $('rnW3wMsg');
+    if (!w) return;
+    const ok = here && Date.now() - here.t < 15 * 60e3;
+    if (ok && here.w3w) {
+      w.innerHTML = `<a href="https://w3w.co/${esc(here.w3w)}" target="_blank" rel="noopener">///${esc(here.w3w)}</a>`;
+      m.textContent = `Your spot at ${hm.format(new Date(here.t))}, to within 3 m. If you call 000 or race medical, read these three words out: they can find you from them.`;
+    } else if (ok) {
+      w.textContent = `${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}`;
+      m.textContent = navigator.onLine ? 'Getting your three words…' : 'what3words needs signal. Read out these numbers instead (your position), or try again when you have a bar of signal.';
+    } else {
+      w.textContent = '';
+      m.textContent = 'what3words gives every 3 m square three words, easy to read out to 000 or race medical. Tap below to find yours.';
+    }
+    $('rnW3wGet').textContent = ok ? 'Update my 3 words' : 'Find my 3 words';
   }
   // Where you are, as the line under the profile on the Map tab: race km, the next aid station with its
   // distance, climb, cut-off and when you'd get there, and any off-course or poor GPS warning.
@@ -207,7 +236,7 @@
   }
   // Share my location: the race, km and position, by text or WhatsApp (the phone's share sheet).
   function locationText() {
-    return `GPT100 runner location: ${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}`;
+    return `GPT100 runner location: ${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}${here.w3w ? ` what3words ///${here.w3w}` : ''}`;
   }
   const fresh = () => here && Date.now() - here.t < 5 * 60e3;
   function textLink() { $('rnShareMsg').textContent = fresh() ? `Ready: km ${one(here.rk)}, GPS ±${Math.round(here.acc)} m. Sends your race km and position by text or WhatsApp.` : 'Finds your position first, then sends your race km and position by text or WhatsApp.'; }
@@ -440,7 +469,7 @@
         <li><b>Home</b> Your race at a glance: the countdown, start and cut-off, and what's on next.</li>
         <li><b>Map</b> Your race on a big topo map. Tap <b>◎</b> to see where you are: your race km, the next aid station, the climb to it, its cut-off and when you'll get there show under the profile.</li>
         <li><b>${mode === 'crew' ? 'Crew' : 'Aid'}</b> ${mode === 'crew' ? 'Crew points with directions and your runner’s expected times.' : 'Every aid station with cut-offs. Add a target time to see your splits.'}</li>
-        <li><b>Help</b> Call 000 or race medical, or share your location.</li>
+        <li><b>Help</b> Call 000 or race medical, share your location, or find your what3words (three words that pin you to a 3 m square, easy to read out).</li>
         <li><b>Schedule</b> What's on now, what's next, and the full schedule.</li>
         <li><b>Gear</b> Tick off your mandatory gear.</li>
       </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. A guide only: follow the course markings and the race briefing.</p>`;
@@ -472,6 +501,8 @@
   });
   if (INFO.medicalPhone) { $('rnCallMed').hidden = false; $('rnCallMed').href = 'tel:' + INFO.medicalPhone.replace(/\s/g, ''); $('rnCallMed').innerHTML = `Call race medical<small>${esc(INFO.medicalPhone)}</small>`; }
   $('rnWithdraw').textContent = INFO.withdraw || '';
+  $('rnW3wGet').addEventListener('click', () => { $('rnW3wMsg').textContent = 'Finding you… (stand in the open)'; locate(); });
+  showW3w();
   $('rnNotices').innerHTML = (INFO.notices || []).map(n => `<p class="notice">${esc(n.text)}</p>`).join('');
   if (C.tracking && C.tracking.url) { const t = $('fdTrack'); t.hidden = false; t.innerHTML = `<a class="btn" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>`; }
   setStage(pickStage());

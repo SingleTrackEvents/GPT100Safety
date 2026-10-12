@@ -35,6 +35,7 @@
     const En = RX.engineFor(S);
     if (profile && En) { profile.setCourse(En); profileHere(); }
     drawRaceMap(true);
+    home();
   }
   // Where you are on the picked race: race km, how far off its course, or null when not near it.
   function racePos() {
@@ -146,15 +147,18 @@
   function locate() {
     if (!navigator.geolocation) { msg('This phone can\'t share its location with the app. Enter the km instead.', true); return; }
     msg('Finding you… (stand in the open for the best fix)');
+    const b = locBtn(); if (b) b.classList.add('busy');
     navigator.geolocation.getCurrentPosition(gotFix, gpsError, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
   }
   function gotFix(p) {
-    const c = p.coords;
+    const c = p.coords, b = locBtn();
+    if (b) { b.classList.remove('busy'); b.classList.add('on'); }
     msg(`GPS fix ${tf.format(new Date(p.timestamp))}, accurate to about ${Math.round(c.accuracy)} m.`);
     addTrail(c.latitude, c.longitude, c.accuracy);
     place(c.latitude, c.longitude, { acc: c.accuracy, alt: c.altitude, t: p.timestamp });
   }
   function gpsError(e) {
+    const b = locBtn(); if (b) b.classList.remove('busy');
     msg(e.code === 1 ? 'Location is blocked for this site. Allow location in the phone settings, or enter the km.'
       : 'No GPS fix yet. Try again in the open, or enter the km.', true);
   }
@@ -162,7 +166,15 @@
     if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
     if (on && navigator.geolocation) watchId = navigator.geolocation.watchPosition(gotFix, gpsError, { enableHighAccuracy: true, maximumAge: 15000 });
   }
-  function msg(t, bad) { const m = $('fdGpsMsg'); m.textContent = t; m.classList.toggle('bad', !!bad); }
+  // On the Where tab the message sits under the button; on the map it floats over the map for a few seconds.
+  let toastT = null;
+  function msg(t, bad) {
+    const m = $('fdGpsMsg'); m.textContent = t; m.classList.toggle('bad', !!bad);
+    const o = $('fdToast'); if (!o) return;
+    clearTimeout(toastT); o.textContent = t; o.hidden = !t; o.classList.toggle('bad', !!bad);
+    if (t && !/Finding/.test(t)) toastT = setTimeout(() => { o.hidden = true; }, bad ? 7000 : 3500);
+  }
+  const locBtn = () => document.querySelector('.rn-locbtn');
 
   // ---------- what3words (needs signal; the key only works on the live site) ----------
   async function lookupW3w(lat, lon) {
@@ -226,8 +238,10 @@
         <p class="notice warn">You're more than ${FAR_M / 1000} km from the GPT100 courses, so the app won't point you to a course km or a way out from here. Where am I? works within ${FAR_M / 1000} km of the course.</p>
         ${pos}<p class="fd-facts">Need a point on the course? Enter the km above.</p>`;
       $('fdOutWay').innerHTML = '';
+      mapNow = `${poorLine()}<span class="rn-warn">You're ${Math.round(here.offM / 1000)} km from the course.</span> Where am I? works within ${FAR_M / 1000} km of it.`;
       drawMap(null, 'far');
       profile.setHere(null);
+      home();
       return;
     }
     if (S.tier === 'long') {
@@ -239,8 +253,10 @@
       $('fdOutWay').innerHTML = '';
       sendLinks();
       weather();
+      mapNow = `${poorLine()}<span class="rn-warn">${one(here.offM / 1000)} km from the course${S.at ? ' (at ' + esc(S.at) + ')' : ''}.</span> Nearest course point: km ${one(r.km)}, ${S.dir} of you.`;
       drawMap(null, 'long');
       profile.setHere(null);
+      home();
       return;
     }
     const off = S.tier === 'on' ? (here.manual ? 'From the km you entered' : 'On the course')
@@ -268,11 +284,65 @@
     h += `<p class="fd-hint">The team that would come to you: <b>${esc(r.best.base.name)}</b>, about ${E.fmt(r.best.total)}.</p>`;
     if (S.tier === 'off') h = `<p class="notice warn">You're ${dist(here.offM)} off the course. These times assume you get back onto the course at km ${one(r.km)} first.</p>` + h;
     $('fdOutWay').innerHTML = h;
+    mapNow = summaryLine(w, S);
     sendLinks();
     weather();
     drawMap(w, S.tier);
     profileHere();
     raceDraw();
+    home();
+  }
+  // Under the profile on the map: your race km, the next aid station, its cut-off and your pace, and the way out.
+  let mapNow = null;
+  const poorLine = () => here.gps && here.gps.acc > POOR_GPS_M ? `<span class="rn-warn">GPS only ±${Math.round(here.gps.acc)} m: stand in the open and tap ◎ again.</span><br>` : '';
+  function summaryLine(w, S) {
+    const r = here.r, rp = racePos();
+    const off = S.tier === 'on' ? '' : ` · <span class="rn-warn">${dist(here.offM)} off the course: it's ${S.dir} of you</span>`;
+    let h = poorLine();
+    if (rp) {
+      const P = stage.points, fin = P[P.length - 1], nx = P.find(x => x.km > rp.rk + 0.05), now = Date.now();
+      h += `<b class="rn-km-now">Km ${one(rp.rk)}</b> of ${one(fin.km)}${off}`;
+      if (nx) {
+        const j = rp.E.idxAtKm(nx.gk);
+        h += `<br>Next: <b>${esc(nx.name)}</b> in <b>${one(nx.km - rp.rk)} km</b>, +${Math.round(rp.E.climb(rp.ic, j))} / −${Math.round(rp.E.climb(j, rp.ic))} m${nx.ct && !nx.noCut ? `, cut-off <b>${RX.when(nx.ct)}</b>` : ''}`;
+        if (now > P[0].ft.getTime() && now < fin.ct.getTime() + 6 * 3600e3) {
+          const eta = RX.timeAt(stage, nx.km, RX.paceAt(stage, rp.rk, now));
+          h += nx.noCut || !nx.ct ? `<br><span class="rn-good">At your pace about <b>${RX.hm.format(new Date(eta))}</b>.</span>`
+            : eta <= nx.ct ? `<br><span class="rn-good">At your pace about <b>${RX.hm.format(new Date(eta))}</b>, ${RX.dur(nx.ct - eta)} before the cut-off.</span>`
+            : `<br><span class="rn-warn"><b>At your pace about ${RX.hm.format(new Date(eta))}, after the cut-off.</b></span>`;
+        }
+      }
+    } else h += `<b class="rn-km-now">${esc(here.E.name)} km ${one(r.km)}</b>${off}<br><span class="rn-dim">Not on the ${esc(race.short)} course${race.stages.length > 1 ? ' (' + esc(stage.label) + ')' : ''}. Change race to see its cut-offs.</span>`;
+    if (w) h += `<br>Way out: <b>${esc(here.E.cleanName(w.a))}</b>${here.E.isGated(w.a) ? ' (gated)' : ''}, ${one(w.walkKm)} km, about ${here.E.fmt(w.walk)} on foot`;
+    return h;
+  }
+
+  // ---------- home: a summary of the picked race and your day ----------
+  const until = ms => ms < 864e5 ? 'in ' + RX.dur(ms) : `in ${Math.round(ms / 864e5)} days`;
+  function home() {
+    if (!stage || !$('fdHero')) return;
+    const S = stage, P = S.points, fin = P[P.length - 1], now = Date.now(), t0 = P[0].ft.getTime(), t1 = fin.ct.getTime();
+    let count;
+    if (now < t0) { const ms = t0 - now, d = Math.floor(ms / 864e5); count = d >= 1 ? `${d} day${d > 1 ? 's' : ''} to go` : `Starts in ${RX.dur(ms)}`; }
+    else if (now < t1) count = `Race on · ${RX.dur(now - t0)} in`;
+    else count = 'Finished';
+    let extra = '';
+    // Safety Officers: how many stations have someone on post right now (during the event), else when shifts start.
+    if (SO) {
+      const h = (now - soT0) / 3600e3, st = SO.stations.filter(s => SO.posts.some(p => p.station === s.name && !/passage/i.test(p.label)));
+      if (h < 0) extra += `<p>Safety Officer shifts start <b>${soTime(Math.min(...SO.posts.map(p => p.a)))}</b>.</p>`;
+      else if (h <= SO.n) extra += `<p>Safety Officers on post now at <b>${st.filter(s => SO.posts.some(p => p.station === s.name && p.a <= h && p.z > h)).length} of ${st.length}</b> stations.</p>`;
+    }
+    if (here && mapNow && now - here.t < 30 * 60e3) extra += `<p class="rn-hero-now"><span class="rn-dim">Where you were at ${tf.format(new Date(here.t))}:</span><br>${mapNow}</p>`;
+    $('fdHero').innerHTML = `<p class="rn-hero-race">${esc(race.label)}${race.stages.length > 1 ? ' · ' + esc(stage.label) : ''}</p>
+      <p class="rn-hero-count">${count}</p>
+      <div class="rn-hero-facts"><span><b>${one(fin.km)}</b> km</span><span><b>+${fin.up.toLocaleString('en-AU')}</b> m</span><span><b>${P.length - 2}</b> aid points</span></div>
+      <p>Start <b>${RX.when(P[0].ft)}</b> at ${esc(P[0].name)}<br>Final cut-off <b>${RX.when(fin.ct)}</b> at ${esc(fin.name)}</p>${extra}`;
+    // The next cut-offs on this race (for sweeps), with how long until each.
+    const nxt = P.filter((x, i) => i && x.ct && !x.noCut && x.ct.getTime() > now).slice(0, 3);
+    $('fdHomeNext').innerHTML = `<h2>Next cut-offs</h2>` + (nxt.length ? nxt.map(x => `<div class="rn-now-i rn-home-i"><b>${RX.when(x.ct)}</b><span>${esc(x.name)} · km ${one(x.km)}</span><em>${until(x.ct.getTime() - now)}</em></div>`).join('') : '<p class="muted">All the cut-offs for this race have passed.</p>') +
+      '<button type="button" class="fd-linkbtn" id="fdHomeRace">All aid stations and cut-offs</button>';
+    $('fdHomeRace').onclick = () => setTab('race');
   }
 
   // ---------- elevation profile (js/profile.js) ----------
@@ -329,6 +399,18 @@
     trailLine = L.polyline([], { color: '#7a3db8', weight: 3, opacity: .9, dashArray: '1 6', lineCap: 'round', interactive: false }).addTo(map);
     layer = L.layerGroup().addTo(map);
     map.on('click', e => profile.showLL(e.latlng.lat, e.latlng.lng, map.getZoom()));
+    // A small location button on the map, as in Google Maps.
+    const loc = L.control({ position: 'bottomright' });
+    loc.onAdd = () => {
+      const d = L.DomUtil.create('div', 'leaflet-bar rn-locwrap');
+      d.innerHTML = '<button type="button" class="rn-locbtn" aria-label="Where am I?" title="Where am I?"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3 M12 20v3 M1 12h3 M20 12h3"/></svg></button>';
+      L.DomEvent.disableClickPropagation(d);
+      d.firstChild.onclick = () => locate();
+      return d;
+    };
+    loc.addTo(map);
+    const t = document.createElement('div'); t.id = 'fdToast'; t.className = 'rn-toast'; t.hidden = true; t.setAttribute('role', 'status');
+    $('fdMap').appendChild(t);
     window.GPTField = { map };
   }
 
@@ -446,25 +528,27 @@
   // ---------- start ----------
   initMap();
   profile = GPTProfile({
-    el: $('fdProf'), course: MAIN, map: () => map, who: 'you', height: 118,
-    empty: 'Tap Where am I? to see where you are. Drag along the profile, or tap the course on the map, to see any point.',
+    el: $('fdProf'), course: MAIN, map: () => map, who: 'you', height: 118, summary: () => mapNow,
+    empty: 'Tap ◎ on the map to see where you are. Drag along the profile, or tap the course on the map, to see any point.',
     window: En => stage && En === RX.engineFor(stage) ? { k0: stage.points[0].gk, k1: stage.points[stage.points.length - 1].gk } : null,
     km: { toRace: k => stage ? RX.toRace(stage, k) : k, toCourse: k => stage ? RX.toCourse(stage, k) : k },
     title: () => !stage ? '' : `${race.short}${race.stages.length > 1 ? ' ' + stage.label : ''}: ${one(stage.points[stage.points.length - 1].km)} km`
   });
   showTrail();
   offlineCard();
-  // Tabs along the bottom: Where, Map and Race. The last one used is remembered.
-  let tab = rstore.get('tab', 'where');
+  // Tabs along the bottom: Home, Map, Where and Race. The last one used is remembered (Home the first time).
+  let tab = rstore.get('tab2', 'home');
   function setTab(t) {
-    if (!document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = 'where';
-    tab = t; rstore.set('tab', t);
+    if (!document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = 'home';
+    tab = t; rstore.set('tab2', t);
+    if (t === 'home') home();
     document.querySelectorAll('.rn-tab').forEach(el => el.hidden = el.dataset.tab !== t);
     document.querySelectorAll('.rn-nav button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
     if (t === 'map') setTimeout(() => { if (map) { map.invalidateSize(); if (pendingFit) { map.fitBounds(...pendingFit); pendingFit = null; } } if (profile) profile.redraw(); }, 0);
     scrollTo(0, 0);
   }
   document.querySelectorAll('.rn-nav button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  document.querySelectorAll('.rn-quick button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.go)));
   $('fdChangeRace').onclick = () => setTab('race');
   window.GPTFieldTab = setTab;
   if (RX) {
@@ -472,9 +556,9 @@
     $('fdRace').value = race.id;
     // A new race: the map shows that race (after Where am I? has redrawn you on it).
     $('fdRace').onchange = () => { setRace(RX.R.races.find(x => x.id === $('fdRace').value)); if (here) { render(); drawRaceMap(true); } };
-    $('fdTarget').addEventListener('input', () => { rstore.set('target.' + rkey(), $('fdTarget').value); raceDraw(); });
+    $('fdTarget').addEventListener('input', () => { rstore.set('target.' + rkey(), $('fdTarget').value); raceDraw(); home(); });
     setRace(race);
-    setInterval(() => { if (!document.hidden) raceDraw(); }, 60e3);
+    setInterval(() => { if (!document.hidden) { raceDraw(); if (tab === 'home') home(); } }, 60e3);
   } else $('fdRaceCard').hidden = true;
   setTab(tab);
   // First-time intro and how-to (and the ? button).
@@ -486,10 +570,11 @@
       GPTIntro.installStep('GPT100 Field', 'Do this first, before saving the map. On iPhone, the home screen app keeps its own copy, so a map saved here in the browser would have to download again.'),
       GPTIntro.saveStep(offlineCard),
       () => ({ title: '3. How to use it', html: `<ul class="rn-tablist">
+        <li><b>Home</b> Your race at a glance: the race clock, the next cut-offs, Safety Officers on post, and big buttons to the map, cut-offs and Send my location.</li>
+        <li><b>Map</b> A big topo map of your race: its course, aid stations with cut-offs, and Safety Officer posts (SO). Tap <b>◎</b> to find yourself: under the profile you'll see your race km, the next aid station and cut-off, and the way out. Drag the profile or tap the course to see any point.</li>
         <li><b>Where</b> Tap <b>Where am I?</b> for your course km, between which aid stations, and how far off the course you are (and which way the course is). No GPS? Type the km.</li>
         <li><b>Send</b> <b>Send my location</b> or <b>Urgent: casualty here</b> opens WhatsApp with the km, position, map link and nearest vehicle access ready. Add a note, pick the group, send.</li>
         <li><b>Way out</b> The nearest vehicle access and how long it takes on foot, and the aid stations either side.</li>
-        <li><b>Map</b> A big topo map of your race: its course, aid stations with cut-offs, and Safety Officer posts (SO). The profile shows the climb ahead; drag it or tap the course to see any point.</li>
         <li><b>Race</b> Pick your race (it stays picked): every aid station with its cut-off, and when you'll reach each one at your current pace (or from a target time). Handy for sweeps.</li>
         <li><b>Trail</b> Turn on <b>Keep updating</b> to follow your position and draw the trail you've walked.</li>
       </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. In an emergency call 000.</p>` })

@@ -135,4 +135,11 @@
 .rn-dim { color: var(--muted); }
 .rn-km-now { font: 400 19px/1 var(--head); letter-spacing: .5px; }
 /* Short phones: the next aid station line under the profile takes the room the legend had */
-@media (max-height: 700px) { .runner .fd-maptab .prof-legend { display: none; } .runner .fd-maptab #fdMap { min-height: 180px; } }
+@media (max-height: 700px) { .field .fd-maptab .prof-legend { display: none; } .field .fd-maptab #fdMap { min-height: 170px; } }
+/* Help: your what3words */
+.rn-w3w { margin-top: 14px; padding: 12px; border: 2px solid var(--ink); border-radius: 12px; background: #fff; }
+.rn-w3w h3 { margin: 0; font: 400 20px/1 var(--head); letter-spacing: .5px; }
+.rn-w3w-words { margin: 6px 0 0; font: 700 20px/1.25 var(--body); word-break: break-word; }
+.rn-w3w-words:empty { display: none; }
+.rn-w3w-words a { color: #e11f26; text-decoration: none; }
+.rn-w3w .fd-hint { margin: 6px 0 10px; }
