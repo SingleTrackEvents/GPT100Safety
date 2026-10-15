@@ -65,6 +65,11 @@
       return Object.assign({ line, along, m: along != null ? along : line, onCourse: along != null }, p);
     }).sort((x, y) => x.m - y.m);
   }
+  // The emergency marker to name: one with a printed code, unless an uncoded one is much closer.
+  function pickEM(N) {
+    const emc = N.find(p => p.kind === 'emergency' && p.code && p.m < 5000), emu = N.find(p => p.kind === 'emergency' && !p.code && p.m < 5000);
+    return emc && (!emu || emc.m <= emu.m * 3 || emc.m < 1500) ? emc : emu;
+  }
   function where(p, km) {
     if (!p.onCourse || km == null) return `${dist(p.line)} away${p.off_m > 150 ? ', ' + dist(p.off_m) + ' off the course' : ''}`;
     if (p.m < 60) return 'right here';
@@ -77,13 +82,15 @@
   }
 
   // The Find card. r is the engine's assessment; G the course engine it came from.
-  function card(r, G) {
+  // o.vehicle: the access point to show the carry-out to (defaults to the fastest team's). o.who: 'you' for the field app.
+  function card(r, G, o) {
+    o = o || {};
     const km = mainKm(G, r);
     if (km == null) return '';
     const g = at(km), i = info(g);
     let h = `<div class="card tg"><h3>Track and carry-out</h3>`;
     h += `<p class="tg-here">${chip(g)} <span class="tg-note">${esc(i.note)}</span></p>`;
-    const b = r.best;
+    const b = o.vehicle || r.best;
     if (G.main && b) {
       const rows = [[`To the vehicle at ${esc(G.cleanName(b.a))}`, between(km, b.joinKm)]];
       if (r.aid.prev) rows.push([`Back to ${esc(r.aid.prev.a.name)}`, between(km, r.aid.prev.a.trail_km)]);
@@ -98,9 +105,7 @@
       if (rg) h += `<p class="tg-road">Road to ${esc(G.cleanName(b.a))}: <b>${esc(ROADS[rg])}</b>${rg === '4wd' ? '. Send a 4WD.' : '.'}</p>`;
     }
     const N = near(r, km);
-    // Prefer a marker with a printed code; an uncoded one only if it's much closer.
-    const emc = N.find(p => p.kind === 'emergency' && p.code && p.m < 5000), emu = N.find(p => p.kind === 'emergency' && !p.code && p.m < 5000);
-    const em = emc && (!emu || emc.m <= emu.m * 3 || emc.m < 1500) ? emc : emu, hp = N.find(p => p.kind === 'helipad' && p.m < 10000), as = N.find(p => p.kind === 'assembly' && p.m < 3000);
+    const em = pickEM(N), hp = N.find(p => p.kind === 'helipad' && p.m < 10000), as = N.find(p => p.kind === 'assembly' && p.m < 3000);
     const hz = N.filter(p => HAZ.includes(p.kind) && p.m < 1000);
     h += '<div class="tg-pts">';
     if (em) h += `<div class="row"><span><b>Nearest emergency marker${em.code ? ' ' + esc(em.code) : ' (no code printed)'}</b><span class="sub">${esc(where(em, km))}. Give this code to 000 for a precise location.</span></span><span class="tg-glyph" style="background:${KINDS.emergency.col}">EM</span></div>`;
@@ -114,13 +119,15 @@
   }
 
   // One line for the radio script and WhatsApp message.
-  function line(r, G) {
+  function line(r, G, o) {
+    o = o || {};
     const km = mainKm(G, r);
     if (km == null) return '';
-    const g = at(km), i = info(g), N = near(r, km), em = N.find(p => p.kind === 'emergency'), hp = N.find(p => p.kind === 'helipad');
+    const g = at(km), i = info(g), N = near(r, km), em = pickEM(N), hp = N.find(p => p.kind === 'helipad');
     let s = `Track ${i.label.toLowerCase()}`;
     if (g === 'easy') s += ', mule stretcher'; else if (g === 'medium') s += ', paraguard stretcher'; else if (g === 'hard') s += ', slow carry, may need hand to hand';
-    if (G.main && r.best) { const b = between(km, r.best.joinKm); if (b.parts.length > 1 || (b.worst && b.worst !== g)) s += `. Carry-out worst ${info(b.worst).label.toLowerCase()}`; }
+    const v = o.vehicle || r.best;
+    if (G.main && v) { const b = between(km, v.joinKm); if (b.parts.length > 1 || (b.worst && b.worst !== g)) s += `. Carry-out worst ${info(b.worst).label.toLowerCase()}`; }
     if (em && em.code && em.m < 3000) s += `. Nearest emergency marker ${em.code}, ${where(em, km)}`;
     if (hp && hp.m < 6000) s += `. Nearest helipad ${hp.name ? hp.name + ', ' : ''}${where(hp, km)}`;
     return s + '.';
