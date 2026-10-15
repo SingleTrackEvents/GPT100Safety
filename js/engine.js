@@ -148,6 +148,22 @@
       }).sort((x, y) => x.trail_km - y.trail_km);
     }
 
+    // Stretcher carry-out time between two course km, plus extraKm off the course and the climb.
+    // On the GPT100, Hard and Not yet assessed track (data/track-grades.js) slow it by config.carryFactor.
+    function carryMin(k0, k1, extraKm, up) {
+      const lo = Math.min(k0, k1), hi = Math.max(k0, k1), T = window.GPT100_TRACK, F = C.carryFactor || {};
+      let min = extraKm * C.evacPace;
+      if (def.main && T && hi > lo) {
+        let covered = 0;
+        for (const [a, b, g] of T.segments) {
+          const o = Math.min(b, hi) - Math.max(a, lo);
+          if (o > 0) { min += o * C.evacPace * (F[g] || 1); covered += o; }
+        }
+        min += Math.max(0, hi - lo - covered) * C.evacPace;
+      } else min += (hi - lo) * C.evacPace;
+      return min + up * C.climbPenalty;
+    }
+
     // Best way for one base to reach course index ic.
     function bestFor(key, ic) {
       const km = route[ic][2];
@@ -169,7 +185,7 @@
       }
       if (best) {
         // Carry-out back to the same access point at stretcher pace.
-        best.carry = best.walkKm * C.evacPace + climb(ic, best.idx) * C.climbPenalty;
+        best.carry = carryMin(route[best.idx][2], km, best.connM / 1000, climb(ic, best.idx));
       }
       return best;
     }
@@ -184,7 +200,7 @@
       const info = a => a && {
         a, distKm: Math.abs(a.trail_km - km),
         walk: Math.abs(a.trail_km - km) * C.walkPace + climb(a.idx, ic) * C.climbPenalty,
-        carry: Math.abs(a.trail_km - km) * C.evacPace + climb(ic, a.idx) * C.climbPenalty
+        carry: carryMin(a.trail_km, km, 0, climb(ic, a.idx))
       };
       return { prev: info(prev), next: info(next) };
     }
@@ -242,7 +258,7 @@
     return {
       id: def.id, name: def.name, label: def.label, note: def.note || '', main: !!def.main,
       data: D, config: C, route, ACCESS, AID: STOPS, BASES, crossings: def.main ? D.crossings : [],
-      idxAtKm, snap, metres, climb, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName,
+      idxAtKm, snap, metres, climb, carryMin, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName,
       totalKm: def.total_km
     };
   }
