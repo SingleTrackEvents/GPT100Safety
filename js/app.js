@@ -66,7 +66,8 @@
     const d = L.DomUtil.create('div', 'map-legend');
     d.innerHTML = G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)}`).join('<br>') +
       '<br><i style="background:#111"></i>Aid station or water point<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
-      `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach`;
+      `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach` +
+      (window.GPTTrack ? '<br><span class="legend-head">Track grade after a find</span><br>' + GPTTrack.legendHTML() : '');
     return d;
   };
   legend.addTo(map);
@@ -333,6 +334,8 @@
     if (r.backup) s += ` Backup ${r.backup.base.name} team, ${G.fmt(r.backup.total)}.`;
     const so = window.MedPlan && window.MedPlan.soLine ? window.MedPlan.soLine(r) : '';
     if (so) s += '\n' + so;
+    const tg = window.GPTTrack ? GPTTrack.line(r, G) : '';
+    if (tg) s += '\n' + tg;
     s += `\nPosition ${pos}.`;
     return s;
   }
@@ -390,6 +393,8 @@
       <div class="carry">Carry-out back to the vehicle: about <b>${G.fmt(b.carry)}</b> at stretcher pace.</div>
     </div>`;
     h += `<div id="soNear">${window.MedPlan && window.MedPlan.soNearHTML ? window.MedPlan.soNearHTML(r) : ''}</div>`;
+    // Track grade, carry-out grades, emergency markers and helipads (Parks Victoria access maps).
+    if (window.GPTTrack) h += GPTTrack.card(r, G);
     const dir = `https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lon}`;
     h += `<div class="actions">
       <a class="btn" id="btnWa" href="#" target="_blank" rel="noopener">WhatsApp</a>
@@ -465,6 +470,8 @@
     const drive = G.driveLine(a, b.key);
     // Only draw a drive route we actually have. No straight-line guesses across the map.
     if (drive) L.polyline(drive, { color: b.base.color, weight: 5, opacity: .9 }).addTo(resultLayer);
+    // The course coloured by track grade from the aid station before to the one after, with the emergency markers and helipads near the casualty.
+    if (window.GPTTrack) GPTTrack.draw(resultLayer, r, G, r.aid.prev ? r.aid.prev.a.trail_km : r.km, r.aid.next ? r.aid.next.a.trail_km : r.km);
     // Walk: access point, its track to the course, then along the course from where it joins to the casualty.
     const lo = Math.min(b.idx, r.ic), hi = Math.max(b.idx, r.ic);
     const along = courseLL.slice(lo, hi + 1);

@@ -486,3 +486,17 @@ tr.muted td { color: var(--muted); }
 .rn-intro-card .rn-ok { color: #1f6b3a; font-weight: 600; }
 .rn-intro-card .notice { margin: 8px 0; }
 .top .rn-q { flex: none; }
+
+/* Track grade and carry-out card (js/track.js) */
+.tg-here { margin: 4px 0 8px; font-size: 13px; }
+.tg-chip { display: inline-block; font-weight: 700; font-size: 12px; padding: 3px 9px; border-radius: 999px; margin-right: 6px; vertical-align: 1px; }
+.tg-note { color: var(--muted); }
+.tg-rows .row:first-of-type { border-top: 1px solid var(--line); }
+.tg-bit { display: inline-block; margin-right: 8px; white-space: nowrap; }
+.tg-bit i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.tg-road { font-size: 13px; margin: 6px 0 0; }
+.tg-pts .row { align-items: center; }
+.tg-glyph { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 5px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; flex: 0 0 auto; }
+.tg-src { font-size: 11px; color: var(--muted); margin: 8px 0 0; }
+.tg-mk { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.5); font: 700 9px/16px var(--body); text-align: center; }
+.map-legend .legend-head { font-weight: 700; }

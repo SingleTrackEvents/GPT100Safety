@@ -237,7 +237,7 @@
         <p class="fd-between">from the course</p>
         <p class="notice warn">You're more than ${FAR_M / 1000} km from the GPT100 courses, so the app won't point you to a course km or a way out from here. Where am I? works within ${FAR_M / 1000} km of the course.</p>
         ${pos}<p class="fd-facts">Need a point on the course? Enter the km above.</p>`;
-      $('fdOutWay').innerHTML = '';
+      $('fdOutWay').innerHTML = ''; $('fdGrade').innerHTML = '';
       mapNow = `${poorLine()}<span class="rn-warn">You're ${Math.round(here.offM / 1000)} km from the course.</span> Where am I? works within ${FAR_M / 1000} km of it.`;
       drawMap(null, 'far');
       profile.setHere(null);
@@ -250,7 +250,7 @@
         <p class="fd-between">${S.at ? `At ${esc(S.at)}, ` : ''}from the course</p>
         <p class="fd-facts">Nearest course point: <b>km ${one(r.km)}</b>, ${S.dir} of you (${esc(between(r))}). Walking times don't apply from here.</p>
         ${pos}`;
-      $('fdOutWay').innerHTML = '';
+      $('fdOutWay').innerHTML = ''; $('fdGrade').innerHTML = '';
       sendLinks();
       weather();
       mapNow = `${poorLine()}<span class="rn-warn">${one(here.offM / 1000)} km from the course${S.at ? ' (at ' + esc(S.at) + ')' : ''}.</span> Nearest course point: km ${one(r.km)}, ${S.dir} of you.`;
@@ -284,6 +284,8 @@
     h += `<p class="fd-hint">The team that would come to you: <b>${esc(r.best.base.name)}</b>, about ${E.fmt(r.best.total)}.</p>`;
     if (S.tier === 'off') h = `<p class="notice warn">You're ${dist(here.offM)} off the course. These times assume you get back onto the course at km ${one(r.km)} first.</p>` + h;
     $('fdOutWay').innerHTML = h;
+    // Track grade here, what a carry-out crosses, the nearest emergency marker and helipad (Parks Victoria access maps).
+    $('fdGrade').innerHTML = window.GPTTrack ? GPTTrack.card(r, E, { vehicle: w }) : '';
     mapNow = summaryLine(w, S);
     sendLinks();
     weather();
@@ -362,6 +364,7 @@
       `Map: https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}`,
       w ? `Nearest vehicle access: ${E.cleanName(w.a)}${E.isGated(w.a) ? ' (gated)' : ''}, ${one(w.walkKm)} km walk.` : '',
       urgent && !long ? `Fastest team: ${r.best.base.name}, about ${E.fmt(r.best.total)}.` : '',
+      !long && window.GPTTrack ? GPTTrack.line(r, E, { vehicle: w }) : '',
       `Sent ${tf.format(new Date())} from GPT100 Field.`
     ];
     return lines.filter(Boolean).join('\n');
@@ -464,6 +467,8 @@
     if (!map) return;
     layer.clearLayers();
     const me = [here.lat, here.lon], pts = [me];
+    // The course coloured by track grade between the aid stations either side, with the emergency markers and helipads nearby.
+    if (!far && window.GPTTrack) { const r = here.r; GPTTrack.draw(layer, r, here.E, r.aid.prev ? r.aid.prev.a.trail_km : r.km, r.aid.next ? r.aid.next.a.trail_km : r.km); }
     // Off the course: a dashed line to the nearest course point.
     if (tier && tier !== 'on' && tier !== 'far') { const cp = [here.r.lat, here.r.lon]; pts.push(cp); L.polyline([me, cp], { color: '#111', weight: 2, dashArray: '4 6', interactive: false }).addTo(layer); L.circleMarker(cp, { radius: 6, color: '#111', weight: 2, fillColor: '#fff', fillOpacity: 1 }).bindTooltip('Course km ' + one(here.r.km)).addTo(layer); }
     if (here.gps) L.circle(me, { radius: here.gps.acc, color: '#1666c9', weight: 1, fillOpacity: .12 }).addTo(layer);
