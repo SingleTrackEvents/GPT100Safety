@@ -22,6 +22,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Directions** opens Google Maps to the parking spot.
 - **Weather now** at the casualty: temperature, feels like, gusts and sky, the next 3 hours, any trigger getting close, and any BOM warning near the course.
 - If a spot takes more than 2 hours to reach, a red warning tells you to escalate early.
+- **Track and carry-out:** the Parks Victoria track grade at the casualty (Easy: mule stretcher, Medium: paraguard stretcher, Hard: slow, may need hand to hand carrying, or Not yet assessed), what the carry-out crosses on the way to the vehicle and to the aid stations either side (for example "0.3 km hard, 0.7 km medium"), and whether the access road is sealed, unsealed or 4WD only. Below that, the nearest **emergency marker** (the GNP code to give 000), the nearest helipad, any assembly area, and any track hazards Parks Victoria has flagged nearby. The map colours the course by grade between the aid stations either side and marks the emergency markers, helipads, campsites and hazards. The message carries the grade, stretcher type and emergency marker. The data comes from the Parks Victoria "Walking track and road grades" access maps (December 2020), aligned to the course GPX (`data/track-grades.js`).
 - **Elevation profile** under the map, coloured by steepness. After a find it shows the casualty's section with the distance, climb and descent to the aid stations either side. Drag along it to see any point on the map.
 - **Maps** on every tab open on a topo map (contours, tracks and peaks). The layers button switches to the street map, and the choice is remembered.
 
@@ -141,6 +142,18 @@ Then run `python3 tools/add_w3w.py` to give any new points a what3words address.
 The update script replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check a few km in Find afterwards and commit `data/course.js`.
 
 Where the course passes the same spot twice, such as the out and back to Jimmy Creek Camp, the app works that out automatically and shows both km.
+
+## Track grades and emergency markers
+
+`data/track-grades.js` holds the Parks Victoria track grades along the GPT100 (by km), the road grade at each access point, and the emergency markers, helipads, assembly areas, campsites and track hazards near the course. It was read straight from the vector lines and symbols in the ten Parks Victoria "Walking track and road grades" PDFs (Mt Zero/Barigar, Gar, Werdug/Wartook, Halls Gap, Barbican, Mt William, Yarram Gap, Mt Christabel, Cassidy Gap and Mt Abrupt), each fitted to the course GPX to within a few metres, then checked by eye against the maps. To regenerate it (new maps from Parks Victoria, or a course change after `tools/update_course.py`):
+
+```
+pip install pdfplumber numpy scipy pyproj
+python3 tools/track_grades/extract_maps.py path/to/pdfs out data/course.js   # one JSON per map, with the fit quality
+python3 tools/track_grades/merge.py out data/course.js data/track-grades.js   # merge, apply fixes.json, write the data file
+```
+
+`extract_maps.py` needs the PDFs named as in `EXPECT` at the top of the script (the course km each map is expected around; `None` searches the whole course). `tools/track_grades/fixes.json` holds the hand corrections from the visual check (campsite names, emergency marker codes the script couldn't read, grade overrides by km range).
 
 ## Adding a course
 
