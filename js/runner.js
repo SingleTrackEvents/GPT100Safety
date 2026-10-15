@@ -441,7 +441,7 @@
   let introStep = -1;
   const STEPS = 4;
   function introOpen() { introStep = 0; $('rnIntro').hidden = false; document.body.classList.add('rn-noscroll'); introDraw(); }
-  function introClose() { $('rnIntro').hidden = true; introStep = -1; document.body.classList.remove('rn-noscroll'); store.set('introDone', true); offlineCard(); }
+  function introClose() { $('rnIntro').hidden = true; introStep = -1; document.body.classList.remove('rn-noscroll'); store.set('introDone', true); offlineCard(); if (window.GPTViewportFix) setTimeout(GPTViewportFix, 50); }
   async function introDraw() {
     const body = $('rnIntroBody'), i = introStep, mb = Math.round(((OM && OM.bytes) || 0) / 1e6);
     let h = '';
