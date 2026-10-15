@@ -63,4 +63,12 @@ jobs:
           git init -q -b weather-data
           git add -A
           git -c user.name='GPT100 weather watch' -c user.email='actions@users.noreply.github.com' commit -q -m "Weather data $(date -u +%FT%TZ)"
-          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" weather-data
+          # GitHub occasionally rejects a push with a one-off server error ("fatal error in commit_refs").
+          # Try a few times before calling the run a failure.
+          for i in 1 2 3 4; do
+            if git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" weather-data; then exit 0; fi
+            echo "Push failed (try $i of 4), waiting $((i * 15)) s"
+            sleep $((i * 15))
+          done
+          echo "::error::Could not publish the weather data after 4 tries"
+          exit 1
