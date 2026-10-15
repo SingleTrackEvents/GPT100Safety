@@ -4,7 +4,7 @@ const VERSION = 'gpt100-v49';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'js/engine.js', 'js/app.js',
   'data/config.js', 'data/course.js', 'data/courses.js', 'data/access-edits.js', 'data/medplan.enc.js', 'data/safety-officers.js', 'js/medplan.js',
-  'data/pacing.js', 'js/weather-core.js', 'js/weather.js', 'js/rc.js', 'js/basemap.js', 'js/intro.js', 'js/races.js', 'js/profile.js', 'data/tiles.js', 'data/track-grades.js', 'js/track.js',
+  'data/pacing.js', 'js/weather-core.js', 'js/weather.js', 'js/rc.js', 'js/basemap.js', 'js/intro.js', 'js/viewport.js', 'js/races.js', 'js/profile.js', 'data/tiles.js', 'data/track-grades.js', 'js/track.js',
   'manifest.webmanifest', 'field.html', 'js/field.js', 'css/field.css', 'manifest-field.webmanifest', 'runner.html', 'js/runner.js', 'css/runner.css', 'data/races.js', 'data/runner-courses.js', 'data/runner-info.js', 'manifest-runner.webmanifest', 'icons/mark.png', 'icons/logo.png', 'icons/icon-48.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'

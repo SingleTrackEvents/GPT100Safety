@@ -84,7 +84,7 @@
     }
     redraw = draw;
     const open = () => { i = 0; wrap.hidden = false; document.body.classList.add('rn-noscroll'); draw(); };
-    const close = () => { wrap.hidden = true; i = -1; document.body.classList.remove('rn-noscroll'); set(o.key, '1'); if (o.done) o.done(); };
+    const close = () => { wrap.hidden = true; i = -1; document.body.classList.remove('rn-noscroll'); set(o.key, '1'); if (o.done) o.done(); if (window.GPTViewportFix) setTimeout(GPTViewportFix, 50); };
     wrap.querySelector('.gi-next').onclick = () => { if (i >= n - 1) close(); else { i++; draw(); } };
     wrap.querySelector('.gi-back').onclick = () => { if (i > 0) { i--; draw(); } };
     wrap.querySelector('.rn-intro-skip').onclick = close;

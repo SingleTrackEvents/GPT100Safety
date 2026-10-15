@@ -219,6 +219,7 @@ These are planning estimates. Always check access, gates and closures on the day
 | `data/races.js`, `data/runner-info.js` | Races from the course sheet, and the runner app's contact, gear and notices |
 | `js/races.js` | Races, cut-offs and expected times, shared by the runner and field apps |
 | `js/intro.js` | First-time intro and how-to for the staff and field apps |
+| `js/viewport.js` | Keeps the bottom tabs on the real bottom of the screen (iPhone home screen apps can open with the layout the wrong height the first time) |
 | `js/profile.js` | Elevation profile (Find tab and field app) |
 | `js/basemap.js` | Topo and street map backgrounds for every map, and saving the topo map for offline |
 | `tiles/topo/`, `data/tiles.js` | Our copy of the OpenTopoMap tiles along the course (CC-BY-SA), made once with `tools/fetch_topo_tiles.mjs` |

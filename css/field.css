@@ -71,7 +71,7 @@ body.field { background: #f4f3ef; font-size: 16px; }
 .fd-mapfor .fd-linkbtn { font: 700 13px var(--body); letter-spacing: 0; white-space: nowrap; }
 .fd-maptab .fd-mapcard { margin-top: 0; }
 /* The Map tab fills the screen between the header and the tabs: the map takes the room, the profile sits at the bottom. */
-.fd-maptab:not([hidden]) { display: flex; flex-direction: column; height: calc(100svh - var(--fd-chrome, 156px) - env(safe-area-inset-bottom)); min-height: 440px; }
+.fd-maptab:not([hidden]) { display: flex; flex-direction: column; height: calc(var(--vvh, 100svh) - var(--fd-chrome, 156px) - env(safe-area-inset-bottom)); min-height: 440px; }
 .fd-maptab .fd-mapfor { flex: none; }
 .fd-maptab .fd-mapcard { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-bottom: 0; }
 .fd-maptab #fdMap { flex: 1; height: auto; min-height: 220px; }
