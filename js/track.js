@@ -100,7 +100,7 @@
     const em = N.find(p => p.kind === 'emergency' && p.m < 5000), hp = N.find(p => p.kind === 'helipad' && p.m < 10000), as = N.find(p => p.kind === 'assembly' && p.m < 3000);
     const hz = N.filter(p => HAZ.includes(p.kind) && p.m < 1000);
     h += '<div class="tg-pts">';
-    if (em) h += `<div class="row"><span><b>Nearest emergency marker ${esc(em.code || '')}</b><span class="sub">${esc(where(em, km))}. Give this code to 000 for a precise location.</span></span><span class="tg-glyph" style="background:${KINDS.emergency.col}">EM</span></div>`;
+    if (em) h += `<div class="row"><span><b>Nearest emergency marker${em.code ? ' ' + esc(em.code) : ' (no code printed)'}</b><span class="sub">${esc(where(em, km))}. Give this code to 000 for a precise location.</span></span><span class="tg-glyph" style="background:${KINDS.emergency.col}">EM</span></div>`;
     if (hp) h += `<div class="row"><span><b>Nearest helipad${hp.name ? ', ' + esc(hp.name) : ''}</b><span class="sub">${esc(where(hp, km))}.</span></span><span class="tg-glyph" style="background:${KINDS.helipad.col}">H</span></div>`;
     if (as) h += `<div class="row"><span><b>Assembly area</b><span class="sub">${esc(where(as, km))}.</span></span><span class="tg-glyph" style="background:${KINDS.assembly.col};color:#111">A</span></div>`;
     if (!em) h += `<div class="row"><span><b>No emergency marker within 5 km</b><span class="sub">Give 000 the coordinates or what3words instead.</span></span></div>`;

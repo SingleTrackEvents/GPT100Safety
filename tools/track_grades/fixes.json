@@ -1,0 +1,137 @@
+{
+  "_note": "Hand corrections from checking the extraction against the maps by eye. points: kind@km from the merge report, null drops one. segments: [from km, to km, grade] overrides. access: 'name|trail_km' to a road grade, null removes it.",
+  "points": {
+    "camp@11.63": {
+      "name": "Barigar Hiker Camp"
+    },
+    "camp@22.86": {
+      "name": "Gar (Mt Difficult) Hiker Camp"
+    },
+    "camp@99.71": {
+      "name": "Durd Durd (Stockyard Saddle)"
+    },
+    "helipad@99.95": {
+      "name": "Stockyard Saddle"
+    },
+    "camp@113.71": {
+      "name": "Yarrum Gap Hiker Camp"
+    },
+    "helipad@113.5": {
+      "name": "Yarrum Gap Hiker Camp"
+    },
+    "camp@124.71": {
+      "name": "Wannon (Mt Christabel) Camp"
+    },
+    "helipad@124.81": {
+      "name": "Wannon (Mt Christabel) Camp"
+    },
+    "camp@140.69": {
+      "name": "Djardji-Djawara (Cassidy Gap) Camp"
+    },
+    "camp@148.54": {
+      "name": "Mud-dadjug (Mt Abrupt) Camp"
+    },
+    "camp@72.79": {
+      "name": "Barri Yalug (Barbican Rocks)"
+    },
+    "assembly@84.44": {
+      "name": "GPT access point, Mt William Rd"
+    }
+  },
+  "add_points": [
+    {
+      "kind": "assembly",
+      "lat": -37.015053,
+      "lon": 142.453805,
+      "km": 23.13,
+      "off_m": 2395,
+      "name": "Longpoint 4WD track end (Long Point West)"
+    }
+  ],
+  "segments": [
+    [
+      0.7,
+      0.99,
+      "hard"
+    ],
+    [
+      16.84,
+      17.0,
+      "hard"
+    ],
+    [
+      17.0,
+      17.27,
+      "medium"
+    ],
+    [
+      102.92,
+      103.13,
+      "medium"
+    ],
+    [
+      105.29,
+      105.33,
+      "road:unsealed"
+    ],
+    [
+      105.88,
+      106.06,
+      "road:unsealed"
+    ],
+    [
+      106.85,
+      107.03,
+      "road:unsealed"
+    ],
+    [
+      107.6,
+      107.63,
+      "road:unsealed"
+    ],
+    [
+      136.23,
+      136.47,
+      "hard"
+    ],
+    [
+      153.7,
+      153.95,
+      "easy"
+    ],
+    [
+      153.95,
+      154.18,
+      "medium"
+    ],
+    [
+      162.3,
+      162.56,
+      "road:sealed"
+    ],
+    [
+      70.72,
+      71.36,
+      "medium"
+    ],
+    [
+      72.1,
+      72.28,
+      "medium"
+    ],
+    [
+      78.57,
+      79.3,
+      "hard"
+    ],
+    [
+      93.1,
+      97.57,
+      "unassessed"
+    ]
+  ],
+  "access": {
+    "Troopers Creek Campground|16.174": null,
+    "Bainggug Carpark|152.217": "sealed"
+  }
+}
