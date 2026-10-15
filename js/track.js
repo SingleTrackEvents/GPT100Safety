@@ -36,7 +36,8 @@
     return s ? s[2] : null;
   }
   // How much of each grade lies between two km, worst first.
-  const RANK = ['hard', 'unassessed', null, 'medium', 'easy', 'road:4wd', 'road:unsealed', 'road:sealed'];
+  // Unmapped stretches are campgrounds and road junctions rather than rough ground, so they rank below medium.
+  const RANK = ['hard', 'unassessed', 'medium', null, 'easy', 'road:4wd', 'road:unsealed', 'road:sealed'];
   function between(k0, k1) {
     const lo = Math.min(k0, k1), hi = Math.max(k0, k1), by = new Map();
     for (const [a, b, g] of SEGS) {
@@ -97,7 +98,9 @@
       if (rg) h += `<p class="tg-road">Road to ${esc(G.cleanName(b.a))}: <b>${esc(ROADS[rg])}</b>${rg === '4wd' ? '. Send a 4WD.' : '.'}</p>`;
     }
     const N = near(r, km);
-    const em = N.find(p => p.kind === 'emergency' && p.m < 5000), hp = N.find(p => p.kind === 'helipad' && p.m < 10000), as = N.find(p => p.kind === 'assembly' && p.m < 3000);
+    // Prefer a marker with a printed code; an uncoded one only if it's much closer.
+    const emc = N.find(p => p.kind === 'emergency' && p.code && p.m < 5000), emu = N.find(p => p.kind === 'emergency' && !p.code && p.m < 5000);
+    const em = emc && (!emu || emc.m <= emu.m * 3 || emc.m < 1500) ? emc : emu, hp = N.find(p => p.kind === 'helipad' && p.m < 10000), as = N.find(p => p.kind === 'assembly' && p.m < 3000);
     const hz = N.filter(p => HAZ.includes(p.kind) && p.m < 1000);
     h += '<div class="tg-pts">';
     if (em) h += `<div class="row"><span><b>Nearest emergency marker${em.code ? ' ' + esc(em.code) : ' (no code printed)'}</b><span class="sub">${esc(where(em, km))}. Give this code to 000 for a precise location.</span></span><span class="tg-glyph" style="background:${KINDS.emergency.col}">EM</span></div>`;

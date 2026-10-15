@@ -100,6 +100,12 @@ for a, b, v in FIX.get('segments', []):  # override a km range
     segs = [s for s in segs if not (s[0] >= a and s[1] <= b)]
     segs = [[s0, min(s1, a), g] for s0, s1, g in segs if s0 < a] + [[a, b, v]] + [[max(s0, b), s1, g] for s0, s1, g in segs if s1 > b]
     segs.sort()
+# Join neighbouring runs of the same grade after the overrides
+joined = []
+for seg in segs:
+    if joined and joined[-1][2] == seg[2] and abs(joined[-1][1] - seg[0]) < 0.011: joined[-1][1] = seg[1]
+    else: joined.append(list(seg))
+segs = joined
 acc_out = {k: v[0] for k, v in acc.items() if v[1] <= 60}
 acc_out.update(FIX.get('access', {}))
 acc_out = {k: v for k, v in acc_out.items() if v}

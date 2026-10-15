@@ -36,6 +36,18 @@
     },
     "assembly@84.44": {
       "name": "GPT access point, Mt William Rd"
+    },
+    "camp@36.52": {
+      "name": "Werdug (Lk Wartook) Hiker Camp"
+    },
+    "camp@58.23": {
+      "name": "Bugiga (Mt Rosea) Hiker Camp"
+    },
+    "camp@60.45": {
+      "name": "Stony Creek Group Camp"
+    },
+    "camp@85.2": {
+      "name": "Duwul (Mt William) Hiker Camp"
     }
   },
   "add_points": [
@@ -128,10 +140,31 @@
       93.1,
       97.57,
       "unassessed"
+    ],
+    [
+      46.65,
+      47.43,
+      "medium"
+    ],
+    [
+      51.98,
+      52.5,
+      "hard"
+    ],
+    [
+      52.5,
+      52.58,
+      "medium"
+    ],
+    [
+      58.26,
+      58.81,
+      "road:4wd"
     ]
   ],
   "access": {
     "Troopers Creek Campground|16.174": null,
-    "Bainggug Carpark|152.217": "sealed"
+    "Bainggug Carpark|152.217": "sealed",
+    "Halls Gap Oval|48.104": "sealed"
   }
 }
