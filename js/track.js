@@ -114,7 +114,9 @@
     if (!em) h += `<div class="row"><span><b>No emergency marker within 5 km</b><span class="sub">Give 000 the coordinates or what3words instead.</span></span></div>`;
     hz.forEach(p => { h += `<div class="row"><span><b>${esc(KINDS[p.kind].label)}</b><span class="sub">${esc(where(p, km))}.${p.kind === 'warning' ? ' Parks Victoria says to seek site specific information.' : ''}</span></span><span class="tg-glyph" style="background:${KINDS[p.kind].col};color:#111">!</span></div>`; });
     h += '</div>';
-    h += `<p class="tg-src">Grades and markers from the ${esc(T.source)}. Grades are for the walking track, not the race line, so expect some variation.</p></div>`;
+    const F = (G.config && G.config.carryFactor) || {};
+    const slow = Object.keys(F).filter(k => F[k] > 1).map(k => `${info(k).label.toLowerCase()} x${F[k]}`).join(', ');
+    h += `<p class="tg-src">${slow ? `Carry-out times allow for the grade (${esc(slow)} on the ${G.config.evacPace} min/km stretcher pace). ` : ''}Grades and markers from the ${esc(T.source)}. Grades are for the walking track, not the race line, so expect some variation.</p></div>`;
     return h;
   }
 
@@ -153,9 +155,16 @@
     }
   }
 
+  // Whether the carry-out between two km crosses track that slows it (config.carryFactor).
+  function slowed(k0, k1, G) {
+    if (!G.main) return false;
+    const F = (G.config && G.config.carryFactor) || {};
+    return between(k0, k1).parts.some(p => (F[p.g] || 1) > 1);
+  }
+
   function legendHTML() {
     return ['easy', 'medium', 'hard', 'unassessed'].map(g => `<i class="ln" style="background:${GRADES[g].col}"></i>${GRADES[g].label}`).join('<br>');
   }
 
-  window.GPTTrack = { at, between, near, card, line, draw, legendHTML, GRADES, KINDS };
+  window.GPTTrack = { at, between, near, card, line, draw, slowed, legendHTML, GRADES, KINDS };
 })();
