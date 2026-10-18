@@ -11,8 +11,9 @@
   const w3wLink = w => w ? `<a class="w3w" href="https://w3w.co/${esc(w)}" target="_blank" rel="noopener">///${esc(w)}</a>` : '';
 
   $('assumptions').textContent =
-    `Estimates assume responders walk ${C.walkPace} min/km, stretcher carry ${C.evacPace} min/km, ` +
-    `${C.climbPenalty} min per metre of climb. Drive times are the race team's times or checked routes ` +
+    `Estimates assume responders walk ${C.walkPace} min/km, stretcher carry ${C.evacPace} min/km` +
+    (C.carryFactor && C.carryFactor.hard ? ` (x${C.carryFactor.hard} on Hard track${C.carryFactor.unassessed ? `, x${C.carryFactor.unassessed} where not yet assessed` : ''})` : '') +
+    `, ${C.climbPenalty} min per metre of climb. Drive times are the race team's times or checked routes ` +
     `(older automatic times x ${C.driveFactor}).`;
 
   // ---------- Tabs ----------
@@ -390,7 +391,7 @@
         <li><span><b>Walk in</b> ${one(b.walkKm)} km${b.climb >= 5 ? ', ' + Math.round(b.climb) + ' m climb' : ''}
           <span class="sub">${b.joinKm > r.km ? 'Along the course, against race direction' : (b.joinKm < r.km ? 'Along the course, in race direction' : 'Straight to the course')}</span></span><span class="t">${G.fmt(b.walk)}</span></li>
       </ol>
-      <div class="carry">Carry-out back to the vehicle: about <b>${G.fmt(b.carry)}</b> at stretcher pace.</div>
+      <div class="carry">Carry-out back to the vehicle: about <b>${G.fmt(b.carry)}</b> at stretcher pace${window.GPTTrack && GPTTrack.slowed(r.km, b.joinKm, G) ? ', slowed for the hard track' : ''}.</div>
     </div>`;
     h += `<div id="soNear">${window.MedPlan && window.MedPlan.soNearHTML ? window.MedPlan.soNearHTML(r) : ''}</div>`;
     // Track grade, carry-out grades, emergency markers and helipads (Parks Victoria access maps).
