@@ -349,6 +349,7 @@
         const e0 = Math.max(0, Math.ceil((sc.from - E.t0) / HOUR)), e1 = Math.min(E.n - 1, Math.floor((sc.to - E.t0) / HOUR));
         const close = (W.ensembles && W.ensembles.closeChance) || 30;
         const chance = (key, k, filter, what) => {
+          if (!E.v[k]) return;   // ensembles from before this chance was added
           let b = null;
           for (let h = e0; h <= e1; h++) for (let j = 0; j < E.points.length; j++) {
             if (filter && !filter(E.points[j], h)) continue;
