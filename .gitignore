@@ -2,3 +2,4 @@
 *MedicalPlan*.html
 *medplan*.json
 __pycache__/
+out/

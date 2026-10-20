@@ -500,3 +500,20 @@ tr.muted td { color: var(--muted); }
 .tg-src { font-size: 11px; color: var(--muted); margin: 8px 0 0; }
 .tg-mk { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.5); font: 700 9px/16px var(--body); text-align: center; }
 .map-legend .legend-head { font-weight: 700; }
+
+/* Live runner tracking (js/tracking.js) */
+.trk .row { align-items: center; }
+.trk-src, .trk-status { font-size: 11px; color: var(--muted); margin: 8px 0 0; }
+.trk-stale { color: var(--amber); font-weight: 600; }
+.trk-mk { min-width: 30px; height: 18px; padding: 0 4px; border-radius: 9px; background: #1666c9; color: #fff; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.5); font: 700 10px/14px var(--body); text-align: center; white-space: nowrap; }
+.trk-mk.stale { background: #9a9a9a; }
+.trk-mk.stopped { background: var(--red); }
+.trk-list .row { align-items: center; }
+.trk-watch h4 { margin: 8px 0 2px; font-size: 13px; }
+.trk-bib { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.med-live .row { align-items: center; }
+.med-live .sub { display: block; font-size: 12px; color: var(--muted); }
+.rc-watch { margin-top: 10px; }
+.rc-watch .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.rc-watch .sub { display: block; font-size: 11px; color: var(--muted); }
+.rc-live { font-size: 12px; color: var(--muted); }

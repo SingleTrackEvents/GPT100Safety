@@ -1,5 +1,7 @@
 # Weather refresh relay (Cloudflare Worker)
 
+The same Worker also runs the Race Control log (`RACE_CONTROL.md`) and relays the live GPS tracking feed (`/gps/`, no setup beyond pasting in the current `refresh-worker.js`).
+
 This lets anyone using the app press **Refresh now** in the Weather tab, and keeps the weather watch running every 15 minutes, without your GitHub key ever being in the app or on anyone's phone.
 
 The key lives only as a locked secret in your Cloudflare account. The app asks the Worker for a refresh, and the Worker starts the GitHub weather watch.

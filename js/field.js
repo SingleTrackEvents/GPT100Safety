@@ -7,7 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const one = x => (Math.round(x * 10) / 10).toFixed(1);
   const tf = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  let here = null, watchId = null, map = null, layer = null;
+  let here = null, watchId = null, map = null, layer = null, runnerLayer = null;
 
   // ---------- race and cut-offs (js/races.js, shared with the runner app) ----------
   // Pick a race (and stage): every aid station with its cut-off and expected time. Once you've tapped Where
@@ -285,7 +285,8 @@
     if (S.tier === 'off') h = `<p class="notice warn">You're ${dist(here.offM)} off the course. These times assume you get back onto the course at km ${one(r.km)} first.</p>` + h;
     $('fdOutWay').innerHTML = h;
     // Track grade here, what a carry-out crosses, the nearest emergency marker and helipad (Parks Victoria access maps).
-    $('fdGrade').innerHTML = window.GPTTrack ? GPTTrack.card(r, E, { vehicle: w }) : '';
+    here.w = w;
+    $('fdGrade').innerHTML = (window.GPTTrack ? GPTTrack.card(r, E, { vehicle: w }) : '') + runnersHTML(E, r);
     mapNow = summaryLine(w, S);
     sendLinks();
     weather();
@@ -294,6 +295,26 @@
     raceDraw();
     home();
   }
+  // Live tracking: the runners coming towards you and just past you (for a Safety Officer post or an aid station).
+  function runnersHTML(E, r) {
+    const TR = window.GPTTracking;
+    if (!TR) return '';
+    if (!TR.ready()) return `<div class="card trk"><h3>Runners near you</h3><p class="muted">${esc(TR.status())}</p></div>`;
+    const back = TR.near(E, r.km, 6, 30).filter(x => x.pos.km <= r.km).sort((a, b) => b.pos.km - a.pos.km).slice(0, 6);
+    const ahead = TR.near(E, r.km, 6, 30).filter(x => x.pos.km > r.km).sort((a, b) => a.pos.km - b.pos.km).slice(0, 3);
+    const row = (x, dir) => `<div class="row"><span>${TR.who(x)}<span class="sub">km ${one(x.pos.km)}, ${TR.dist(Math.abs(x.pos.km - r.km) * 1000)} ${dir}${x.pos.stopped ? ', <b>not moving</b>' : ''}. ${TR.seen(x)}</span></span></div>`;
+    return `<div class="card trk"><h3>Runners near you</h3>` +
+      (back.length ? `<p class="fd-hint">Coming towards you (nearest first):</p>` + back.map(x => row(x, 'back')).join('') : '<p class="muted">No tracked runners within 6 km behind you.</p>') +
+      (ahead.length ? `<p class="fd-hint">Just past you:</p>` + ahead.map(x => row(x, 'ahead')).join('') : '') +
+      `<p class="trk-src">${esc(TR.status())}</p></div>`;
+  }
+  if (window.GPTTracking) GPTTracking.onUpdate(() => { drawRunners(); if (here && here.S && here.S.tier !== 'far' && here.S.tier !== 'long' && $('fdGrade')) $('fdGrade').innerHTML = (window.GPTTrack ? GPTTrack.card(here.r, here.E, { vehicle: here.w }) : '') + runnersHTML(here.E, here.r); });
+  function drawRunners() {
+    if (!runnerLayer || !window.GPTTracking) return;
+    runnerLayer.clearLayers();
+    MAIN.courses.forEach(E => GPTTracking.draw(runnerLayer, E));
+  }
+
   // Under the profile on the map: your race km, the next aid station, its cut-off and your pace, and the way out.
   let mapNow = null;
   const poorLine = () => here.gps && here.gps.acc > POOR_GPS_M ? `<span class="rn-warn">GPS only ±${Math.round(here.gps.acc)} m: stand in the open and tap ◎ again.</span><br>` : '';
@@ -400,6 +421,7 @@
     soLayer = L.layerGroup().addTo(map);
     drawSO();
     trailLine = L.polyline([], { color: '#7a3db8', weight: 3, opacity: .9, dashArray: '1 6', lineCap: 'round', interactive: false }).addTo(map);
+    if (window.GPTTracking) { runnerLayer = L.layerGroup().addTo(map); drawRunners(); }
     layer = L.layerGroup().addTo(map);
     map.on('click', e => profile.showLL(e.latlng.lat, e.latlng.lng, map.getZoom()));
     // A small location button on the map, as in Google Maps.

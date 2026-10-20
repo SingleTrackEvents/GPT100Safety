@@ -1,6 +1,7 @@
 // Race Control board: the live incident log, unit status and radio log, shared between race control devices.
 // Kept in the D1 database on the GPT100 Safety Worker (tools/RACE_CONTROL.md). Unlocked with the medical password.
 (function () {
+  let runnerLayer = null;
   const G = window.GPT, C = window.GPT100_CONFIG, W = C.weather || {};
   const $ = id => document.getElementById(id);
   if (!$('rcBody')) return;
@@ -136,7 +137,8 @@
       <div class="rc-col rc-mid"><div class="rc-mapbox"><div id="rcMap"></div></div>
         <div class="rc-logbox"><h3>Radio log</h3><form id="rcLogForm" class="rc-logform"><input id="rcLogText" type="text" maxlength="500" placeholder="Add a log entry (Enter to save)"><button class="btn small" type="submit">Log</button></form><ol id="rcLog" class="rc-log"></ol></div></div>
       <div class="rc-col rc-units"><h3>Units</h3><div id="rcUnits"></div>
-        <form id="rcAddUnit" class="rc-logform"><input id="rcUnitName" type="text" maxlength="40" placeholder="Add a unit, e.g. Sweep 3"><button class="btn small" type="submit">Add</button></form></div>
+        <form id="rcAddUnit" class="rc-logform"><input id="rcUnitName" type="text" maxlength="40" placeholder="Add a unit, e.g. Sweep 3"><button class="btn small" type="submit">Add</button></form>
+        <div id="rcWatch" class="rc-watch"></div></div>
     </div>`;
     $('rcWho').addEventListener('change', e => { try { localStorage.setItem(LSN, e.target.value.trim()); } catch (x) { } });
     $('rcNew').addEventListener('click', () => openForm({}));
@@ -159,10 +161,26 @@
       GPTBaseMap(map);
       L.polyline(G.route.map(p => [p[0], p[1]]), { color: '#d9531e', weight: 3, opacity: .7 }).addTo(map);
       layer = L.layerGroup().addTo(map);
+      runnerLayer = L.layerGroup().addTo(map);
       map.fitBounds(L.latLngBounds(G.route.map(p => [p[0], p[1]])).pad(0.04));
     }
     built = true;
+    renderWatch();
   }
+  // Live tracking: every runner on the board's map, and a watch list of anyone not moving or whose tracker has gone quiet.
+  function renderWatch() {
+    const TR = window.GPTTracking, el = $('rcWatch');
+    if (!TR || !el) return;
+    if (runnerLayer) { runnerLayer.clearLayers(); G.courses.forEach(E => TR.draw(runnerLayer, E, null, null, { find: true })); }
+    if (!TR.ready()) { el.innerHTML = `<p class="rc-live">${esc(TR.status())}</p>`; return; }
+    const w = TR.watch();
+    const row = (r, why) => `<div class="row"><span>${TR.who(r)}<span class="sub">${why}, km ${(r.pos.km).toFixed(1)}${r.pos.course !== G ? ' (' + esc(r.pos.course.label) + ')' : ''}, last fix ${TR.ago(r.pos.ageMs)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`;
+    el.innerHTML = `<h3>Runner watch</h3><p class="rc-live">${esc(TR.status())}</p>` +
+      (w.stopped.length ? `<h4>Not moving for 20 min</h4>` + w.stopped.slice(0, 10).map(r => row(r, 'Not moving')).join('') : '') +
+      (w.quiet.length ? `<h4>Tracker gone quiet</h4>` + w.quiet.slice(0, 10).map(r => row(r, 'No fix')).join('') : '') +
+      (!w.stopped.length && !w.quiet.length ? '<p class="rc-live">Everyone with a tracker is moving and reporting.</p>' : '');
+  }
+  if (window.GPTTracking) GPTTracking.onUpdate(() => { if (built) { renderWatch(); render(); } });
   // Flash a missing required field red (and focus the first one).
   function flash(...els) {
     els = els.filter(Boolean);
@@ -211,6 +229,7 @@
       <div class="rc-card-top"><b>#${i.num || '…'}</b><span class="rc-sev">${sev[0]}</span><span class="rc-loc">${loc}</span>
         <span class="rc-timer" data-t0="${t.call || i.created}" data-due="${t.dispatched && e && !t.onScene ? t.dispatched + e * 60000 : ''}"></span></div>
       <p class="rc-what">${esc(i.desc || '')}${i.bib || i.name ? ` <span class="rc-runner">${esc([i.bib ? 'Bib ' + i.bib : '', i.name, i.race].filter(Boolean).join(', '))}</span>` : ''}</p>
+      ${liveBib(i)}
       <p class="rc-times">${[['call', 'Call'], ['dispatched', 'Sent'], ['onScene', 'On scene'], ['leaving', 'Left'], ['closed', 'Closed']].filter(([k]) => t[k]).map(([k, l]) => `${l} <b>${hm(t[k])}</b>`).join(' · ')}
         ${i.unit ? ` · <b>${esc(unitLabel(i.unit))}</b>` : ''}${e != null && !closed ? ` · ETA ${dur(e)}` : ''}${i.outcome ? ` · ${esc(i.outcome)}` : ''}</p>
       ${closed ? '' : `<div class="rc-actions">
@@ -219,6 +238,14 @@
         <button class="btn small" data-act="edit" type="button">Edit</button>
         ${i.km != null ? '<button class="btn small" data-act="find" type="button">Find</button>' : ''}</div>`}
     </div>`;
+  }
+  // Where the incident's runner's tracker is now, from the live feed.
+  function liveBib(i) {
+    const TR = window.GPTTracking;
+    if (!TR || !i.bib || i.status === 'closed') return '';
+    const r = TR.byBib(i.bib);
+    if (!r || !r.pos) return '';
+    return `<p class="trk-bib">Tracker: km ${r.pos.km.toFixed(1)}${r.pos.offM > 60 ? ', ' + TR.dist(r.pos.offM) + ' off the course' : ''}, ${r.pos.stopped ? '<b>not moving</b>, ' : ''}last fix ${TR.ago(r.pos.ageMs)}${i.km != null && Math.abs(r.pos.km - i.km) > 0.3 ? ` <b>(${TR.dist(Math.abs(r.pos.km - i.km) * 1000)} from the logged km)</b>` : ''} <button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></p>`;
   }
   function bindCards() {
     document.querySelectorAll('#rcBody .rc-card').forEach(el => {
