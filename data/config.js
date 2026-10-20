@@ -40,13 +40,18 @@ window.GPT100_CONFIG = {
     ridgeMinEle: 600,  // course points at or above this height (m) count as ridges and high ground
     staleHours: 3,     // warn when the latest data is older than this
     // Forecast models on Open-Meteo. Models with nothing for the course are skipped automatically.
+    // (BOM ACCESS-G is on Open-Meteo but has no data for the Grampians, so it's left out. ECMWF AI has no gusts or storm energy.)
     models: ['ecmwf_ifs025', 'ecmwf_aifs025_single', 'gfs_seamless', 'icon_seamless', 'ukmo_seamless',
-      'meteofrance_seamless', 'gem_seamless', 'jma_seamless', 'bom_access_global'],
+      'meteofrance_seamless', 'gem_seamless', 'jma_seamless', 'cma_grapes_global'],
     modelEveryHours: 3,  // the models update a few times a day, so fetch them every 3 hours
     replayYears: [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],  // past race dates for the simulator
-    // Ensemble forecasts (80 versions of the ECMWF and GFS forecasts) give the chance of each trigger.
-    // A trigger shows "getting close" when at least closeChance % of them reach it.
-    ensembles: { models: ['ecmwf_ifs025', 'gfs025'], everyHours: 6, closeChance: 30 },
+    // Ensemble forecasts (about 210 versions of the ECMWF, ECMWF AI, GFS, UK Met Office, ICON and GEM forecasts) give the
+    // chance of each trigger. A trigger shows "getting close" when at least closeChance % of them reach it.
+    // Only ECMWF, GFS and the UK Met Office carry gusts, and only those plus GEM carry storm energy.
+    ensembles: { models: ['ecmwf_ifs025', 'ecmwf_aifs025', 'gfs025', 'ukmo_global_ensemble_20km', 'icon_seamless', 'gem_global'], everyHours: 6, closeChance: 30 },
+    // Model check: each model's forecasts are compared with the BOM stations near the course over the last `days` days.
+    // A model with at least minHours checked hours is weighted in the consensus by its error against the best model, no lower than minWeight.
+    verify: { days: 7, minHours: 48, minWeight: 0.4 },
     obsRadiusKm: 60,        // live BOM observations from weather stations this close to the course
     incidentKm: 40,         // VicEmergency fires, burns and incidents this close to the course
     fireNearKm: 20,         // a bushfire this close counts as the fire trigger met; a planned burn as smoke getting close

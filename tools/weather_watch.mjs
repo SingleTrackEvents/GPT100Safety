@@ -16,6 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { fetchEnsembles, fetchObs, fetchPrecis, fetchIncidents, fetchEPA, fetchCloud } from './weather_extra.mjs';
+import { verifyModels } from './weather_verify.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..');
@@ -117,8 +118,10 @@ function rolling24(p) {
   }));
 }
 
-function consensus(models, points) {
+// weights: { model: 0.4 to 1 } from the model check; the middle values are weighted medians. No weights = plain medians.
+function consensus(models, points, weights) {
   const ids = Object.keys(models);
+  const wts = ids.map(m => weights && weights[m] != null ? weights[m] : 1);
   const t0 = Math.min(...ids.map(m => models[m].t0));
   const n = Math.max(...ids.map(m => (models[m].t0 - t0) / HOUR + models[m].n));
   const P = points.length;
@@ -132,24 +135,25 @@ function consensus(models, points) {
     for (let p = 0; p < P; p++) {
       const v = k => ids.map(m => at(m, k, h, p));
       const t = v('t'), rh = v('rh'), live = t.map(x => x != null);
-      const pick = a => a.filter((_, i) => live[i]);
+      const pick = a => a.filter((_, i) => live[i]), pw = wts.filter((_, i) => live[i]);
+      const med = a => WX.wmedian(pick(a), pw);
       const wb = t.map((x, i) => live[i] ? WX.wbgt(x, rh[i]) : null);
       const pr = pick(v('p')), codes = pick(v('code')).filter(x => x != null);
       const set = (k, x, r) => { out[k][h][p] = x == null ? null : r(x); };
-      set('t', WX.median(pick(t)), WX.r1); set('tmax', WX.max(pick(t)), WX.r1);
-      set('at', WX.median(pick(v('at'))), WX.r1); set('atmin', WX.min(pick(v('at'))), WX.r1);
-      set('wbgt', WX.median(pick(wb)), WX.r1); set('wbgtmax', WX.max(pick(wb)), WX.r1);
-      set('g', WX.median(pick(v('g'))), WX.r0); set('gmax', WX.max(pick(v('g'))), WX.r0);
-      set('w', WX.median(pick(v('w'))), WX.r0);
-      set('p', WX.median(pr), WX.r1); set('pmax', WX.max(pr), WX.r1);
+      set('t', med(t), WX.r1); set('tmax', WX.max(pick(t)), WX.r1);
+      set('at', med(v('at')), WX.r1); set('atmin', WX.min(pick(v('at'))), WX.r1);
+      set('wbgt', med(wb), WX.r1); set('wbgtmax', WX.max(pick(wb)), WX.r1);
+      set('g', med(v('g')), WX.r0); set('gmax', WX.max(pick(v('g'))), WX.r0);
+      set('w', med(v('w')), WX.r0);
+      set('p', WX.wmedian(pr, pw), WX.r1); set('pmax', WX.max(pr), WX.r1);
       const prn = pr.filter(x => x != null);
       set('pp', prn.length ? 100 * prn.filter(x => x >= 0.2).length / prn.length : null, WX.r0);
-      set('p24', WX.median(pick(v('p24'))), WX.r1); set('p24max', WX.max(pick(v('p24'))), WX.r1);
-      set('cape', WX.median(pick(v('cape'))), WX.r0);
+      set('p24', med(v('p24')), WX.r1); set('p24max', WX.max(pick(v('p24'))), WX.r1);
+      set('cape', med(v('cape')), WX.r0);
       out.storm[h][p] = codes.filter(c => c >= 95).length;
       out.n[h][p] = live.filter(Boolean).length;
-      set('cc', WX.median(pick(v('cc'))), WX.r0);
-      set('uv', models[ids[0]].data.uv ? WX.median(pick(v('uv'))) : null, WX.r1);
+      set('cc', med(v('cc')), WX.r0);
+      set('uv', models[ids[0]].data.uv ? med(v('uv')) : null, WX.r1);
       // Most common weather code (ties go to the more severe one).
       const cnt = {}; codes.forEach(c => { cnt[c] = (cnt[c] || 0) + 1; });
       const best = Object.keys(cnt).map(Number).sort((a, b) => cnt[b] - cnt[a] || b - a)[0];
@@ -301,7 +305,10 @@ async function main() {
   const samePoints = grid && JSON.stringify(grid.points) === JSON.stringify(points);
   const due = flag('--force-models') || !grid || !samePoints || NOW - (grid.modelsRun || 0) > W.modelEveryHours * HOUR - 600;
 
-  let cloudByModel = null;
+  // Model check from the last run: weights for the consensus (see tools/weather_verify.mjs).
+  const prevVerify = readJSON(path.join(PREV, 'verify.json'), null);
+  const weights = prevVerify && prevVerify.skill ? Object.fromEntries(Object.entries(prevVerify.skill.models).map(([m, s]) => [m, s.weight])) : null;
+  let cloudByModel = null, fetchedNow = false;
   if (due) {
     const models = {}, perModel = {};
     for (const m of MODELS) {
@@ -313,8 +320,10 @@ async function main() {
       await sleep(1500);
     }
     if (Object.keys(models).length >= 2) {
-      const g = consensus(models, points);
-      grid = Object.assign({ v: 1, modelsRun: NOW, models: Object.keys(models), points, lh: localHours(g.t0, g.n) }, g);
+      fetchedNow = true;
+      const g = consensus(models, points, weights);
+      grid = Object.assign({ v: 1, modelsRun: NOW, models: Object.keys(models), weights, points, lh: localHours(g.t0, g.n) }, g);
+      if (weights) console.log('weights: ' + Object.keys(models).map(m => m + '=' + (weights[m] == null ? 1 : weights[m])).join(' '));
       // Cloud on the high ground: share of models in cloud, and the median cloud base, at each high point.
       const CL = W.triggers.cloud, hi = points.map((p, i) => i).filter(i => points[i].ele >= CL.minEle && WX.cloudZone(CL, points[i].km));
       const cloud = await fetchCloud({ get, base: OM, keyParam, tz: WX.TZ, models: Object.keys(models), pts: hi.map(i => points[i]), rh: CL.rh, sleep });
@@ -359,7 +368,7 @@ async function main() {
   } else {
     console.log('Models fetched ' + Math.round((NOW - grid.modelsRun) / 60) + ' min ago; reusing them.');
     Object.assign(sources, (prevLatest && prevLatest.sources) || {});
-    for (const k of ['air', 'fire', 'warnings', 'ensembles', 'obs', 'precis', 'incidents', 'epa']) delete sources[k];
+    for (const k of ['air', 'fire', 'warnings', 'ensembles', 'obs', 'precis', 'incidents', 'epa', 'check']) delete sources[k];
     copyDir(path.join(PREV, 'models'), path.join(OUT, 'models'));
   }
   if (grid) writeJSON(path.join(OUT, 'grid.json'), grid);
@@ -376,7 +385,7 @@ async function main() {
   if (flag('--force-models') || !ens || !ensPts || NOW - (ens.run || 0) > W.ensembles.everyHours * HOUR - 600) {
     try {
       const e = await fetchEnsembles({ get, base: ENS, keyParam, tz: WX.TZ, points, W, sleep });
-      if (e) { ens = Object.assign({ run: NOW, lh: localHours(e.t0, e.n) }, e); sources.ensembles = { ok: true, hours: e.n, members: e.members }; }
+      if (e) { ens = Object.assign({ run: NOW, lh: localHours(e.t0, e.n) }, e); sources.ensembles = { ok: true, hours: e.n, members: e.members, failed: Object.keys(e.failed || {}).length ? e.failed : undefined }; }
     } catch (err) { sources.ensembles = { ok: false, error: err.message.slice(0, 200) }; if (!ensPts) ens = null; }
   } else sources.ensembles = (prevLatest && prevLatest.sources && prevLatest.sources.ensembles) || { ok: true };
   if (ens) writeJSON(path.join(OUT, 'ens.json'), ens);
@@ -386,6 +395,14 @@ async function main() {
   try { obs = fetchObs({ route: D.route, W, prev: prevObs, now: NOW }); sources.obs = { ok: true, stations: Object.keys(obs.stations).length }; }
   catch (e) { sources.obs = { ok: false, error: String(e.message).slice(0, 300) }; obs = prevObs; }
   if (obs) writeJSON(path.join(OUT, 'obs.json'), obs);
+  // Model check: compare the stations' readings with what each model said 6 to 30 hours earlier.
+  let verify = prevVerify;
+  try {
+    verify = await verifyModels({ get, base: OM, keyParam, tz: WX.TZ, models: MODELS, obs, prev: prevVerify, now: NOW, W, sleep, fetchNow: fetchedNow, localDate: WX.localDate });
+    const hrs = Object.values(verify.skill.models).map(s => s.n);
+    sources.check = { ok: true, hours: Math.max(0, ...hrs), stations: Object.keys(verify.stations).length };
+  } catch (e) { sources.check = { ok: false, error: String(e.message).slice(0, 200) }; }
+  if (verify) writeJSON(path.join(OUT, 'verify.json'), verify);
   try { precis = fetchPrecis({ W, now: NOW }); sources.precis = { ok: true }; }
   catch (e) { sources.precis = { ok: false, error: String(e.message).slice(0, 300) }; precis = prevLatest && prevLatest.precis; }
   try { incidents = await fetchIncidents({ get, route: D.route, W, now: NOW }); sources.incidents = { ok: true }; }
@@ -398,7 +415,8 @@ async function main() {
     '; VicEmergency: ' + (incidents ? incidents.items.length + ' near the course' : JSON.stringify(sources.incidents)) + (sources.epa ? '; EPA: ' + JSON.stringify(sources.epa) : ''));
 
   const triggers = WX.evaluate(grid, { config: CFG, now: NOW, pace: PACE, fire, warnings, aq, ens, incidents });
-  const latest = { v: 1, updated: NOW, modelsRun: grid && grid.modelsRun, ensRun: ens && ens.run, models: grid ? grid.models : [], sources, fire, warnings, aq, precis, incidents, epa, triggers, hours: grid ? { t0: grid.t0, n: grid.n } : null };
+  const latest = { v: 1, updated: NOW, modelsRun: grid && grid.modelsRun, ensRun: ens && ens.run, models: grid ? grid.models : [], sources, fire, warnings, aq, precis, incidents, epa, triggers,
+    skill: verify && verify.skill ? Object.assign({}, verify.skill, { stations: verify.stations }) : null, hours: grid ? { t0: grid.t0, n: grid.n } : null };
   writeJSON(path.join(OUT, 'latest.json'), latest);
 
   // History: how the race weekend forecast has moved, one entry per run.

@@ -335,6 +335,8 @@ a.w3w:hover { text-decoration: underline; }
 .wx-mt th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; padding: 4px 8px; border-bottom: 2px solid var(--ink); }
 .wx-mt td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
 .wx-mt tr.med td { font-weight: 700; }
+.wx-skill { margin-top: 10px; white-space: nowrap; }
+.wx-skill small { color: var(--muted, #666); font-weight: 400; }
 .wx-near { background: var(--paper); border: 1px solid var(--line); border-left: 6px solid #2f7fc1; border-radius: var(--radius); padding: 8px 12px; margin-bottom: 10px; font-size: 13px; line-height: 1.6; }
 .wx-near .lnk { font-size: 12px; padding: 0 0 0 6px; text-decoration: none; }
 .wx-near-warn { color: var(--red); font-weight: 600; }
