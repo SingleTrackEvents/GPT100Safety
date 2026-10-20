@@ -77,7 +77,7 @@ async function get(url, type = 'json', tries = 3) {
       if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
       return type === 'json' ? await res.json() : await res.text();
     } catch (e) {
-      if (k >= tries) throw e;
+      if (k >= tries) throw e.cause && e.cause.message ? new Error(e.message + ': ' + e.cause.message) : e;
       await sleep(5000 * k);
     }
   }

@@ -31,20 +31,31 @@ export async function fetchEnsembles({ get, base, keyParam, tz, points, W, sleep
   const loc = 'latitude=' + pts.map(p => p.lat).join(',') + '&longitude=' + pts.map(p => p.lon).join(',') + '&elevation=' + pts.map(p => p.ele).join(',');
   const vars = ['temperature_2m', 'apparent_temperature', 'wind_gusts_10m', 'precipitation', 'cape'];
   const runs = [], members = {}, failed = {};
+  const fetchSet = async m => {
+    const js = await get(`${base}/v1/ensemble?${loc}&hourly=${vars.join(',')}&models=${m}&forecast_days=15&timeformat=unixtime&timezone=${encodeURIComponent(tz)}${keyParam}`);
+    const arr = Array.isArray(js) ? js : [js];
+    const time = arr[0].hourly.time;
+    // For each variable, every member's series at every point: data[var][member][point][hour]
+    // Members with nothing for this area (or without a variable, such as gusts) are simply left out of that count.
+    const keys = Object.keys(arr[0].hourly).filter(k => k.startsWith('temperature_2m'));
+    const mem = keys.map(k => k.replace('temperature_2m', '')).filter(s => arr.some(l => (l.hourly['temperature_2m' + s] || []).some(x => x != null)));
+    if (!mem.length) { failed[m] = 'No data for this area'; return; }
+    members[m] = mem.length;
+    delete failed[m];
+    runs.push({ t0: time[0], n: time.length, data: Object.fromEntries(vars.map(v => [v, mem.map(s => arr.map(l => l.hourly[v + s] || []))])) });
+  };
   for (const m of E.models) {
-    try {
-      const js = await get(`${base}/v1/ensemble?${loc}&hourly=${vars.join(',')}&models=${m}&forecast_days=15&timeformat=unixtime&timezone=${encodeURIComponent(tz)}${keyParam}`);
-      const arr = Array.isArray(js) ? js : [js];
-      const time = arr[0].hourly.time;
-      // For each variable, every member's series at every point: data[var][member][point][hour]
-      // Members with nothing for this area (or without a variable, such as gusts) are simply left out of that count.
-      const keys = Object.keys(arr[0].hourly).filter(k => k.startsWith('temperature_2m'));
-      const mem = keys.map(k => k.replace('temperature_2m', '')).filter(s => arr.some(l => (l.hourly['temperature_2m' + s] || []).some(x => x != null)));
-      if (!mem.length) { failed[m] = 'No data for this area'; continue; }
-      members[m] = mem.length;
-      runs.push({ t0: time[0], n: time.length, data: Object.fromEntries(vars.map(v => [v, mem.map(s => arr.map(l => l.hourly[v + s] || []))])) });
-    } catch (e) { failed[m] = e.message.slice(0, 120); }
-    finally { await sleep(8000); }   // six ensemble sets is a lot of data; spacing them out avoids the rate limit
+    try { await fetchSet(m); } catch (e) { failed[m] = e.message.slice(0, 120); }
+    await sleep(8000);   // six ensemble sets is a lot of data; spacing them out avoids the rate limit
+  }
+  // A set that failed (usually a dropped connection while Open-Meteo is throttling) gets one more go after a pause.
+  const again = Object.keys(failed).filter(m => failed[m] !== 'No data for this area');
+  if (again.length) {
+    await sleep(65000);
+    for (const m of again) {
+      try { await fetchSet(m); } catch (e) { failed[m] = e.message.slice(0, 120); }
+      await sleep(8000);
+    }
   }
   if (!runs.length) throw new Error(Object.entries(failed).map(([m, e]) => m + ': ' + e).join('; '));
   const t0 = Math.min(...runs.map(r => r.t0));
