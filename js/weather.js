@@ -33,7 +33,7 @@
     p: { label: 'Rain', unit: 'mm/h', dp: 1, col: ramp([[0, '#f5f5f0'], [0.19, '#f5f5f0'], [0.2, '#d6e8f5'], [1, '#8cc1e6'], [4, '#2f7fc1'], [10, '#173f8a']]), key: [['0.2', '#d6e8f5'], ['1', '#8cc1e6'], ['4', '#2f7fc1'], ['10 mm/h', '#173f8a']] },
     pp: { label: 'Chance of rain', unit: '%', dp: 0, col: ramp([[0, '#f5f5f0'], [50, '#8cc1e6'], [100, '#173f8a']]), key: [['0%', '#f5f5f0'], ['50%', '#8cc1e6'], ['100% of models', '#173f8a']] },
     wbgt: { label: 'WBGT (heat stress)', unit: '', dp: 1, col: ramp([[10, '#eef3ee'], [20, '#ece5a3'], [25, '#f4a259'], [28, '#e4572e'], [30, '#a4161a']]), key: [['20', '#ece5a3'], ['28', '#e4572e'], ['30', '#a4161a']] },
-    storm: { label: 'Thunderstorm', unit: 'models', dp: 0, col: v => v == null ? '#ececec' : v >= 2 ? STATUS_COL.met : v === 1 ? STATUS_COL.close : '#f5f5f0', key: [['1 model', STATUS_COL.close], ['2 or more', STATUS_COL.met]] },
+    storm: { label: 'Thunderstorm', unit: 'models', dp: 0, col: v => v == null ? '#ececec' : v >= T.storm.met ? STATUS_COL.met : v >= T.storm.close ? STATUS_COL.close : v ? '#f6e7b0' : '#f5f5f0', key: [['1 model', '#f6e7b0'], [T.storm.close + ' models', STATUS_COL.close], [T.storm.met + ' or more', STATUS_COL.met]] },
     cc: { label: 'Cloud', unit: '%', dp: 0, col: ramp([[0, '#fdf6d8'], [100, '#8a8a8a']]), key: [['Clear', '#fdf6d8'], ['Overcast', '#8a8a8a']] },
     cloud: { label: 'In cloud (high ground)', unit: '%', dp: 0, col: v => v == null ? '#f5f5f0' : ramp([[0, '#f5f5f0'], [49, '#dfe3e8'], [50, '#9aa5b1'], [100, '#4a5560']])(v), key: [['Some models', '#dfe3e8'], ['Half the models', '#9aa5b1'], ['All models', '#4a5560']] },
     uv: { label: 'UV index', unit: '', dp: 1, col: ramp([[0, '#eef3ee'], [3, '#ece5a3'], [6, '#f4a259'], [8, '#e4572e'], [11, '#7b1fa2']]), key: [['3 moderate', '#ece5a3'], ['6 high', '#f4a259'], ['8 very high', '#e4572e'], ['11 extreme', '#7b1fa2']] }
@@ -263,7 +263,7 @@
     h += trendHTML();
     h += `<details class="wx-src"><summary>Sources</summary><ul>${Object.entries(L.sources || {}).map(([k, s]) =>
       `<li><b>${esc(srcName(k))}</b>: ${s.ok ? (s.hours ? s.hours + ' hours' : s.stations != null ? s.stations + ' stations' : 'OK') : 'not working: ' + esc(s.error)}</li>`).join('')}</ul>
-      <p class="wx-note">Consensus = the middle value of all models (median). "Getting close" also flags when any single model reaches a trigger. Temperatures are adjusted to the height of each point. Phone alerts go to the ntfy app when a trigger gets closer, plus a 6 am summary from ${WX.fmtDay(WX.parseLocal(W.alertsFrom))}.</p></details>`;
+      <p class="wx-note">Consensus = the middle value of all models (median). "Getting close" also flags when any single model reaches a trigger (thunderstorms need ${T.storm.close} models). Temperatures are adjusted to the height of each point. Phone alerts go to the ntfy app when a trigger gets closer, plus a 6 am summary from ${WX.fmtDay(WX.parseLocal(W.alertsFrom))}.</p></details>`;
     return h;
   }
 
@@ -592,7 +592,7 @@
     let ele = `M${X(s[0].t)},${Ht - 22}` + s.map(x => `L${X(x.t).toFixed(1)},${E(x.km).toFixed(1)}`).join('') + `L${X(s[s.length - 1].t)},${Ht - 22}Z`;
     const line = k => s.map((x, i) => `${i ? 'L' : 'M'}${X(x.t).toFixed(1)},${Y(x.c[k]).toFixed(1)}`).join('');
     const bars = s.filter(x => x.c.p >= 0.1).map(x => `<rect x="${(X(x.t) - 2).toFixed(1)}" y="${(Ht - 22 - 40 * x.c.p / rMax).toFixed(1)}" width="4" height="${(40 * x.c.p / rMax).toFixed(1)}" fill="#2f7fc1"/>`).join('');
-    const storms = s.filter(x => x.c.storm).map(x => `<rect x="${(X(x.t) - 3).toFixed(1)}" y="0" width="6" height="${Ht - 22}" fill="${x.c.storm >= 2 ? '#d64545' : '#f0b429'}" opacity=".35"/>`).join('');
+    const storms = s.filter(x => x.c.storm).map(x => `<rect x="${(X(x.t) - 3).toFixed(1)}" y="0" width="6" height="${Ht - 22}" fill="${x.c.storm >= T.storm.met ? '#d64545' : x.c.storm >= T.storm.close ? '#f0b429' : '#f6e7b0'}" opacity=".35"/>`).join('');
     let ticks = '';
     for (let t = Math.ceil(t0 / (6 * HOUR)) * 6 * HOUR; t <= t1; t += 6 * HOUR) {
       const p = WX.parts(t);

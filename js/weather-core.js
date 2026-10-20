@@ -148,7 +148,7 @@
     fire: 'Total Fire Ban, or Extreme or Catastrophic rating, in the Wimmera or South West district',
     heat: T => 'Air temperature ' + T.met + '°C or WBGT ' + T.wbgtMet + ' (close from ' + T.close + '°C or WBGT ' + T.wbgtClose + ')',
     wind: T => 'Gusts over ' + T.met + ' km/h on ridges, or a BOM Severe Weather Warning (close from ' + T.close + ' km/h)',
-    storm: T => 'Thunderstorm in two or more models, or a BOM Severe Thunderstorm Warning (close: one model, or storm energy (CAPE) ' + T.capeClose + ' J/kg)',
+    storm: T => 'Thunderstorm in ' + T.met + ' or more models, or a BOM Severe Thunderstorm Warning (close: ' + T.close + ' models, or storm energy (CAPE) ' + T.capeClose + ' J/kg)',
     rain: T => 'More than ' + T.met + ' mm in 24 hours (close from ' + T.close + ' mm)',
     cold: T => 'Feels like ' + T.met + '°C or colder on ridges overnight, or ' + T.hours + ' hours of rain with ' + T.windKmh + ' km/h wind (close from ' + T.close + '°C)',
     cloud: T => T.zones.map(z => z.name + ' (km ' + z.fromKm + ' to ' + z.toKm + ')').join(' or ') + ' in cloud for ' + T.hours + ' hours or more in at least ' + T.agree + '% of models, while runners are there. Advisory, not an RMP trigger',
@@ -218,7 +218,7 @@
       f = null;
       if (covered) for (let h = h0; h <= h1; h++) for (let p = 0; p < grid.points.length; p++) {
         const s = C.storm[h][p] || 0, cape = C.cape[h][p];
-        const st = s >= 2 ? 'met' : s === 1 || cape >= T.storm.capeClose ? 'close' : 'ok';
+        const st = s >= T.storm.met ? 'met' : s >= T.storm.close || cape >= T.storm.capeClose ? 'close' : 'ok';
         f = better(f, cell('storm', h, p, st, s * 10000 + (cape || 0), { models: s, cape, n: C.n[h][p] }), true);
       }
       res.storm = Object.assign(base('storm'), f && { worst: f, status: f.status,
@@ -388,7 +388,7 @@
       if (night) { const a = C.at[h][p]; add('cold', a <= T.cold.met ? 'met' : a <= T.cold.close || C.atmin[h][p] <= T.cold.met ? 'close' : 'ok'); }
     }
     const s = C.storm[h][p] || 0;
-    add('storm', s >= 2 ? 'met' : s === 1 || C.cape[h][p] >= T.storm.capeClose ? 'close' : 'ok');
+    add('storm', s >= T.storm.met ? 'met' : s >= T.storm.close || C.cape[h][p] >= T.storm.capeClose ? 'close' : 'ok');
     if (T.cloud && C.cloud && C.cloud[h] && C.cloud[h][p] != null && C.cloud[h][p] >= T.cloud.agree) add('cloud', 'close');
     const r = C.p24[h][p];
     add('rain', r > T.rain.met ? 'met' : r >= T.rain.close || C.p24max[h][p] > T.rain.met ? 'close' : 'ok');
