@@ -47,6 +47,19 @@
     const m = v.length >> 1;
     return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
   }
+  // Median with a weight per value (equal weights give the plain median).
+  function wmedian(a, w) {
+    const v = a.map((x, i) => [x, w && w[i] != null ? w[i] : 1]).filter(p => p[0] != null && !isNaN(p[0]) && p[1] > 0).sort((x, y) => x[0] - y[0]);
+    if (!v.length) return null;
+    const half = v.reduce((s, p) => s + p[1], 0) / 2;
+    let c = 0;
+    for (let i = 0; i < v.length; i++) {
+      c += v[i][1];
+      if (c > half + 1e-9) return v[i][0];
+      if (Math.abs(c - half) <= 1e-9) return i + 1 < v.length ? (v[i][0] + v[i + 1][0]) / 2 : v[i][0];
+    }
+    return v[v.length - 1][0];
+  }
   function max(a) { let r = null; for (const x of a) if (x != null && !isNaN(x) && (r == null || x > r)) r = x; return r; }
   function min(a) { let r = null; for (const x of a) if (x != null && !isNaN(x) && (r == null || x < r)) r = x; return r; }
   function r1(x) { return x == null ? null : Math.round(x * 10) / 10; }
@@ -72,7 +85,9 @@
   const MODEL_NAMES = {
     ecmwf_ifs025: 'ECMWF IFS', ecmwf_aifs025_single: 'ECMWF AI', gfs_seamless: 'NOAA GFS', icon_seamless: 'DWD ICON',
     ukmo_seamless: 'UK Met Office', meteofrance_seamless: 'Météo-France', gem_seamless: 'Canada GEM',
-    jma_seamless: 'Japan JMA', bom_access_global: 'BOM ACCESS-G', era5: 'ERA5 (observed)'
+    jma_seamless: 'Japan JMA', bom_access_global: 'BOM ACCESS-G', cma_grapes_global: 'China CMA', era5: 'ERA5 (observed)',
+    // ensembles
+    gfs025: 'NOAA GFS', ecmwf_aifs025: 'ECMWF AI', ukmo_global_ensemble_20km: 'UK Met Office', gem_global: 'Canada GEM'
   };
   function modelName(id) { return MODEL_NAMES[id] || id; }
 
@@ -333,7 +348,7 @@
       if (E && E.v) {
         const e0 = Math.max(0, Math.ceil((sc.from - E.t0) / HOUR)), e1 = Math.min(E.n - 1, Math.floor((sc.to - E.t0) / HOUR));
         const close = (W.ensembles && W.ensembles.closeChance) || 30;
-        const chance = (key, k, filter) => {
+        const chance = (key, k, filter, what) => {
           let b = null;
           for (let h = e0; h <= e1; h++) for (let j = 0; j < E.points.length; j++) {
             if (filter && !filter(E.points[j], h)) continue;
@@ -342,10 +357,10 @@
           }
           const r = res[key];
           if (!b || !r) return;
-          r.chance = b;
+          r.chance = Object.assign(b, { what: what || 'reach the trigger' });
           if (b.p >= close && r.status === 'ok') {
             r.status = 'close';
-            r.text = (r.text ? r.text + '. ' : '') + b.p + '% of ensemble forecasts reach the trigger';
+            r.text = (r.text ? r.text + '. ' : '') + b.p + '% of ensemble forecasts ' + b.what;
             r.worst = Object.assign({}, r.worst || {}, { at: b.at, km: b.km, place: b.place, runners: runnersAt(pace, b.km, b.at, ctx.shift) });
           }
         };
@@ -355,6 +370,7 @@
           chance('wind', 'wm', p => p.ridge);
           chance('rain', 'rm');
           chance('cold', 'cm', (p, h) => p.ridge && nightAt(h));
+          chance('storm', 'sc', null, 'have storm energy (CAPE) over ' + T.storm.capeClose + ' J/kg');
         }
       }
 
@@ -476,7 +492,7 @@
   return {
     updateText, cloudZone,
     TZ, HOUR, parseLocal, localHour, fmtTime, fmtDay, localDate, parts, offsetMin,
-    median, max, min, r1, r0, wbgt, codeText, modelName, MODEL_NAMES,
+    median, wmedian, max, min, r1, r0, wbgt, codeText, modelName, MODEL_NAMES,
     passTime, kmAt, runnersAt, parseCFA, evaluate, cellStatus, RANK, LABELS, ORDER, ruleText, titleCase
   };
 });

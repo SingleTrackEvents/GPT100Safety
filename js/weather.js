@@ -215,9 +215,10 @@
     }).catch(e => { V.innerHTML = `<p class="notice danger">Couldn't load the forecast (${esc(e.message)}).</p>`; });
   }
 
-  const SRC = { warnings: 'BOM warnings (anonymous FTP)', fire: 'CFA fire ratings', air: 'Air quality forecast (CAMS via Open-Meteo)', ensembles: 'Ensembles: ECMWF and GFS (Open-Meteo)',
+  const SRC = { warnings: 'BOM warnings (anonymous FTP)', fire: 'CFA fire ratings', air: 'Air quality forecast (CAMS via Open-Meteo)', ensembles: 'Ensembles (Open-Meteo)', check: 'Model check against the BOM stations',
     obs: 'BOM observations (anonymous FTP)', precis: 'BOM town forecasts (anonymous FTP)', incidents: 'VicEmergency', epa: 'EPA AirWatch' };
   const srcName = k => SRC[k] || WX.modelName(k) + ' (Open-Meteo)';
+  const ensN = () => { const m = latest && latest.sources && latest.sources.ensembles && latest.sources.ensembles.members; return m ? Object.values(m).reduce((a, b) => a + b, 0) : 0; };
 
   // ---------- Triggers ----------
   const WORD = { met: 'Met', close: 'Getting close', ok: 'Clear', nodata: 'No data' };
@@ -254,7 +255,7 @@
           ${r.text ? `<p>${esc(r.text)}</p>` : ''}
           ${where && r.status !== 'nodata' ? `<p class="wx-where">${where}${w.runners ? ' <span class="chip">Runners on course</span>' : ''}</p>` : ''}
           ${r.status === 'nodata' && r.note ? `<p class="wx-where">${esc(r.note)}</p>` : ''}
-          ${r.chance && r.status !== 'nodata' ? `<p class="wx-where">Ensembles: ${r.chance.p ? 'up to ' + r.chance.p + '% chance' + (r.chance.p ? ` (km ${r.chance.km}, ${WX.fmtTime(r.chance.at)})` : '') : 'none of 82 forecasts reach it'}</p>` : ''}
+          ${r.chance && r.status !== 'nodata' ? `<p class="wx-where">Ensembles: ${r.chance.p ? 'up to ' + r.chance.p + '% ' + esc(r.chance.what || 'reach the trigger') + ` (km ${r.chance.km}, ${WX.fmtTime(r.chance.at)})` : 'none of ' + (ensN() || 'the') + ' forecasts ' + esc(r.chance.what || 'reach the trigger')}</p>` : ''}
           ${k === 'cloud' ? liveCloudHTML() : ''}
           <p class="wx-rule">${esc(r.rule)}${r.proposed ? ' <em>(proposed trigger)</em>' : ''}</p>
         </button>`;
@@ -262,8 +263,9 @@
     }
     h += trendHTML();
     h += `<details class="wx-src"><summary>Sources</summary><ul>${Object.entries(L.sources || {}).map(([k, s]) =>
-      `<li><b>${esc(srcName(k))}</b>: ${s.ok ? (s.hours ? s.hours + ' hours' : s.stations != null ? s.stations + ' stations' : 'OK') : 'not working: ' + esc(s.error)}</li>`).join('')}</ul>
-      <p class="wx-note">Consensus = the middle value of all models (median). "Getting close" also flags when any single model reaches a trigger (thunderstorms need ${T.storm.close} models). Temperatures are adjusted to the height of each point. Phone alerts go to the ntfy app when a trigger gets closer, plus a 6 am summary from ${WX.fmtDay(WX.parseLocal(W.alertsFrom))}.</p></details>`;
+      `<li><b>${esc(srcName(k))}</b>: ${s.ok ? (s.members ? ensN() + ' forecasts: ' + Object.entries(s.members).map(([m, n]) => esc(WX.modelName(m)) + ' ' + n).join(', ') + (s.failed ? '; not working: ' + Object.keys(s.failed).map(m => esc(WX.modelName(m))).join(', ') : '')
+        : k === 'check' ? (s.hours ? s.hours + ' hours checked at ' + s.stations + ' stations' : 'waiting for readings') : s.hours ? s.hours + ' hours' : s.stations != null ? s.stations + ' stations' : 'OK') : 'not working: ' + esc(s.error)}</li>`).join('')}</ul>
+      <p class="wx-note">Consensus = the middle value of all models (median), weighted by how close each model has been to the BOM stations over the past ${W.verify ? W.verify.days : 7} days (see Models). "Getting close" also flags when any single model reaches a trigger (thunderstorms need ${T.storm.close} models). Temperatures are adjusted to the height of each point. Phone alerts go to the ntfy app when a trigger gets closer, plus a 6 am summary from ${WX.fmtDay(WX.parseLocal(W.alertsFrom))}.</p></details>`;
     return h;
   }
 
@@ -681,12 +683,14 @@
     if (h1 <= h0) { $('wxChart').innerHTML = '<p class="notice warn">The forecast doesn\'t reach race weekend yet.</p>'; $('wxMtab').innerHTML = ''; return; }
     const val = (m, h) => { const a = f.models[m][mdVar]; const v = a && h < a.length ? a[h] : null; return mdVar === 'cbase' && v == null && a ? (h < a.length ? 2000 : null) : v; };
     if (mdVar === 'cbase' && !ids.some(m => f.models[m].cbase)) { $('wxChart').innerHTML = '<p class="notice warn">Cloud base is only worked out for the high ground: ' + T.cloud.zones.map(z => z.name + ' (km ' + z.fromKm + ' to ' + z.toKm + ')').join(' and ') + '. Pick a point there.</p>'; $('wxMtab').innerHTML = ''; return; }
-    // Ensemble range: 80% of the 82 ensemble forecasts fall inside the band.
+    // Ensemble range: 80% of the ensemble forecasts fall inside the band.
     const band = ens && { t: ['t10', 't90'], g: ['g10', 'g90'] }[mdVar];
     let ej = -1;
     if (band) { ej = ens.gi.indexOf(mdPoint); if (ej < 0) { let bd = 1e9; ens.points.forEach((p, j) => { const d = Math.abs(p.km - g.points[mdPoint].km); if (d < bd) { bd = d; ej = j; } }); } }
     const ensAt = (k, h) => { if (ej < 0) return null; const hh = h - (ens.t0 - g.t0) / HOUR; return hh >= 0 && hh < ens.n ? ens.v[k][hh][ej] : null; };
-    const med = []; for (let h = h0; h <= h1; h++) med.push(WX.median(ids.filter(m => !mdHidden[m]).map(m => val(m, h))));
+    const wOf = m => g.weights && g.weights[m] != null ? g.weights[m] : 1;
+    const shown = ids.filter(m => !mdHidden[m]);
+    const med = []; for (let h = h0; h <= h1; h++) med.push(WX.wmedian(shown.map(m => val(m, h)), shown.map(wOf)));
     let lo = Infinity, hi = -Infinity;
     for (const m of ids) if (!mdHidden[m]) for (let h = h0; h <= h1; h++) { const v = val(m, h); if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
     if (band) for (let h = h0; h <= h1; h++) { const a = ensAt(band[0], h), b = ensAt(band[1], h); if (a != null) lo = Math.min(lo, a); if (b != null) hi = Math.max(hi, b); }
@@ -727,7 +731,7 @@
     const hs = hourIdx(g, mdT);
     svg += `<line x1="${X(hs)}" x2="${X(hs)}" y1="10" y2="${Ht - 30}" stroke="#d9531e" stroke-width="2"/>`;
     $('wxChart').innerHTML = `<svg id="wxMsvg" class="wx-models" viewBox="0 0 ${Wd} ${Ht}">${svg}<rect id="wxMhit" x="36" y="10" width="${Wd - 44}" height="${Ht - 40}" fill="transparent"/></svg>
-      <div class="wx-legend">${ids.map((m, i) => `<button data-m="${m}" class="${mdHidden[m] ? 'off' : ''}"><i style="background:${MCOL[i % MCOL.length]}"></i>${esc(WX.modelName(m))}</button>`).join('')}<span><i style="background:#111"></i>Consensus</span>${band && ej >= 0 ? '<span><i style="background:rgba(217,83,30,.35)"></i>Ensemble range (80% of 82 forecasts)</span>' : ''}</div>`;
+      <div class="wx-legend">${ids.map((m, i) => `<button data-m="${m}" class="${mdHidden[m] ? 'off' : ''}"><i style="background:${MCOL[i % MCOL.length]}"></i>${esc(WX.modelName(m))}</button>`).join('')}<span><i style="background:#111"></i>Consensus</span>${band && ej >= 0 ? `<span><i style="background:rgba(217,83,30,.35)"></i>Ensemble range (80% of ${ensN() || 'the ensemble'} forecasts)</span>` : ''}</div>`;
     $('wxChart').querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => { mdHidden[b.dataset.m] = !mdHidden[b.dataset.m]; drawModels(g, f); }));
     $('wxMhit').addEventListener('click', e => {
       const svgEl = $('wxMsvg'), r = svgEl.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * Wd;
@@ -737,12 +741,28 @@
     // Table at the chosen hour.
     const unit = MVARS[mdVar][1], dp = MVARS[mdVar][2];
     const rows = ids.map((m, i) => { const v = val(m, hs), c = f.models[m].code && f.models[m].code[hs]; return { m, i, v, c }; });
-    const vals = rows.map(r => r.v).filter(v => v != null);
+    const vals = rows.map(r => r.v).filter(v => v != null), cons = WX.wmedian(rows.map(r => r.v), rows.map(r => wOf(r.m)));
     $('wxMtab').innerHTML = `<h3 class="wx-h3">${WX.fmtTime(mdT)} at km ${g.points[mdPoint].km}${g.points[mdPoint].name ? ' ' + esc(g.points[mdPoint].name) : ''}</h3>
       <table class="wx-mt"><thead><tr><th>Model</th><th>${MVARS[mdVar][0]}</th><th>Sky</th></tr></thead><tbody>${rows.map(r =>
         `<tr><td><i style="background:${MCOL[r.i % MCOL.length]}"></i>${esc(WX.modelName(r.m))}</td><td>${r.v == null ? '<span class="muted">n/a</span>' : r.v.toFixed(dp) + ' ' + unit}</td><td>${esc(WX.codeText(r.c))}</td></tr>`).join('')}
-      <tr class="med"><td>Consensus</td><td>${vals.length ? WX.median(vals).toFixed(dp) + ' ' + unit : 'n/a'}</td><td></td></tr></tbody></table>
-      <p class="wx-note">${vals.length > 1 ? `The models range from ${Math.min(...vals).toFixed(dp)} to ${Math.max(...vals).toFixed(dp)} ${unit}: ${spreadWord(mdVar, Math.max(...vals) - Math.min(...vals))}.` : ''} Short range models (UK Met Office, Météo-France, ICON) drop out after a few days. Tap the chart to choose a time.${mdVar === 'cbase' ? ' A line along the top means no cloud below about 1,500 m in that model.' : ''}</p>`;
+      <tr class="med"><td>Consensus</td><td>${cons != null ? cons.toFixed(dp) + ' ' + unit : 'n/a'}</td><td></td></tr></tbody></table>
+      <p class="wx-note">${vals.length > 1 ? `The models range from ${Math.min(...vals).toFixed(dp)} to ${Math.max(...vals).toFixed(dp)} ${unit}: ${spreadWord(mdVar, Math.max(...vals) - Math.min(...vals))}.` : ''} Short range models (UK Met Office, Météo-France, ICON) drop out after a few days. Tap the chart to choose a time.${mdVar === 'cbase' ? ' A line along the top means no cloud below about 1,500 m in that model.' : ''}</p>`
+      + skillHTML(ids, g);
+  }
+  // How each model has been doing against the BOM stations (tools/weather_verify.mjs), and its weight in the consensus.
+  function skillHTML(ids, g) {
+    const S = latest.skill;
+    if (!S || !S.models) return '';
+    const sts = S.stations || {}, mtw = Object.keys(sts).find(id => /william/i.test(sts[id].name));
+    const fmt = (mae, bias, dp, unit) => mae == null ? '<span class="muted">n/a</span>' : `${mae.toFixed(dp)}${unit} <small>(${bias > 0 ? '+' : ''}${bias.toFixed(dp)})</small>`;
+    const rows = ids.map((m, i) => { const s = S.models[m]; return { m, i, s }; }).filter(r => r.s);
+    const any = rows.some(r => r.s.n);
+    if (!any) return `<h3 class="wx-h3">Model check</h3><p class="wx-note">Each model's forecasts are being compared with the BOM stations near the course. Results appear once a day or so of readings has come in.</p>`;
+    return `<h3 class="wx-h3">Model check: the last ${S.days} days against ${Object.keys(sts).length} BOM stations</h3>
+      <div class="wx-scroll"><table class="wx-mt wx-skill"><thead><tr><th>Model</th><th>Temp error</th><th>Temp at Mt William</th><th>Gust error</th><th>Hours</th><th>Weight</th></tr></thead><tbody>${rows.sort((a, b) => (a.s.maeT == null) - (b.s.maeT == null) || a.s.maeT - b.s.maeT).map(r => {
+        const w = r.s.stations && mtw && r.s.stations[mtw];
+        return `<tr><td><i style="background:${MCOL[r.i % MCOL.length]}"></i>${esc(WX.modelName(r.m))}</td><td>${fmt(r.s.maeT, r.s.biasT, 1, '°')}</td><td>${w ? fmt(w.maeT, w.biasT, 1, '°') : '<span class="muted">n/a</span>'}</td><td>${fmt(r.s.maeG, r.s.biasG, 0, ' km/h')}</td><td>${r.s.n}</td><td>${g.weights && g.weights[r.m] != null ? g.weights[r.m] : (r.s.weight != null ? r.s.weight : 1)}</td></tr>`; }).join('')}</tbody></table></div>
+      <p class="wx-note">Error = how far the model's forecast, made 6 to 30 hours earlier, was from the station reading on average; the number in brackets is the bias (+ means the model ran warm or windy). Gusts compare the model's hourly gust with the station's 10 minute gust, so every model reads a little high there. A model needs ${S.minHours} checked hours before it's weighted; the best model weighs 1 and others less, down to ${W.verify ? W.verify.minWeight : 0.4}. Weights apply from the next model fetch.</p>`;
   }
   function spreadWord(k, s) {
     const lim = { t: [2, 5], at: [2, 5], g: [10, 25], w: [8, 20], p: [0.5, 2], cc: [25, 60], cape: [200, 600], rh: [10, 25] }[k] || [1, 2];

@@ -1,5 +1,5 @@
 // Extra free sources for the weather watch (tools/weather_watch.mjs):
-//  - ensemble forecasts (ECMWF and GFS, 80 versions of the forecast) for the chance of each trigger
+//  - ensemble forecasts (ECMWF, GFS, UK Met Office, ICON, GEM: about 210 versions of the forecast) for the chance of each trigger
 //  - live BOM observations and BOM town forecasts, from the Bureau's anonymous FTP service
 //  - VicEmergency incidents, warnings and planned burns near the course
 //  - EPA AirWatch live air quality (needs a free EPA API key in the EPA_KEY secret)
@@ -29,23 +29,27 @@ export async function fetchEnsembles({ get, base, keyParam, tz, points, W, sleep
   const gi = points.map((p, i) => i).filter(i => i % 2 === 0 || points[i].name);
   const pts = gi.map(i => points[i]);
   const loc = 'latitude=' + pts.map(p => p.lat).join(',') + '&longitude=' + pts.map(p => p.lon).join(',') + '&elevation=' + pts.map(p => p.ele).join(',');
-  const vars = ['temperature_2m', 'apparent_temperature', 'wind_gusts_10m', 'precipitation'];
-  const runs = [], members = {};
+  const vars = ['temperature_2m', 'apparent_temperature', 'wind_gusts_10m', 'precipitation', 'cape'];
+  const runs = [], members = {}, failed = {};
   for (const m of E.models) {
-    const js = await get(`${base}/v1/ensemble?${loc}&hourly=${vars.join(',')}&models=${m}&forecast_days=15&timeformat=unixtime&timezone=${encodeURIComponent(tz)}${keyParam}`);
-    const arr = Array.isArray(js) ? js : [js];
-    const time = arr[0].hourly.time;
-    // For each variable, every member's series at every point: data[var][member][point][hour]
-    const keys = Object.keys(arr[0].hourly).filter(k => k.startsWith('temperature_2m'));
-    const mem = keys.map(k => k.replace('temperature_2m', ''));
-    members[m] = mem.length;
-    runs.push({ t0: time[0], n: time.length, data: Object.fromEntries(vars.map(v => [v, mem.map(s => arr.map(l => l.hourly[v + s] || []))])) });
-    await sleep(1500);
+    try {
+      const js = await get(`${base}/v1/ensemble?${loc}&hourly=${vars.join(',')}&models=${m}&forecast_days=15&timeformat=unixtime&timezone=${encodeURIComponent(tz)}${keyParam}`);
+      const arr = Array.isArray(js) ? js : [js];
+      const time = arr[0].hourly.time;
+      // For each variable, every member's series at every point: data[var][member][point][hour]
+      // Members with nothing for this area (or without a variable, such as gusts) are simply left out of that count.
+      const keys = Object.keys(arr[0].hourly).filter(k => k.startsWith('temperature_2m'));
+      const mem = keys.map(k => k.replace('temperature_2m', '')).filter(s => arr.some(l => (l.hourly['temperature_2m' + s] || []).some(x => x != null)));
+      if (!mem.length) { failed[m] = 'No data for this area'; continue; }
+      members[m] = mem.length;
+      runs.push({ t0: time[0], n: time.length, data: Object.fromEntries(vars.map(v => [v, mem.map(s => arr.map(l => l.hourly[v + s] || []))])) });
+    } catch (e) { failed[m] = e.message.slice(0, 120); }
+    finally { await sleep(8000); }   // six ensemble sets is a lot of data; spacing them out avoids the rate limit
   }
-  if (!runs.length) return null;
+  if (!runs.length) throw new Error(Object.entries(failed).map(([m, e]) => m + ': ' + e).join('; '));
   const t0 = Math.min(...runs.map(r => r.t0));
   const n = Math.max(...runs.map(r => (r.t0 - t0) / HOUR + r.n));
-  const keys = ['hm', 'hc', 'wm', 'wc', 'cm', 'rm', 'rc', 't10', 't50', 't90', 'at10', 'g50', 'g90', 'g10', 'p24_50', 'p24_90'];
+  const keys = ['hm', 'hc', 'wm', 'wc', 'cm', 'rm', 'rc', 'sc', 't10', 't50', 't90', 'at10', 'g50', 'g90', 'g10', 'p24_50', 'p24_90'];
   const v = Object.fromEntries(keys.map(k => [k, []]));
   // 24 hour rain per member, per point, ending at each hour.
   runs.forEach(r => {
@@ -59,7 +63,7 @@ export async function fetchEnsembles({ get, base, keyParam, tz, points, W, sleep
   for (let h = 0; h < n; h++) {
     keys.forEach(k => v[k].push(new Array(pts.length).fill(null)));
     for (let j = 0; j < pts.length; j++) {
-      const t = [], at = [], g = [], p24 = [];
+      const t = [], at = [], g = [], p24 = [], cape = [];
       for (const r of runs) {
         const hh = h - (r.t0 - t0) / HOUR;
         if (hh < 0 || hh >= r.n) continue;
@@ -67,6 +71,7 @@ export async function fetchEnsembles({ get, base, keyParam, tz, points, W, sleep
         r.data.apparent_temperature.forEach(m => { const x = m[j][hh]; if (x != null) at.push(x); });
         r.data.wind_gusts_10m.forEach(m => { const x = m[j][hh]; if (x != null) g.push(x); });
         r.p24.forEach(m => { const x = m[j][hh]; if (x != null) p24.push(x); });
+        r.data.cape.forEach(m => { const x = m[j][hh]; if (x != null) cape.push(x); });
       }
       if (!t.length) continue;
       last = h;
@@ -76,6 +81,7 @@ export async function fetchEnsembles({ get, base, keyParam, tz, points, W, sleep
       set('wm', share(g, x => x > T.wind.met)); set('wc', share(g, x => x >= T.wind.close));
       set('cm', share(at, x => x <= T.cold.met));
       set('rm', share(p24, x => x > T.rain.met)); set('rc', share(p24, x => x >= T.rain.close));
+      set('sc', share(cape, x => x >= T.storm.capeClose));
       set('t10', r1(pct(t, 0.1))); set('t50', r1(pct(t, 0.5))); set('t90', r1(pct(t, 0.9)));
       set('at10', r1(pct(at, 0.1)));
       set('g10', Math.round(pct(g, 0.1) ?? 0)); set('g50', Math.round(pct(g, 0.5) ?? 0)); set('g90', Math.round(pct(g, 0.9) ?? 0));
@@ -84,7 +90,7 @@ export async function fetchEnsembles({ get, base, keyParam, tz, points, W, sleep
     }
   }
   for (const k of keys) v[k] = v[k].slice(0, last + 1);
-  return { t0, n: last + 1, members, points: pts.map(p => ({ km: p.km, ele: p.ele, ridge: p.ridge, name: p.name })), gi, v };
+  return { t0, n: last + 1, members, failed, points: pts.map(p => ({ km: p.km, ele: p.ele, ridge: p.ridge, name: p.name })), gi, v };
 }
 
 // ---------- BOM FTP ----------
