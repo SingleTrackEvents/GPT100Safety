@@ -5,6 +5,7 @@
   const G = window.GPT, ENC = window.GPT100_MEDPLAN_ENC, SO = window.GPT100_SO;
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const one = x => (Math.round(x * 10) / 10).toFixed(1);
   const LS = 'gpt100_medplan_pw';
   try { localStorage.removeItem('gpt100_medplan_key'); } catch (e) { } // older versions saved a key, not the password
   const DAYS = { Thu: 0, Fri: 1, Sat: 2, Sun: 3 };
@@ -158,6 +159,7 @@
         <input type="range" id="medSlider" min="0" max="${P.n - 1}" aria-label="Plan time">
         <div class="med-jumps">${JUMPS.map(([l, j]) => `<button type="button" data-h="${j}">${l}</button>`).join('')}</div>
         <div class="med-races" id="medRaces"></div>
+        <div class="med-live" id="medLive"></div>
         <div class="med-veh" id="medVeh"></div>
         <div class="med-grid" id="medStations"></div>
         <p class="med-note">Draft plan. Runner numbers are 2025 results on the 2026 clock; person IDs are provisional. Keep this information within the medical and event team.</p>
@@ -238,10 +240,34 @@
         ${s.w3w ? `<a class="w3w" href="https://w3w.co/${esc(s.w3w)}" target="_blank" rel="noopener">///${esc(s.w3w)}</a>` : ''}</article>`;
     }).join('') : '<p class="muted">Nobody is on post at this time.</p>';
 
+    liveRunners();
     updateMap(h);
     refreshFind();
     if (isLive()) startLive(); else stopLive();
   }
+
+  // Live runners from the tracking feed: how many are in each section between aid stations right now,
+  // the leader and the tail, and anyone not moving. Replaces the plan's estimates while the feed is up.
+  function liveRunners() {
+    const el = $('medLive'); if (!el) return;
+    const TR = window.GPTTracking;
+    if (!TR) { el.innerHTML = ''; return; }
+    if (!TR.ready()) { el.innerHTML = `<p class="muted">${esc(TR.status())}</p>`; return; }
+    const G = window.GPT, A = G.AID, rows = [];
+    for (let i = 1; i < A.length; i++) {
+      const rs = TR.between(G, A[i - 1].trail_km, A[i].trail_km);
+      if (rs.length) rows.push({ a: A[i - 1], b: A[i], n: rs.length, stopped: rs.filter(r => r.pos.stopped).length });
+    }
+    const lead = TR.leaders(G), w = TR.watch();
+    el.innerHTML = `<div class="card"><h3>Runners on course now</h3><p class="trk-status">${esc(TR.status())}</p>` +
+      (lead.length ? `<div class="row"><span><b>Leader</b><span class="sub">${TR.who(lead[0])}, km ${one(lead[0].pos.km)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(lead[0].bib)}">Find</button></div>
+        <div class="row"><span><b>Tail</b><span class="sub">${TR.who(lead[lead.length - 1])}, km ${one(lead[lead.length - 1].pos.km)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(lead[lead.length - 1].bib)}">Find</button></div>` : '') +
+      rows.map(x => `<div class="row"><span><b>${esc(short(x.a.name))} to ${esc(short(x.b.name))}</b><span class="sub">km ${one(x.a.trail_km)} to ${one(x.b.trail_km)}${x.stopped ? `, <b>${x.stopped} not moving</b>` : ''}</span></span><span class="v">${x.n}</span></div>`).join('') +
+      (w.stopped.length ? `<h4>Not moving for 20 minutes</h4>` + w.stopped.slice(0, 8).map(r => `<div class="row"><span>${TR.who(r)}<span class="sub">km ${one(r.pos.km)}, last fix ${TR.ago(r.pos.ageMs)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`).join('') : '') +
+      (w.quiet.length ? `<h4>Trackers gone quiet</h4>` + w.quiet.slice(0, 8).map(r => `<div class="row"><span>${TR.who(r)}<span class="sub">last at km ${one(r.pos.km)}, ${TR.ago(r.pos.ageMs)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`).join('') : '') +
+      '</div>';
+  }
+  const short = n => n.replace(/\s*\((start|finish|aid station|water point|emergency aid)\)/ig, '');
 
   function buildMap() {
     if (!window.L) { $('medMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
@@ -290,6 +316,7 @@
   }
 
   function startLive() { if (!liveTimer) liveTimer = setInterval(() => { if (isLive()) update(); refreshFind(); }, 60000); }
+  if (window.GPTTracking) GPTTracking.onUpdate(() => { if (built && P) { liveRunners(); updateMap(curH()); } });
   function stopLive() { if (liveTimer) { clearInterval(liveTimer); liveTimer = null; } }
   function refreshFind() { if (window.GPT_UI) window.GPT_UI.refresh(); drawFindLayer(); if (window.RaceControl) window.RaceControl.onAuth(); }
 

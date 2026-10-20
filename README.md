@@ -32,6 +32,16 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - Search by what3words, with suggestions near the course as you type. If a word is misheard or the address lands a long way from the course, the app suggests likely alternatives near the race.
 - With signal, the casualty's what3words is looked up and added to the result, the message and the WhatsApp text, along with the parking spot's what3words.
 
+**Live runner tracking** (when the GPS tracking link is set, see below)
+
+- Every runner with a tracker is a dot on the Find map with their bib (grey when the tracker has gone quiet, red when they haven't moved for 20 minutes). Tap one for name, km and last fix.
+- **Find by bib:** type `#1047` (or `bib 1047`, or just the number when it's bigger than the course km) and Find opens at that runner's last position, on their own course, with how long ago the fix was. The normal response answer follows from there.
+- **Runners near this spot** on every Find result: the tracked runners within 5 km along the course either side of the casualty, with bib, km, distance and last fix, and a Find button for each. The message gets a line with the nearest bibs.
+- **Medical:** runners on course now per section between aid stations, the leader and the tail, anyone not moving, and trackers gone quiet.
+- **Control:** a Runner watch list (not moving, tracker quiet) with Find buttons, every runner on the board map, and each open incident with a bib shows where that runner's tracker is now and how far that is from the logged km.
+- **Field app:** Where am I? adds Runners near you: the next runners coming towards you, nearest first, and those just past, with the runners on the field map.
+- The feed is GPS-seuranta (tulospalvelu.fi), the system used at Buffalo Stampede. The app reads the event's `init.txt` (competitors) and `data.lst` (positions) through the Worker's `/gps/` relay, since the provider only serves them to its own viewer, and polls `data.php` every 15 seconds while the event is live. Without the link set, nothing changes.
+
 **Weather** (for the weather lead and race control)
 
 - **Triggers:** the Risk Management Plan triggers (fire, wind on ridges, thunderstorms, heat, heavy rain, cold on ridges, smoke) for the next 48 hours and for race weekend. Each shows Clear, Getting close or Met, where and when, and whether runners will be there. Official BOM warnings near the course and the CFA fire ratings come first. Tap a trigger to see it on the timeline.
@@ -143,6 +153,26 @@ Then run `python3 tools/add_w3w.py` to give any new points a what3words address.
 The update script replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check a few km in Find afterwards and commit `data/course.js`.
 
 Where the course passes the same spot twice, such as the out and back to Jimmy Creek Camp, the app works that out automatically and shows both km.
+
+## Live runner tracking
+
+The tracking provider gives a public link like `https://tulospalvelu.fi/gps/20260328buffalostamp/`. In `data/config.js`:
+
+```
+tracking: { url: 'https://tulospalvelu.fi/gps/<event>/', label: 'Live tracking', gps: '<event>' },
+```
+
+`url` is the Live tracking button; `gps` (the last part of the link) turns on the runner positions in the apps. The positions come through the Worker's `/gps/` relay, so the Worker needs the current `tools/refresh-worker.js` pasted in (no new secrets). Each phone fetches the whole position file once (a few MB by late in the race), then only the new bytes every 15 seconds.
+
+To rehearse before the link exists, or to train with the app:
+
+```
+node tools/gps_demo_feed.mjs out/demo-gps 60 9     # 60 made-up runners, 9 hours into the Miler
+python3 -m http.server 8765
+open http://localhost:8765/index.html?gps=http://localhost:8765/out/demo-gps/
+```
+
+`?gps=` also takes an event id, which goes through the relay, so a past event (for example the Buffalo one) can be replayed on the live site without changing the config.
 
 ## Track grades and emergency markers
 

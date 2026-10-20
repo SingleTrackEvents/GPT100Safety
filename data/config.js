@@ -68,9 +68,12 @@ window.GPT100_CONFIG = {
       fire: {}                                            // Total Fire Ban, or Extreme / Catastrophic rating
     }
   },
-  // Live runner tracking. Paste the tracking page link here when it's available: a Live tracking button
-  // then shows in the field app and on the Race Control board. (A data feed can be added later.)
-  tracking: { url: '', label: 'Live tracking' },
+  // Live runner tracking (GPS-seuranta, tulospalvelu.fi). url: the public tracking page, for the Live tracking
+  // button. gps: the event's id from that link (the last part of the address, e.g. 20260328buffalostamp); the app
+  // then reads the runners' positions through the Worker's /gps/ relay and shows them in Find, Medical, Control
+  // and the field app. Leave gps blank until the event's link exists. For a rehearsal, open the app with
+  // ?gps=<event id> or ?gps=<full address of a folder holding init.txt and data.lst>.
+  tracking: { url: '', label: 'Live tracking', gps: '' },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
   what3wordsKey: 'LBTPEWCQ'

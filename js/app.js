@@ -44,7 +44,7 @@
   // ---------- Map ----------
   // The map is optional: if Leaflet can't load (no signal on first open), answers still work.
   let courseLL = route.map(p => [p[0], p[1]]);
-  let map = null, resultLayer = null, courseLayer = null, pin = null;
+  let map = null, resultLayer = null, courseLayer = null, runnerLayer = null, pin = null;
   // The elevation profile under the map: the course, then the casualty's section.
   const profile = window.GPTProfile ? GPTProfile({ el: $('findProf'), course: G, map: () => map, who: 'the casualty', colour: '#ffd21f',
     empty: 'Find a casualty to see their section: the climb and distance to the aid stations either side. Drag along the profile to see any point.' }) : null;
@@ -68,11 +68,19 @@
     d.innerHTML = G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)}`).join('<br>') +
       '<br><i style="background:#111"></i>Aid station or water point<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
       `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach` +
-      (window.GPTTrack ? '<br><span class="legend-head">Track grade after a find</span><br>' + GPTTrack.legendHTML() : '');
+      (window.GPTTrack ? '<br><span class="legend-head">Track grade after a find</span><br>' + GPTTrack.legendHTML() : '') +
+      (window.GPTTracking ? '<br><span class="trk-mk" style="display:inline-block;vertical-align:middle">1047</span> Tracked runner (grey: quiet, red: not moving)' : '');
     return d;
   };
   legend.addTo(map);
   resultLayer = L.layerGroup().addTo(map);
+  if (window.GPTTracking) {
+    runnerLayer = L.layerGroup().addTo(map);
+    GPTTracking.onUpdate(() => {
+      runnerLayer.clearLayers(); GPTTracking.draw(runnerLayer, G, null, null, { find: true });
+      if (last && $('trkNear')) { $('trkNear').innerHTML = GPTTracking.nearHTML(G, last.km, last.lat, last.lon); refreshMessage(last); }
+    });
+  }
   map.on('click', e => {
     setPicking(false);
     $('q').value = e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
@@ -118,7 +126,7 @@
     document.querySelectorAll('.course-pick button').forEach(b => b.classList.toggle('on', b.dataset.c === G.id));
     document.querySelectorAll('.course-note').forEach(n => n.textContent = G.note);
     last = null; $('result').innerHTML = EMPTY; setMsg('');
-    if (map) { resultLayer.clearLayers(); drawCourse(true); }
+    if (map) { resultLayer.clearLayers(); drawCourse(true); if (runnerLayer) { runnerLayer.clearLayers(); GPTTracking.draw(runnerLayer, G, null, null, { find: true }); } }
     if (profile) { profile.setHere(null); profile.setCourse(G); }
     if ($('racePick')) $('racePick').hidden = !G.main;
   }
@@ -146,7 +154,7 @@
   function setRace(id, rerun) {
     race = RACES.find(r => r.id === id) || RACES[0];
     if ($('race')) $('race').value = race.id;
-    $('q').placeholder = isSub() ? `${race.label} km, coordinates or what3words` : 'Km, coordinates or what3words';
+    $('q').placeholder = (isSub() ? `${race.label} km, coordinates or what3words` : 'Km, coordinates or what3words') + (window.GPTTracking ? ' or #bib' : '');
     if (!rerun) return;
     // A typed km is re-read as the new race's km; any other search just updates the race km shown.
     const q = parseQuery($('q').value);
@@ -170,8 +178,15 @@
     if (!v) return null;
     const w = v.replace(/^what3words:\/\//i, '').replace(/^\/+/, '');
     if (/^[\p{L}]+\.[\p{L}]+\.[\p{L}]+$/u.test(w)) return { type: 'w3w', words: w.toLowerCase() };
+    // A runner's bib, from the live tracking feed: "#1047", "bib 1047", or a bare number past the end of the course.
+    const bm = v.match(/^(?:#|bib\s*|runner\s*)?(\d{1,5})$/i);
+    if (bm && window.GPTTracking) {
+      const r = GPTTracking.byBib(bm[1]), tagged = /^(#|bib|runner)/i.test(v);
+      if (r && (tagged || +bm[1] > G.totalKm)) return r.pos ? { type: 'bib', r } : { type: 'error', msg: `Bib ${bm[1]} (${r.name}) has no tracker position yet` };
+      if (tagged) return { type: 'error', msg: GPTTracking.ready() ? `No bib ${bm[1]} in the tracking feed` : 'Tracking is still loading, try again in a moment' };
+    }
     const nums = v.match(/-?\d+(?:\.\d+)?/g);
-    if (!nums) return { type: 'error', msg: 'Enter a km, coordinates (lat, lon) or ///word.word.word' };
+    if (!nums) return { type: 'error', msg: 'Enter a km, coordinates (lat, lon), ///word.word.word or a bib (#1047)' };
     if (nums.length === 1) {
       const km = +nums[0];
       if (isSub()) {
@@ -203,7 +218,19 @@
     setMsg('');
     if (q.type === 'km') findKm(q.km);
     else if (q.type === 'll') findLL(q.lat, q.lon, 'coordinates');
+    else if (q.type === 'bib') findBib(q.r);
     else lookupW3W(q.words);
+  });
+  // A runner from the tracking feed: their last fix, on their own course.
+  function findBib(r) {
+    if (r.pos.course !== G) setCourse(r.pos.course.id);
+    $('q').value = '#' + r.bib;
+    findLL(r.pos.lat, r.pos.lon, `bib ${r.bib} tracker, last fix ${GPTTracking.ago(r.pos.ageMs)}`);
+    setMsg(`Bib ${r.bib} ${r.name}: last fix ${GPTTracking.ago(r.pos.ageMs)}${r.pos.stopped ? ', not moving' : ''}${r.pos.stale ? '. The tracker has gone quiet, so they may have moved on.' : ''}`, !r.pos.stale);
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.trk-go'); if (!b || !window.GPTTracking) return;
+    const r = GPTTracking.byBib(b.dataset.bib); if (r && r.pos) { showTab('find'); findBib(r); }
   });
 
   $('btnGps').addEventListener('click', () => {
@@ -337,6 +364,8 @@
     if (so) s += '\n' + so;
     const tg = window.GPTTrack ? GPTTrack.line(r, G) : '';
     if (tg) s += '\n' + tg;
+    const rn = window.GPTTracking ? GPTTracking.nearLine(G, r.km) : '';
+    if (rn) s += '\n' + rn;
     s += `\nPosition ${pos}.`;
     return s;
   }
@@ -396,6 +425,8 @@
     h += `<div id="soNear">${window.MedPlan && window.MedPlan.soNearHTML ? window.MedPlan.soNearHTML(r) : ''}</div>`;
     // Track grade, carry-out grades, emergency markers and helipads (Parks Victoria access maps).
     if (window.GPTTrack) h += GPTTrack.card(r, G);
+    // Tracked runners near the casualty (live GPS feed), when there is one.
+    if (window.GPTTracking) h += `<div id="trkNear">${GPTTracking.nearHTML(G, r.km, r.lat, r.lon)}</div>`;
     const dir = `https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lon}`;
     h += `<div class="actions">
       <a class="btn" id="btnWa" href="#" target="_blank" rel="noopener">WhatsApp</a>

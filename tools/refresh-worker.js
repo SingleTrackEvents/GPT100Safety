@@ -13,6 +13,12 @@
 //   POST /rc/unit            update a unit's status: { id, patch, note?, who }
 //   POST /rc/log             add a radio log entry: { text, incident?, who }
 //
+// Live GPS tracking relay (the tracking provider's files, with CORS headers the app can use; no key needed):
+//   GET  /gps/<event>/init.txt            the event setup and competitors
+//   GET  /gps/<event>/data.lst            every position so far
+//   GET  /gps/<event>/data.php?offset=…   the new positions since a byte offset (live events)
+//   GET  /gps/time.php                    the provider's clock
+//
 // Secret:    GITHUB_TOKEN   fine-grained key, this repository only, Actions read and write
 // Optional:  REPO, WORKFLOW, BRANCH, ALLOWED_ORIGIN (defaults below; several origins separated by commas)
 
@@ -22,6 +28,7 @@ const DEFAULTS = {
   BRANCH: 'main',
   ALLOWED_ORIGIN: 'https://singletrackevents.github.io,https://app.gpt100.com.au'
 };
+const GPS_HOST = 'https://tulospalvelu.fi/gps/';  // the GPS tracking provider (GPS-seuranta)
 const COOLDOWN_MIN = 10;        // no new run within 10 minutes of the last one
 const MODELS_COOLDOWN_MIN = 30; // a full refresh at most every 30 minutes
 
@@ -180,10 +187,33 @@ async function raceControl(req, env, url, c) {
   return json({ error: 'Not found' }, 404);
 }
 
+// Relay the tracking provider's plain text files. The provider only lets its own viewer read them from a browser,
+// so the app reads them through here. Cached briefly on the edge so a room full of phones is one request upstream.
+async function gpsRelay(req, env, url, c) {
+  const m = url.pathname.match(/^\/gps\/(?:([A-Za-z0-9_-]{1,80})\/)?(init\.txt|data\.lst|data\.php|time\.php)$/);
+  if (!m || (!m[1] && m[2] !== 'time.php')) return new Response('Not found', { status: 404, headers: c.headers });
+  if (!c.ok) return new Response('Not allowed from this site', { status: 403, headers: c.headers });
+  const qs = new URLSearchParams();
+  for (const k of ['offset', 'reset', 'data', 'a']) if (url.searchParams.has(k)) qs.set(k, url.searchParams.get(k).slice(0, 80));
+  const upstream = GPS_HOST + (m[1] ? m[1] + '/' : '') + m[2] + (qs.toString() ? '?' + qs : '');
+  const ttl = m[2] === 'init.txt' ? 60 : m[2] === 'data.lst' ? 15 : 5;
+  const res = await fetch(upstream, { headers: { 'User-Agent': 'GPT100Safety relay' }, cf: { cacheTtl: ttl, cacheEverything: true } });
+  const headers = Object.assign({}, c.headers, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'public, max-age=' + ttl,
+    'Access-Control-Expose-Headers': 'X-GPS-Server-Filesize, X-GPS-Server-Reset'
+  });
+  for (const h of ['X-GPS-Server-Filesize', 'X-GPS-Server-Reset']) if (res.headers.get(h)) headers[h] = res.headers.get(h);
+  return new Response(res.body, { status: res.status, headers });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url), c = cors(env, req);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: c.headers });
+    if (url.pathname.startsWith('/gps/') && req.method === 'GET') {
+      try { return await gpsRelay(req, env, url, c); } catch (e) { return new Response('Tracking provider unreachable: ' + e.message, { status: 502, headers: c.headers }); }
+    }
     if (!env.GITHUB_TOKEN) return new Response(JSON.stringify({ error: 'The GITHUB_TOKEN secret is not set' }), { status: 500, headers: c.headers });
     try {
       if (url.pathname.startsWith('/rc/')) return await raceControl(req, env, url, c);
