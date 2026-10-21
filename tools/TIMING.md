@@ -43,6 +43,10 @@ In `data/config.js`, set `tracking.chip` to `'relay'` and commit. From then on e
 
 ## 5. Rehearse before the link exists
 
+The quickest way: open any app with `?demo=1` (for example `map.html?demo=1`). The made-up field runs the course live in the browser, GPS trackers and timing chips both, with the handover cases below, and nothing to install. See "Demo: run the race in the browser" in the README.
+
+For a feed in the provider's exact files, served from a folder:
+
 ```
 node tools/gps_demo_feed.mjs out/demo-gps 60 9      # 60 made-up runners, 9 hours into the Miler, both feeds
 python3 -m http.server 8765                          # from the repo root

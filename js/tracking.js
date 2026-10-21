@@ -261,12 +261,15 @@
   const byBib = bib => S.byBib.get(String(bib).replace(/^#|^bib\s*/i, '').trim()) || null;
   // Runners on course between two km, by course.
   function between(E, k0, k1) { return list().filter(r => r.pos.course === E && r.pos.onCourse && !r.pos.stale && cur(r) >= Math.min(k0, k1) && cur(r) < Math.max(k0, k1)); }
-  // The runners to keep an eye on: not moving, late at the next timing point, or a tracker gone quiet with nothing from the chips since.
+  // The runners to keep an eye on: not moving, off the course, late at the next timing point, or a tracker gone quiet
+  // with nothing from the chips since.
   function watch() {
     const on = list().filter(r => r.pos.onCourse);
     const recent = on.filter(r => !r.pos.stale).length;
     return {
       stopped: on.filter(r => r.pos.stopped).sort((a, b) => b.pos.km - a.pos.km),
+      // A recent GPS fix more than 150 m from any course (the chips can't place anyone off the course).
+      off: list().filter(r => !r.pos.onCourse && r.pos.src === 'gps' && !r.pos.stale).sort((a, b) => b.pos.offM - a.pos.offM),
       late: on.filter(r => r.pos.next && r.pos.next.late).sort((a, b) => b.pos.next.lateMs - a.pos.next.lateMs),
       quiet: recent >= 3 || CHIP() ? on.filter(r => r.pos.stale && r.pos.ageMs < 6 * 3600e3).sort((a, b) => a.pos.ageMs - b.pos.ageMs) : []
     };
@@ -329,7 +332,7 @@
     for (const r of list()) {
       const p = r.pos, km = cur(r);
       if (p.course !== E || (k0 != null && (km < k0 - 1 || km > k1 + 1))) continue;
-      const cls = 'trk-mk' + (p.est ? ' est' : '') + (p.stale ? ' stale' : '') + (p.next && p.next.late ? (p.next.overdue ? ' overdue' : ' late') : '') + (p.stopped ? ' stopped' : '');
+      const cls = 'trk-mk' + (p.est ? ' est' : '') + (p.stale ? ' stale' : '') + (p.next && p.next.late ? (p.next.overdue ? ' overdue' : ' late') : '') + (p.stopped ? ' stopped' : '') + (!p.onCourse && p.src === 'gps' && !p.stale ? ' off' : '');
       const icon = L.divIcon({ className: '', html: `<div class="${cls}">${esc(r.bib || '?')}</div>`, iconSize: [30, 18], iconAnchor: [15, 9] });
       const at = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon];
       const mk = L.marker(at, { icon, zIndexOffset: 400 }).bindPopup(`${who(r)}<br>km ${one(km)}${p.est ? ' (estimated)' : ''}${p.offM > 60 ? ', ' + dist(p.offM) + ' off the course' : ''}<br>${where(r)}${opts.find ? `<br><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button>` : ''}`);

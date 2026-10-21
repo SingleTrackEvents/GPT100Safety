@@ -264,6 +264,7 @@
         <div class="row"><span><b>Tail</b><span class="sub">${TR.who(lead[lead.length - 1])}, km ${one(TR.cur(lead[lead.length - 1]))}${lead[lead.length - 1].pos.est ? ' (estimated)' : ''}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(lead[lead.length - 1].bib)}">Find</button></div>` : '') +
       rows.map(x => `<div class="row"><span><b>${esc(short(x.a.name))} to ${esc(short(x.b.name))}</b><span class="sub">km ${one(x.a.trail_km)} to ${one(x.b.trail_km)}${x.stopped ? `, <b>${x.stopped} not moving</b>` : ''}</span></span><span class="v">${x.n}</span></div>`).join('') +
       (w.stopped.length ? `<h4>Not moving for 20 minutes</h4>` + w.stopped.slice(0, 8).map(r => `<div class="row"><span>${TR.who(r)}<span class="sub">km ${one(r.pos.km)}, last fix ${TR.ago(r.pos.ageMs)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`).join('') : '') +
+      (w.off.length ? `<h4>Off the course</h4>` + w.off.slice(0, 8).map(r => `<div class="row"><span>${TR.who(r)}<span class="sub">${TR.dist(r.pos.offM)} from km ${one(r.pos.km)}, ${TR.where(r)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`).join('') : '') +
       (w.late.length ? `<h4>Late at the next checkpoint</h4>` + w.late.slice(0, 8).map(r => `<div class="row"><span>${TR.who(r)}<span class="sub">${TR.where(r)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`).join('') : '') +
       (w.quiet.length ? `<h4>Trackers gone quiet</h4>` + w.quiet.slice(0, 8).map(r => `<div class="row"><span>${TR.who(r)}<span class="sub">last at km ${one(r.pos.km)}, ${TR.ago(r.pos.ageMs)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`).join('') : '') +
       '</div>';
@@ -274,6 +275,7 @@
     if (!window.L) { $('medMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
     map = L.map('medMap', { zoomControl: true });
     GPTBaseMap(map);
+    if (window.GPTFullscreen) GPTFullscreen(map, $('medMap').parentNode);
     if (window.GPTHelipads) GPTHelipads.overlay(map, false);
     L.polyline(G.route.map(p => [p[0], p[1]]), { color: '#d9531e', weight: 3, opacity: .8 }).addTo(map);
     stMarks = {}; vMarks = {};

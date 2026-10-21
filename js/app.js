@@ -32,10 +32,13 @@
     if (name === 'find' && map) setTimeout(() => map.invalidateSize(), 0);
     if (name === 'find' && profile) setTimeout(profile.redraw, 0);
   }
-  document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.addEventListener('click', () => {
     history.replaceState(null, '', b.dataset.tab === 'med' ? '#medical' : b.dataset.tab === 'wx' ? '#weather' : b.dataset.tab === 'rc' ? '#control' : location.pathname + location.search);
     showTab(b.dataset.tab);
   }));
+
+  // The map page keeps this page's query (a demo or a rehearsal feed carries over).
+  if ($('mapLink')) $('mapLink').href = 'map.html' + location.search;
 
   // ---------- Online status ----------
   function netStatus() { $('net').hidden = navigator.onLine; }
@@ -57,6 +60,7 @@
   function initMap() {
   map = L.map('map', { preferCanvas: true, zoomControl: true });
   GPTBaseMap(map);
+  if (window.GPTFullscreen) GPTFullscreen(map, $('map').parentNode);
   pin = (color, size) => L.divIcon({ className: '', html: `<div class="pin" style="background:${color};width:${size}px;height:${size}px"></div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
   courseLayer = L.layerGroup().addTo(map);
   drawCourse(true);
@@ -552,6 +556,17 @@
     let m;
     if ((m = h.match(/^km=([\d.]+)/))) { $('q').value = m[1]; findKm(+m[1]); }
     else if ((m = h.match(/^ll=(-?[\d.]+),(-?[\d.]+)/))) { $('q').value = m[1] + ', ' + m[2]; findLL(+m[1], +m[2], 'shared link'); }
+    // A runner's bib, from the map page or a shared link: opens once the tracking feed has their position.
+    else if ((m = h.match(/^bib=(\d+)/)) && window.GPTTracking) {
+      $('q').value = '#' + m[1];
+      let done = false;
+      GPTTracking.onUpdate(() => {
+        if (done || !GPTTracking.ready()) return;
+        done = true;
+        const r = GPTTracking.byBib(m[1]);
+        if (r && r.pos) findBib(r); else setMsg(r ? `Bib ${m[1]} (${r.name}) has no position yet from the tracker or the timing chips` : `No bib ${m[1]} in the tracking feed`);
+      });
+    }
   }
   fromHash();
   addEventListener('hashchange', fromHash);
