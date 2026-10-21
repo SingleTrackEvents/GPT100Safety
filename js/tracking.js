@@ -283,7 +283,7 @@
     let s = `${!GPS ? 'Timing chips only' : S.live ? 'Live tracking' : 'Tracking (replay)'}: ${on.length} runner${on.length === 1 ? '' : 's'} on course`;
     if (GPS && TC) s += ` (${on.length - byChip} placed by GPS, ${byChip} by the chips)`;
     if (GPS) s += `, GPS updated ${ago(Date.now() - S.updated)}${S.error ? ' (last fetch failed)' : ''}`;
-    return s + '.' + (chipLine ? ' ' + chipLine : '');
+    return s + '.' + (chipLine ? ' ' + chipLine : '') + (T.credit && T.credit.name ? ` Timing and tracking by ${T.credit.name}.` : '');
   }
   const who = r => `<b>Bib ${esc(r.bib || '?')}</b> ${esc(r.name)}`;
   // How the position was worked out, in a few words: "GPS fix 2 min ago", "chip read at Halls Gap 12:40, likely km 52.3 now".

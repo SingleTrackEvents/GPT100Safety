@@ -569,7 +569,7 @@
         <li><b>Weather</b> The race triggers (heat, wind, rain, storms, cloud), BOM warnings, fires nearby, radar and the models. <b>Refresh now</b> gets the latest; <b>Share update</b> writes the daily update.</li>
         <li><b>Medical</b> Needs the medical password. Who's on duty where and when, the vehicles, and the plan for any time.</li>
         <li><b>Control</b> Needs the medical password. The Race Control board: incidents, teams, the radio log and live tracking.</li>
-      </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. Planning guide only: in an emergency call 000.</p>` })
+      </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. Planning guide only: in an emergency call 000.${C.tracking && C.tracking.credit && C.tracking.credit.name ? ` Timing and tracking by ${C.tracking.credit.url ? `<a href="${esc(C.tracking.credit.url)}" target="_blank" rel="noopener">${esc(C.tracking.credit.name)}</a>` : esc(C.tracking.credit.name)}.` : ''}</p>` })
     ]
   });
 

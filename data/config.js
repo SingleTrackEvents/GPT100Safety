@@ -83,7 +83,8 @@ window.GPT100_CONFIG = {
   // (course '14k' for that course; the GPT100 otherwise). chipFields: column names, only if the feed sends rows
   // without them. For a rehearsal: node tools/gps_demo_feed.mjs, then open the app with
   // ?gps=<full address of the folder> (timing.json in the same folder is picked up), or ?chip=<address of the list>.
-  tracking: { url: '', label: 'Live tracking', gps: '', chip: '', chipEvery: 30, chipPoints: {} },
+  // credit: the timing and tracking provider, named in the intros, next to the Live tracking button and in the tracking status.
+  tracking: { url: '', label: 'Live tracking', gps: '', chip: '', chipEvery: 30, chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
   what3wordsKey: 'LBTPEWCQ'
