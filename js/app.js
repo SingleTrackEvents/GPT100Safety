@@ -60,6 +60,9 @@
   pin = (color, size) => L.divIcon({ className: '', html: `<div class="pin" style="background:${color};width:${size}px;height:${size}px"></div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
   courseLayer = L.layerGroup().addTo(map);
   drawCourse(true);
+  // Layers from the layers button: helicopter landing sites on by default, the Parks Victoria markers off until wanted.
+  if (window.GPTHelipads) GPTHelipads.overlay(map, true);
+  if (window.GPTTrack) { GPTBaseMap.overlay(map, 'Emergency markers', GPTTrack.overlay(['emergency']), false); GPTBaseMap.overlay(map, 'Camps and assembly areas', GPTTrack.overlay(['camp', 'assembly']), false); }
   G.BASES.forEach(b => L.marker([b.lat, b.lon], { icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b><br>${w3wLink(G.data.bases_w3w && G.data.bases_w3w[b.key])}`).addTo(map));
 
   const legend = L.control({ position: 'bottomleft' });
@@ -68,6 +71,7 @@
     d.innerHTML = G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)}`).join('<br>') +
       '<br><i style="background:#111"></i>Aid station or water point<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
       `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach` +
+      (window.GPTHelipads ? '<br><span class="legend-head">Helicopter landing sites</span><br>' + GPTHelipads.legendHTML() : '') +
       (window.GPTTrack ? '<br><span class="legend-head">Track grade after a find</span><br>' + GPTTrack.legendHTML() : '') +
       (window.GPTTracking ? '<br><span class="trk-mk" style="display:inline-block;vertical-align:middle">1047</span> Tracked runner (grey: quiet, red: not moving)' : '');
     return d;

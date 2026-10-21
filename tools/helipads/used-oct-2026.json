@@ -1,0 +1,17 @@
+{
+  "_about": "Helicopter landing sites used for a Parks Victoria helicopter operation in October 2026, so known to be in good condition. From the table in Jacqui Brown's (Parks Victoria) email of 20 October 2026, with her coordinates and heights. 'sheet' is the matching row name in Wimmera Helipads.xlsx; sites without one are not on the DEECA list.",
+  "sites": [
+    { "name": "Brambuk", "sheet": "Wimmera Brambuk HLS", "lat": -37.159666, "lon": 142.533591, "ele_m": 231 },
+    { "name": "Bainggug (Piccaninny)", "sheet": "Grampians - Piccaninny", "lat": -37.618762, "lon": 142.341697, "ele_m": 296,
+      "note": "The carpark is the Bainggug aid station on the Saturday and Sunday of the event, so it can't take a helicopter then." },
+    { "name": "Yarram", "sheet": "Wimmera - Yarram HLS", "lat": -37.414073, "lon": 142.503787, "ele_m": 631 },
+    { "name": "Stockyards (Durd Durd)", "sheet": "Wimmera - Stockyards (Durd Durd) HLS", "lat": -37.35503, "lon": 142.5549, "ele_m": 820 },
+    { "name": "Mt William", "sheet": "Wimmera Mt William HLS", "lat": -37.295076, "lon": 142.602934, "ele_m": 1147 },
+    { "name": "Werdug Hiker Camp", "sheet": "Wimmera Werdug Hiker Camp HLS", "lat": -37.067625, "lon": 142.488385, "ele_m": 761 },
+    { "name": "Lake Wartook East", "sheet": "Wimmera - Lake Wartook East HLS", "lat": -37.100879, "lon": 142.440778, "ele_m": 443 },
+    { "name": "Gar (Mt Difficult)", "sheet": "Wimmera-Gar-Mt Difficult Grampians NP HLS", "lat": -36.999689, "lon": 142.449188, "ele_m": 359 },
+    { "name": "Roses Gap (Mt Zero Rd)", "sheet": "Wimmera Roses Gap HLS", "lat": -36.954264, "lon": 142.453052, "ele_m": 189 },
+    { "name": "Redman Road Trailhead", "lat": -37.22644, "lon": 142.549834, "ele_m": 330 },
+    { "name": "Bee site (apiary)", "lat": -37.404315, "lon": 142.492128, "ele_m": 320 }
+  ]
+}
