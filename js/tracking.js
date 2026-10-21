@@ -191,7 +191,8 @@
     if (pos.onCourse && !pos.stopped && pos.ageMs > EST_MIN * 60e3 && pos.km < cap - 0.05) {
       let km = kmAfter(E, pos.km, f, pos.ageMs, cap);
       const capped = km >= cap - 1e-6;
-      if (capped) km = (pos.km + cap) / 2;
+      // Spread across the middle of the leg by bib, so two runners on the same leg don't sit on one spot.
+      if (capped) km = pos.km + (cap - pos.km) * (0.38 + 0.24 * ((+r.bib || 0) % 7) / 6);
       const q = E.route[E.idxAtKm(km)];
       pos.est = { km, lat: q[0], lon: q[1], capped, frac: f, from: src === 'chip' ? read.name : 'GPS', fromKm: pos.km, toKm: cap, to: nextPt ? nextPt.name : 'the finish' };
     }
@@ -336,6 +337,7 @@
       const icon = L.divIcon({ className: '', html: `<div class="${cls}">${esc(r.bib || '?')}</div>`, iconSize: [30, 18], iconAnchor: [15, 9] });
       const at = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon];
       const mk = L.marker(at, { icon, zIndexOffset: 400 }).bindPopup(`${who(r)}<br>km ${one(km)}${p.est ? ' (estimated)' : ''}${p.offM > 60 ? ', ' + dist(p.offM) + ' off the course' : ''}<br>${where(r)}${opts.find ? `<br><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button>` : ''}`);
+      mk.options.bib = r.bib;
       mk.addTo(layer);
     }
   }
