@@ -27,6 +27,7 @@
     <button class="tab-btn" data-tab="wx" role="tab" aria-selected="false">Weather</button>
     <button class="tab-btn" data-tab="med" role="tab" aria-selected="false">Medical</button>
     <button class="tab-btn" data-tab="rc" role="tab" aria-selected="false">Control</button>
+    <a class="tab-btn tab-link" id="mapLink" href="map.html">Map</a>
   </nav>
   <span id="net" class="net" hidden>Offline</span>
 </header>
@@ -82,7 +83,7 @@
 
 <footer class="foot">
   <p id="assumptions"></p>
-  <p>Planning guide only. Check access, gates and closures on the day. <a href="field.html">Field app</a> · <a href="admin.html">Admin</a></p>
+  <p>Planning guide only. Check access, gates and closures on the day. <a href="map.html">Full map</a> · <a href="field.html">Field app</a> · <a href="admin.html">Admin</a></p>
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -98,12 +99,15 @@
 <script src="js/helipads.js"></script>
 <script src="data/track-grades.js"></script>
 <script src="js/track.js"></script>
+<script src="data/pacing.js"></script>
+<script src="data/demo-runners.js"></script>
+<script src="js/demo.js"></script>
 <script src="js/timing.js"></script>
 <script src="js/tracking.js"></script>
+<script src="js/fullscreen.js"></script>
 <script src="data/medplan.enc.js"></script>
 <script src="data/safety-officers.js"></script>
 <script src="js/medplan.js"></script>
-<script src="data/pacing.js"></script>
 <script src="js/weather-core.js"></script>
 <script src="js/weather.js"></script>
 <script src="js/rc.js"></script>

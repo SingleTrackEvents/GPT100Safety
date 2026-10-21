@@ -35,6 +35,8 @@ a { color: inherit; }
 .tabs::-webkit-scrollbar { display: none; }
 .tab-btn { white-space: nowrap; background: none; color: #bbb; border: 0; border-bottom: 3px solid transparent; padding: 8px 10px; font-weight: 600; font-size: 14px; cursor: pointer; }
 .tab-btn.on { color: #fff; border-bottom-color: var(--course); }
+.tab-link { text-decoration: none; display: inline-flex; align-items: center; }
+.tab-link::after { content: '\2197'; font-size: 11px; margin-left: 3px; opacity: .7; }
 .net { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; background: var(--amber); color: #fff; padding: 3px 8px; border-radius: 20px; }
 
 .tab { display: none; }
@@ -528,3 +530,71 @@ tr.muted td { color: var(--muted); }
 .rc-watch .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
 .rc-watch .sub { display: block; font-size: 11px; color: var(--muted); }
 .rc-live { font-size: 12px; color: var(--muted); }
+
+/* Full screen button on the maps (js/fullscreen.js). The box goes full screen, or is pinned over the page where the browser can't. */
+.leaflet-bar.gpt-fs { border: 0; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,.4); }
+.gpt-fs-btn { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 4px; background: #fff; color: #222; cursor: pointer; padding: 0; }
+.gpt-fs-btn:hover { background: #f4f4f4; }
+.gpt-fs-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.map-full { position: fixed !important; inset: 0 !important; width: auto !important; height: auto !important; min-height: 0 !important; max-height: none !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; z-index: 2500 !important; background: #ddd; }
+html.map-full-on, html.map-full-on body { overflow: hidden; }
+:fullscreen { background: #ddd; }
+
+/* The map page (map.html, js/map.js): the map fills the screen, with the Runners panel beside it */
+body.mappage { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+body.mappage .top { position: static; flex: none; }
+.mp-status { font-size: 12px; color: #bbb; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.mp-nav { display: flex; gap: 6px; margin-left: auto; flex: none; }
+.mp-btn { display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border: 2px solid #bbb; border-radius: 8px; background: none; color: #fff; font: 600 13px var(--body); text-decoration: none; cursor: pointer; }
+.mp-btn.on { background: #fff; color: var(--ink); border-color: #fff; }
+.mp-main { flex: 1; min-height: 0; display: flex; position: relative; }
+.mp-mapbox { flex: 1; min-width: 0; position: relative; }
+#map.leaflet-container, .mp-mapbox #map { position: absolute; inset: 0; background: #ddd; }
+.mp-panel { flex: 0 0 360px; max-width: 100%; overflow-y: auto; background: var(--paper); border-left: 1px solid var(--line); padding: 10px 14px 20px; }
+.mp-panel-head { display: flex; align-items: center; justify-content: space-between; }
+.mp-panel-head h2 { font-size: 26px; }
+.mp-x { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #f0efea; font-size: 22px; line-height: 1; cursor: pointer; }
+.mp-bib { display: flex; gap: 6px; margin: 8px 0 4px; }
+.mp-bib input { flex: 1; min-width: 0; min-height: 36px; border: 1.5px solid var(--ink); border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; }
+.mp-panel h3 { font-size: 20px; margin: 14px 0 4px; }
+.mp-panel h4 { font-size: 11px; font-family: var(--body); font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 10px 0 2px; }
+.mp-panel .row { align-items: center; }
+.mp-key { padding: 0; overflow: hidden; }
+.mp-key-btn { display: block; width: 100%; border: 0; background: none; text-align: left; font: 700 12px var(--body); padding: 5px 9px; cursor: pointer; }
+.mp-key-btn::after { content: '\25BE'; float: right; }
+.mp-key-btn[aria-expanded="true"]::after { content: '\25B4'; }
+.mp-key-body { padding: 0 9px 6px; max-height: 55vh; overflow-y: auto; }
+.mp-tip { font: 600 11px var(--body); color: #111; background: rgba(255,255,255,.85); border: 0; box-shadow: none; padding: 1px 5px; }
+.mp-tip::before { display: none; }
+.leaflet-container:not(.mp-labels) .mp-tip { display: none; }
+@media (max-width: 699px) {
+  .mp-panel { position: absolute; inset: 0; flex: none; width: 100%; border-left: 0; z-index: 1001; }
+  .mp-status { display: none; }
+}
+@media (max-width: 460px) { .mp-btn { padding: 0 9px; font-size: 12px; } }
+
+/* Off the course: a recent GPS fix more than 150 m from any course */
+.trk-mk.off { background: #6d3b8e; }
+
+/* The demo bar (js/demo.js): race time, speed and the runners to find */
+.demo-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1150; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 5px 10px; padding-bottom: calc(5px + env(safe-area-inset-bottom)); background: #2a1f3d; color: #fff; font-size: 12px; box-shadow: 0 -2px 8px rgba(0,0,0,.3); }
+.demo-tag { font-family: var(--head); font-size: 18px; letter-spacing: 1.5px; background: #ffd21f; color: #111; padding: 1px 8px; border-radius: 4px; }
+.demo-time b { font-size: 14px; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.demo-ctl { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; align-items: center; }
+.demo-ctl button, .demo-exit { min-height: 28px; padding: 0 9px; border: 1.5px solid #8a7aa8; border-radius: 6px; background: none; color: #fff; font: 600 12px var(--body); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+.demo-ctl button.on { background: #ffd21f; color: #111; border-color: #ffd21f; }
+.demo-exit { border-color: #fff; }
+.demo-list { position: fixed; right: 8px; bottom: 48px; z-index: 1151; width: min(420px, calc(100vw - 16px)); max-height: 60vh; overflow-y: auto; background: var(--paper); color: var(--ink); border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.35); padding: 10px 12px; font-size: 13px; }
+.demo-list h3 { font-size: 20px; margin-bottom: 4px; }
+.demo-list .row { align-items: center; }
+html.demo-on body { padding-bottom: 44px; }
+@media (min-width: 900px) { html.demo-on .find-layout { height: calc(100vh - 102px); } }
+@media (min-width: 1100px) { html.demo-on .rc-layout { height: calc(100vh - 102px); } }
+@media (max-width: 600px) {
+  .demo-bar { gap: 3px 8px; padding: 4px 8px; padding-bottom: calc(4px + env(safe-area-inset-bottom)); }
+  .demo-time #demoIn { display: none; }
+  .demo-ctl button, .demo-exit { min-height: 26px; padding: 0 7px; font-size: 11px; }
+}
+html.demo-on .leaflet-bottom { bottom: 42px; }
+html.demo-on body.field .demo-bar { bottom: calc(64px + env(safe-area-inset-bottom)); }
+html.demo-on body.field .demo-list { bottom: calc(112px + env(safe-area-inset-bottom)); }

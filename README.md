@@ -10,6 +10,13 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 **Intro:** each app (staff, field and runner) shows a short intro and how-to the first time it's opened on a phone, with a **?** button in the header to see it again (`js/intro.js` for the staff and field apps).
 
+**Map** (`map.html`, the Map link at the top of the staff app)
+
+- The whole course on one screen, for the big screen at race control or a phone: both courses, the aid stations and water points (named once zoomed in), access points, the response bases, helicopter landing sites, Safety Officer posts, and every tracked runner live. The layers button adds the emergency markers, camps, track hazards and the Parks Victoria track grades along the whole GPT100. The key folds away.
+- Tap the course for the km, the team to send and the ETA, with the nearest tracked runners and an **Open in Find** link for the full answer.
+- **Runners** opens a panel with a bib search, the Runner watch (not moving, off the course, late at the next checkpoint, tracker gone quiet), the field by section and the front and tail of each race. **Show** centres the map on a runner. `map.html#bib=1047` opens on that runner.
+- **Full screen** on every map (the button under the zoom buttons on Find, Medical, Control, the map page and the field app). Where the browser has no full screen of its own (iPhone), the map is pinned over the page instead. Esc or the button again brings the page back.
+
 **Find** (for whoever takes the call)
 
 - **Runner's race:** on the GPT100 course, pick the runner's race (Miler, 50k or Stage 1, Stage 2, Stage 3, Stage 4 or 33k) and type the km they give. The app converts it, for example Stage 2 km 10 is GPT100 km 59.2, and shows both in the result and the message. Races are set in `data/config.js` by their start and finish aid stations.
@@ -39,10 +46,10 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Find by bib:** type `#1047` (or `bib 1047`, or just the number when it's bigger than the course km) and Find opens at that runner's last position, on their own course, with how long ago the fix was. The normal response answer follows from there.
 - **Runners near this spot** on every Find result: the tracked runners within 5 km along the course either side of the casualty, with bib, km, distance and last fix, and a Find button for each. The message gets a line with the nearest bibs.
 - **Medical:** runners on course now per section between aid stations, the leader and the tail, anyone not moving, and trackers gone quiet.
-- **Control:** a Runner watch list (not moving, tracker quiet) with Find buttons, every runner on the board map, and each open incident with a bib shows where that runner's tracker is now and how far that is from the logged km.
+- **Control:** a Runner watch list (not moving, off the course, late at the next checkpoint, tracker quiet) with Find buttons, every runner on the board map, and each open incident with a bib shows where that runner's tracker is now and how far that is from the logged km.
 - **Field app:** Where am I? adds Runners near you: the next runners coming towards you, nearest first, and those just past, with the runners on the field map.
 - The feed is GPS-seuranta (tulospalvelu.fi), the system used at Buffalo Stampede. The app reads the event's `init.txt` (competitors) and `data.lst` (positions) through the Worker's `/gps/` relay, since the provider only serves them to its own viewer, and polls `data.php` every 15 seconds while the event is live. Without the link set, nothing changes.
-- **Timing chips too** (when the timing team's RaceResult link is in the Worker, see [`tools/TIMING.md`](tools/TIMING.md)): the time each runner crossed each timing point. The two feeds cover for each other. For every runner the newest hard fix wins, GPS or chip; a fix older than a few minutes is carried forward at the runner's own pace, never past the next timing point; and a runner who should have reached the next checkpoint by now, with no fresh GPS fix showing them moving, is flagged late (past the cut-off pace, overdue) in the Control Runner watch and in Medical. Every marker, row and Find answer says which feed placed the runner and when: solid is a recent fix, dashed an estimate, grey a quiet tracker, amber late, red not moving. Runners the chips know but the trackers don't are on the maps as well, and finished or withdrawn runners come off the course. The timing and tracking provider (`tracking.credit` in `data/config.js`) is credited in each app's intro, next to the Live tracking button and in the tracking status line.
+- **Timing chips too** (when the timing team's RaceResult link is in the Worker, see [`tools/TIMING.md`](tools/TIMING.md)): the time each runner crossed each timing point. The two feeds cover for each other. For every runner the newest hard fix wins, GPS or chip; a fix older than a few minutes is carried forward at the runner's own pace, never past the next timing point; and a runner who should have reached the next checkpoint by now, with no fresh GPS fix showing them moving, is flagged late (past the cut-off pace, overdue) in the Control Runner watch and in Medical. Every marker, row and Find answer says which feed placed the runner and when: solid is a recent fix, dashed an estimate, grey a quiet tracker, amber late, red not moving, purple more than 150 m off the course (listed as Off the course in the Runner watch). Runners the chips know but the trackers don't are on the maps as well, and finished or withdrawn runners come off the course. The timing and tracking provider (`tracking.credit` in `data/config.js`) is credited in each app's intro, next to the Live tracking button and in the tracking status line.
 
 **Weather** (for the weather lead and race control)
 
@@ -167,15 +174,18 @@ tracking: { url: 'https://tulospalvelu.fi/gps/<event>/', label: 'Live tracking',
 
 `url` is the Live tracking button; `gps` (the last part of the link) turns on the runner positions in the apps. The positions come through the Worker's `/gps/` relay, so the Worker needs the current `tools/refresh-worker.js` pasted in (no new secrets). Each phone fetches the whole position file once (a few MB by late in the race), then only the new bytes every 15 seconds.
 
-To rehearse before the link exists, or to train with the app:
+### Demo: run the race in the browser
 
-```
-node tools/gps_demo_feed.mjs out/demo-gps 60 9     # 60 made-up runners, 9 hours into the Miler
-python3 -m http.server 8765
-open http://localhost:8765/index.html?gps=http://localhost:8765/out/demo-gps/
-```
+To rehearse or train before the links exist, open any of the apps with `?demo=1` (for example [the map page](https://singletrackevents.github.io/GPT100Safety/map.html?demo=1), or `index.html?demo=1`, `field.html?demo=1`). The made-up field in `data/demo-runners.js` (70 Miler runners and 18 in Stage 2, each at their own pace from the pacing table) runs the course live, as if the Miler had started 9 hours ago. Both feeds are played: `js/demo.js` answers the apps' GPS and timing requests itself, in the shapes the real feeds send, so the tracking code runs exactly as it will on the day. Nothing is fetched from the providers and nothing needs to be installed.
 
-`?gps=` also takes an event id, which goes through the relay, so a past event (for example the Buffalo one) can be replayed on the live site without changing the config. The rehearsal folder also holds `timing.json`, a timing list in RaceResult's shape for the same runners, which the app picks up by itself. Some of the made-up runners have no tracker, a tracker that went quiet, or a tracker lost hours ago, to show the chips taking over. Setting up the real timing feed: [`tools/TIMING.md`](tools/TIMING.md).
+The bar at the bottom shows the race time, pauses, runs at 1x, 10x or 60x, jumps ahead 30 minutes, and lists **Who to find**: the runners with something going on, with a Find button each. Everyone else is running normally.
+
+- no tracker (the chips place them), a tracker that went quiet (the chips carry on), a runner who stopped with the tracker still sending (not moving, then late at the next checkpoint), a tracker lost hours ago with the runner stopped (overdue), a withdrawal, a checkpoint that missed a runner, and a runner who wandered 300 m off the course.
+- The race carries on across the staff app, the map page and the field app in the same browser tab. **Exit** takes the demo away. A real feed (`?gps=`, `?chip=` or the config) always wins over the demo.
+- `?demo=12h` starts 12 hours into the Miler; `?demo=sat09:30` at a day and time; `&speed=10` starts fast. Not moving and late count real minutes (as they will on the day), so run at 1x to watch them come up as they would, and use 10x or 60x to watch the field move.
+- `node tools/make_demo_runners.mjs [miler] [stage 2] [seed]` makes a new field; or edit the file by hand for a particular runner or case.
+
+The older way still works, and is handy for a feed in the provider's exact files: `node tools/gps_demo_feed.mjs out/demo-gps 60 9`, then `python3 -m http.server 8765` and open `index.html?gps=http://localhost:8765/out/demo-gps/` (the folder's `timing.json` is picked up too). `?gps=` also takes an event id, which goes through the relay, so a past event (for example the Buffalo one) can be replayed on the live site without changing the config. Setting up the real timing feed: [`tools/TIMING.md`](tools/TIMING.md).
 
 ## Track grades and emergency markers
 
@@ -265,6 +275,9 @@ These are planning estimates. Always check access, gates and closures on the day
 | `js/profile.js` | Elevation profile (Find tab and field app) |
 | `js/basemap.js` | Topo and street map backgrounds for every map, and saving the topo map for offline |
 | `tiles/topo/`, `data/tiles.js` | Our copy of the OpenTopoMap tiles along the course (CC-BY-SA), made once with `tools/fetch_topo_tiles.mjs` |
+| `map.html`, `js/map.js` | The map page: the whole course and every tracked runner on one screen |
+| `js/fullscreen.js` | Full screen button on the maps |
+| `js/demo.js`, `data/demo-runners.js`, `tools/make_demo_runners.mjs` | The in-app demo: made-up runners, GPS and chips, played live (`?demo=1`) |
 | `css/app.css` | Staff app styles |
 | `data/course.js` | Course route, bases, access points and crossings |
 | `data/access-edits.js` | Published access point changes |

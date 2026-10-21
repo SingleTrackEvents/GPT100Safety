@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GPT100 Safety map</title>
+<meta name="description" content="GPT100 race-day map: the whole course, aid stations, access points, helicopter landing sites, Safety Officers and every tracked runner, on one screen.">
+<meta name="theme-color" content="#111111">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-48.png" type="image/png" sizes="48x48">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body class="mappage">
+<header class="top">
+  <a class="brand" href="./" aria-label="GPT100 Safety home"><img class="brand-logo" src="icons/mark.png" alt="GPT100 Miler" width="53" height="34"><span class="brand-app">Safety map</span></a>
+  <span id="mpStatus" class="mp-status" role="status"></span>
+  <nav class="mp-nav">
+    <button id="mpRunners" class="mp-btn" type="button" aria-expanded="false">Runners</button>
+    <a id="mpFind" class="mp-btn" href="./">Find</a>
+  </nav>
+  <span id="net" class="net" hidden>Offline</span>
+</header>
+
+<main class="mp-main">
+  <div class="mp-mapbox"><div id="map" aria-label="Course map"></div></div>
+  <aside id="mpPanel" class="mp-panel" hidden aria-label="Runners">
+    <div class="mp-panel-head"><h2>Runners</h2><button id="mpClose" class="mp-x" type="button" aria-label="Close">×</button></div>
+    <form id="mpBibForm" class="mp-bib" autocomplete="off">
+      <input id="mpBib" type="text" inputmode="numeric" placeholder="Bib, e.g. 1047" aria-label="Bib number">
+      <button class="btn small primary" type="submit">Show</button>
+    </form>
+    <p id="mpBibMsg" class="msg" role="status"></p>
+    <div id="mpLive"></div>
+  </aside>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="data/config.js"></script>
+<script src="data/course.js"></script>
+<script src="data/courses.js"></script>
+<script src="data/access-edits.js"></script>
+<script src="js/engine.js"></script>
+<script src="data/tiles.js"></script>
+<script src="js/basemap.js"></script>
+<script src="data/helipads.js"></script>
+<script src="js/helipads.js"></script>
+<script src="data/track-grades.js"></script>
+<script src="js/track.js"></script>
+<script src="data/safety-officers.js"></script>
+<script src="data/pacing.js"></script>
+<script src="data/demo-runners.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/timing.js"></script>
+<script src="js/tracking.js"></script>
+<script src="js/fullscreen.js"></script>
+<script src="js/map.js"></script>
+</body>
+</html>

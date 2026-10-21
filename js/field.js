@@ -416,6 +416,7 @@
     if (!window.L) { $('fdMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
     map = L.map('fdMap', { zoomControl: true });
     GPTBaseMap(map);
+    if (window.GPTFullscreen) GPTFullscreen(map, $('fdMap'));
     MAIN.courses.forEach(E => L.polyline(E.route.map(p => [p[0], p[1]]), { color: '#8a8a8a', weight: 2, opacity: .55, interactive: false }).addTo(map));
     raceLayer = L.layerGroup().addTo(map);
     soLayer = L.layerGroup().addTo(map);
