@@ -327,18 +327,34 @@
 
   // Map markers for the runners on this course, within a km window (or all). Solid: a fix in the last few minutes.
   // Dashed: estimated from an older fix or chip read. Grey: tracker quiet. Amber: late at the next timing point. Red: not moving.
+  // Runners on the same spot (within 40 m: an aid station, or two estimated on the same leg) are stacked in a
+  // column below it, so every bib stays in view and can be tapped. opts.find adds a Find button to each popup;
+  // opts.extra(r) adds HTML of its own.
   function draw(layer, E, k0, k1, opts) {
     if (!window.L || !ready()) return;
     opts = opts || {};
+    const groups = [];
     for (const r of list()) {
       const p = r.pos, km = cur(r);
       if (p.course !== E || (k0 != null && (km < k0 - 1 || km > k1 + 1))) continue;
-      const cls = 'trk-mk' + (p.est ? ' est' : '') + (p.stale ? ' stale' : '') + (p.next && p.next.late ? (p.next.overdue ? ' overdue' : ' late') : '') + (p.stopped ? ' stopped' : '') + (!p.onCourse && p.src === 'gps' && !p.stale ? ' off' : '');
-      const icon = L.divIcon({ className: '', html: `<div class="${cls}">${esc(r.bib || '?')}</div>`, iconSize: [30, 18], iconAnchor: [15, 9] });
       const at = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon];
-      const mk = L.marker(at, { icon, zIndexOffset: 400 }).bindPopup(`${who(r)}<br>km ${one(km)}${p.est ? ' (estimated)' : ''}${p.offM > 60 ? ', ' + dist(p.offM) + ' off the course' : ''}<br>${where(r)}${opts.find ? `<br><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button>` : ''}`);
-      mk.options.bib = r.bib;
-      mk.addTo(layer);
+      const g = groups.find(g => window.GPT.metres(g.at, at) < 40);
+      if (g) g.rs.push(r); else groups.push({ at, rs: [r] });
+    }
+    for (const g of groups) {
+      g.rs.sort((a, b) => (+a.bib || 0) - (+b.bib || 0));
+      g.rs.forEach((r, k) => {
+        const p = r.pos, km = cur(r);
+        const cls = 'trk-mk' + (p.est ? ' est' : '') + (p.stale ? ' stale' : '') + (p.next && p.next.late ? (p.next.overdue ? ' overdue' : ' late') : '') + (p.stopped ? ' stopped' : '') + (!p.onCourse && p.src === 'gps' && !p.stale ? ' off' : '');
+        const icon = L.divIcon({ className: '', html: `<div class="${cls}">${esc(r.bib || '?')}</div>`, iconSize: [30, 18], iconAnchor: [15, 9 - 20 * k], popupAnchor: [0, -20 * k - 6] });
+        const at = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon];
+        const others = g.rs.filter(x => x !== r);
+        const mk = L.marker(at, { icon, zIndexOffset: 400 + k }).bindPopup(`${who(r)}<br>km ${one(km)}${p.est ? ' (estimated)' : ''}${p.offM > 60 ? ', ' + dist(p.offM) + ' off the course' : ''}<br>${where(r)}` +
+          (others.length ? `<br><span class="muted">Same spot: ${others.map(x => 'bib ' + esc(x.bib)).join(', ')}</span>` : '') +
+          (opts.extra ? opts.extra(r) : '') + (opts.find ? `<br><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button>` : ''));
+        mk.options.bib = r.bib;
+        mk.addTo(layer);
+      });
     }
   }
 

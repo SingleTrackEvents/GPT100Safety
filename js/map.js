@@ -139,7 +139,7 @@
   let runnerLayer = null;
   if (TR) {
     runnerLayer = L.layerGroup().addTo(map);
-    TR.onUpdate(() => { runnerLayer.clearLayers(); courses.forEach(E => TR.draw(runnerLayer, E, null, null)); renderPanel(); $('mpStatus').textContent = TR.status(); });
+    TR.onUpdate(() => { runnerLayer.clearLayers(); courses.forEach(E => TR.draw(runnerLayer, E, null, null, { extra: r => `<br><a class="btn small" style="margin-top:6px" href="${esc(findHref('#bib=' + r.bib))}">Open in Find</a>` })); renderPanel(); $('mpStatus').textContent = TR.status(); });
   } else $('mpStatus').textContent = 'No live tracking feed is set.';
 
   // Centre on a runner and say where they are.
@@ -148,9 +148,11 @@
     if (!r || !r.pos) { $('mpBibMsg').textContent = TR && TR.ready() ? `No position for bib ${bib} yet` : 'Tracking is still loading'; return false; }
     const p = r.pos, at = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon];
     map.setView(at, Math.max(map.getZoom(), 14));
-    // Bring this runner's marker to the front, in case others sit on the same spot.
-    if (runnerLayer) runnerLayer.eachLayer(mk => { if (mk.setZIndexOffset) mk.setZIndexOffset(mk.options.bib === r.bib ? 1500 : 400); });
-    L.popup({ maxWidth: 280 }).setLatLng(at).setContent(`${TR.who(r)}<br>km ${one(TR.cur(r))}${p.est ? ' (estimated)' : ''}${p.offM > 60 ? ', ' + TR.dist(p.offM) + ' off the course' : ''}<br>${TR.where(r)}<br><a class="btn small" style="margin-top:6px" href="${esc(findHref('#bib=' + r.bib))}">Open in Find</a>`).openOn(map);
+    // Open the runner's own marker popup (runners on one spot are stacked, each with its own marker).
+    let mk = null;
+    if (runnerLayer) runnerLayer.eachLayer(l => { if (l.options && l.options.bib === r.bib) mk = l; });
+    if (mk) mk.openPopup();
+    else L.popup({ maxWidth: 280 }).setLatLng(at).setContent(`${TR.who(r)}<br>km ${one(TR.cur(r))}${p.est ? ' (estimated)' : ''}${p.offM > 60 ? ', ' + TR.dist(p.offM) + ' off the course' : ''}<br>${TR.where(r)}<br><a class="btn small" style="margin-top:6px" href="${esc(findHref('#bib=' + r.bib))}">Open in Find</a>`).openOn(map);
     $('mpBibMsg').textContent = '';
     if (innerWidth < 700) openPanel(false);
     return true;
