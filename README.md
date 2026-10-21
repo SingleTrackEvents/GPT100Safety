@@ -182,6 +182,7 @@ The bar at the bottom shows the race time, pauses, runs at 1x, 10x or 60x, jumps
 
 - no tracker (the chips place them), a tracker that went quiet (the chips carry on), a runner who stopped with the tracker still sending (not moving, then late at the next checkpoint), a tracker lost hours ago with the runner stopped (overdue), a withdrawal, a checkpoint that missed a runner, and a runner who wandered 300 m off the course.
 - The race carries on across the staff app, the map page and the field app in the same browser tab. **Exit** takes the demo away. A real feed (`?gps=`, `?chip=` or the config) always wins over the demo.
+- The demo feeds are read every few seconds (the real feeds keep their providers' cadence of 15 and 30 seconds), so the runners move smoothly at 10x and 60x. Even so, a runner at 5 km/h covers 5 km a minute at 60x, which is a few pixels on the whole-course view: zoom in to a section to watch them go.
 - `?demo=12h` starts 12 hours into the Miler; `?demo=sat09:30` at a day and time; `&speed=10` starts fast. Not moving and late count real minutes (as they will on the day), so run at 1x to watch them come up as they would, and use 10x or 60x to watch the field move.
 - `node tools/make_demo_runners.mjs [miler] [stage 2] [seed]` makes a new field; or edit the file by hand for a particular runner or case.
 

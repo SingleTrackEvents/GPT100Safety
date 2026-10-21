@@ -21,6 +21,9 @@
   const T = C.tracking = C.tracking || {};
   const BASE = 'https://demo.gpt100.invalid/feed/';  // never fetched: window.fetch answers it below
   T.gps = BASE; T.chip = BASE + 'timing.json'; T.credit = null;
+  // Read the demo feeds every few seconds (the real feeds keep their providers' cadence, 15 and 30 s), so the
+  // runners move smoothly at 10x and 60x instead of jumping every 15 s.
+  T.gpsEvery = 3; T.chipEvery = 5;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ---------- the race clock ----------
