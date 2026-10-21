@@ -110,7 +110,7 @@
     G.ACCESS.forEach(a => {
       if (G.main && a.aid) return;
       L.marker([a.lat, a.lon], { icon: pin(G.isGated(a) ? '#6d3b8e' : '#888', 10) })
-        .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m walk to course' : ''}<br>${w3wLink(a.w3w)}`)
+        .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m walk to course' : ''}${a.note ? '<br>' + esc(a.note) : ''}<br>${w3wLink(a.w3w)}`)
         .addTo(courseLayer);
     });
     G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>${stopKind(a)}, ${kmTxt(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(courseLayer));
@@ -420,7 +420,7 @@
       <div class="eta"><span class="eyebrow">ETA</span><b>${G.fmt(b.total)}</b></div></div>
       <ol class="steps">
         <li><span><b>Drive</b> to ${esc(G.cleanName(a))}${gated ? '<span class="tag gated">Gated</span>' : ''}${a.aid ? `<span class="tag aid">${/water point/i.test(a.name) ? 'Water pt' : 'Aid stn'}</span>` : ''}
-          <span class="sub">${kmTxt(b.joinKm)}${b.connM > 50 ? ', ' + b.connM + ' m walk to the course' : ''}${a.w3w ? ' &middot; ' + w3wLink(a.w3w) : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
+          <span class="sub">${kmTxt(b.joinKm)}${b.connM > 50 ? ', ' + b.connM + ' m walk to the course' : ''}${a.w3w ? ' &middot; ' + w3wLink(a.w3w) : ''}${a.note ? '<br>' + esc(a.note) : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
         <li><span><b>Walk in</b> ${one(b.walkKm)} km${b.climb >= 5 ? ', ' + Math.round(b.climb) + ' m climb' : ''}
           <span class="sub">${b.joinKm > r.km ? 'Along the course, against race direction' : (b.joinKm < r.km ? 'Along the course, in race direction' : 'Straight to the course')}</span></span><span class="t">${G.fmt(b.walk)}</span></li>
       </ol>
