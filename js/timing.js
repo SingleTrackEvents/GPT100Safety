@@ -15,7 +15,9 @@
   src = src || T.chip || '';
   if (!src) { window.GPTTiming = null; return; }
   const URL_ = /^https?:\/\//.test(src) ? src : ((C.weather && C.weather.refreshUrl) || '').replace(/\/$/, '') + '/timing/';
-  const EVERY = Math.max(15, +T.chipEvery || 30);  // seconds between reads of the feed (RaceResult caches it for 10 to 30 s)
+  // Seconds between reads of the feed: at least 15 through the relay (RaceResult caches it for 10 to 30 s); a feed read
+  // straight from an address of our own (the demo, a rehearsal folder) can go faster.
+  const EVERY = Math.max(/^https?:\/\//.test(src) ? 2 : 15, +T.chipEvery || 30);
   const MEL = 11 * 3600e3;  // Melbourne in November (daylight saving), for times of day in the feed
 
   const S = { ready: false, off: false, error: null, updated: 0, runners: new Map(), points: [], unmatched: [], rows: 0, listeners: [] };

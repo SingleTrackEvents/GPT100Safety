@@ -40,7 +40,9 @@
       const k = line.slice(0, i), v = line.slice(i + 1);
       if (k === 'RACENAME') S.name = v.trim();
       else if (k === 'LIVE') S.live = v.trim() === '1';
-      else if (k === 'GRABINTERVAL') S.interval = Math.max(10, +v || 15);
+      // The provider's own cadence. A feed read straight from an address of our own (the demo, a rehearsal folder)
+      // can be read more often: tracking.gpsEvery seconds. The relay keeps the provider's cadence.
+      else if (k === 'GRABINTERVAL') S.interval = !RELAY && T.gpsEvery ? Math.max(2, +T.gpsEvery) : Math.max(10, +v || 15);
       else if (k === 'COMPETITOR') {
         // id|date|start|"1047 Jane Smith"|short name|...
         const f = v.split('|'), id = f[0], full = (f[3] || '').trim(), m = full.match(/^(\d+)\s*(.*)$/);
