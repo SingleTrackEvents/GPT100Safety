@@ -9,7 +9,7 @@ window.GPT100_PACING = {
       { km: 0, name: 'Mt Zero', fast: '2026-11-06T08:00', slow: '2026-11-06T08:00' },
       { km: 6.45, name: 'Copper Mine', fast: '2026-11-06T08:37', slow: '2026-11-06T09:30' },
       { km: 15.62, name: 'GAR', fast: '2026-11-06T09:26', slow: '2026-11-06T12:00' },
-      { km: 28.04, name: 'Mt Difficult Ridgeline', fast: '2026-11-06T10:56', slow: '2026-11-06T16:30' },
+      { km: 30.11, name: 'Mt Difficult Ridgeline', fast: '2026-11-06T10:56', slow: '2026-11-06T16:30' },
       { km: 35.31, name: 'Mt Difficult Rd', fast: '2026-11-06T11:35', slow: '2026-11-06T17:00' },
       { km: 49.17, name: 'Halls Gap', fast: '2026-11-06T12:50', slow: '2026-11-06T20:00' },
       { km: 58.94, name: 'Mt Rosea', fast: '2026-11-06T14:07', slow: '2026-11-06T23:00' },
