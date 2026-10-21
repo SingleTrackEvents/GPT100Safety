@@ -69,7 +69,7 @@
       '<br><i style="background:#111"></i>Aid station or water point<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
       `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach` +
       (window.GPTTrack ? '<br><span class="legend-head">Track grade after a find</span><br>' + GPTTrack.legendHTML() : '') +
-      (window.GPTTracking ? '<br><span class="trk-mk" style="display:inline-block;vertical-align:middle">1047</span> Tracked runner (grey: quiet, red: not moving)' : '');
+      (window.GPTTracking ? '<br><span class="trk-mk" style="display:inline-block;vertical-align:middle">1047</span> Tracked runner (grey: quiet, red: not moving)' + (GPTTracking.chip() ? '<br><span class="trk-mk est" style="display:inline-block;vertical-align:middle">1047</span> Estimated from the timing chips (amber: late at the next checkpoint)' : '') : '');
     return d;
   };
   legend.addTo(map);
@@ -182,7 +182,7 @@
     const bm = v.match(/^(?:#|bib\s*|runner\s*)?(\d{1,5})$/i);
     if (bm && window.GPTTracking) {
       const r = GPTTracking.byBib(bm[1]), tagged = /^(#|bib|runner)/i.test(v);
-      if (r && (tagged || +bm[1] > G.totalKm)) return r.pos ? { type: 'bib', r } : { type: 'error', msg: `Bib ${bm[1]} (${r.name}) has no tracker position yet` };
+      if (r && (tagged || +bm[1] > G.totalKm)) return r.pos ? { type: 'bib', r } : { type: 'error', msg: `Bib ${bm[1]} (${r.name}) has no position yet from the tracker or the timing chips` };
       if (tagged) return { type: 'error', msg: GPTTracking.ready() ? `No bib ${bm[1]} in the tracking feed` : 'Tracking is still loading, try again in a moment' };
     }
     const nums = v.match(/-?\d+(?:\.\d+)?/g);
@@ -221,12 +221,15 @@
     else if (q.type === 'bib') findBib(q.r);
     else lookupW3W(q.words);
   });
-  // A runner from the tracking feed: their last fix, on their own course.
+  // A runner from the live feeds: where they most likely are now (their last GPS fix or chip read, carried forward at
+  // their pace when it's a few minutes old), on their own course. The message says how that was worked out.
   function findBib(r) {
     if (r.pos.course !== G) setCourse(r.pos.course.id);
     $('q').value = '#' + r.bib;
-    findLL(r.pos.lat, r.pos.lon, `bib ${r.bib} tracker, last fix ${GPTTracking.ago(r.pos.ageMs)}`);
-    setMsg(`Bib ${r.bib} ${r.name}: last fix ${GPTTracking.ago(r.pos.ageMs)}${r.pos.stopped ? ', not moving' : ''}${r.pos.stale ? '. The tracker has gone quiet, so they may have moved on.' : ''}`, !r.pos.stale);
+    const p = r.pos, at = p.est || p, how = p.est ? `bib ${r.bib}, estimated from ${p.est.from === 'GPS' ? 'the last GPS fix' : 'the ' + p.est.from + ' chip read'} ${GPTTracking.ago(p.ageMs)}` : `bib ${r.bib}, ${p.src === 'chip' ? 'chip read at ' + p.chipAt.name : 'GPS fix'} ${GPTTracking.ago(p.ageMs)}`;
+    findLL(at.lat, at.lon, p.done ? `bib ${r.bib}, last known place` : how);
+    const text = GPTTracking.where(r).replace(/<[^>]+>/g, '');
+    setMsg(`Bib ${r.bib} ${r.name}: ${text}${p.est ? '. The marker is the estimate; the last hard fix was km ' + p.km.toFixed(1) : ''}.`, !(p.stale || p.done || (p.next && p.next.late)));
   }
   document.addEventListener('click', e => {
     const b = e.target.closest('.trk-go'); if (!b || !window.GPTTracking) return;

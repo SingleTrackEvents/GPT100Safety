@@ -41,6 +41,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Control:** a Runner watch list (not moving, tracker quiet) with Find buttons, every runner on the board map, and each open incident with a bib shows where that runner's tracker is now and how far that is from the logged km.
 - **Field app:** Where am I? adds Runners near you: the next runners coming towards you, nearest first, and those just past, with the runners on the field map.
 - The feed is GPS-seuranta (tulospalvelu.fi), the system used at Buffalo Stampede. The app reads the event's `init.txt` (competitors) and `data.lst` (positions) through the Worker's `/gps/` relay, since the provider only serves them to its own viewer, and polls `data.php` every 15 seconds while the event is live. Without the link set, nothing changes.
+- **Timing chips too** (when the timing team's RaceResult link is in the Worker, see [`tools/TIMING.md`](tools/TIMING.md)): the time each runner crossed each timing point. The two feeds cover for each other. For every runner the newest hard fix wins, GPS or chip; a fix older than a few minutes is carried forward at the runner's own pace, never past the next timing point; and a runner who should have reached the next checkpoint by now, with no fresh GPS fix showing them moving, is flagged late (past the cut-off pace, overdue) in the Control Runner watch and in Medical. Every marker, row and Find answer says which feed placed the runner and when: solid is a recent fix, dashed an estimate, grey a quiet tracker, amber late, red not moving. Runners the chips know but the trackers don't are on the maps as well, and finished or withdrawn runners come off the course.
 
 **Weather** (for the weather lead and race control)
 
@@ -173,7 +174,7 @@ python3 -m http.server 8765
 open http://localhost:8765/index.html?gps=http://localhost:8765/out/demo-gps/
 ```
 
-`?gps=` also takes an event id, which goes through the relay, so a past event (for example the Buffalo one) can be replayed on the live site without changing the config.
+`?gps=` also takes an event id, which goes through the relay, so a past event (for example the Buffalo one) can be replayed on the live site without changing the config. The rehearsal folder also holds `timing.json`, a timing list in RaceResult's shape for the same runners, which the app picks up by itself. Some of the made-up runners have no tracker, a tracker that went quiet, or a tracker lost hours ago, to show the chips taking over. Setting up the real timing feed: [`tools/TIMING.md`](tools/TIMING.md).
 
 ## Track grades and emergency markers
 

@@ -300,9 +300,9 @@
     const TR = window.GPTTracking;
     if (!TR) return '';
     if (!TR.ready()) return `<div class="card trk"><h3>Runners near you</h3><p class="muted">${esc(TR.status())}</p></div>`;
-    const back = TR.near(E, r.km, 6, 30).filter(x => x.pos.km <= r.km).sort((a, b) => b.pos.km - a.pos.km).slice(0, 6);
-    const ahead = TR.near(E, r.km, 6, 30).filter(x => x.pos.km > r.km).sort((a, b) => a.pos.km - b.pos.km).slice(0, 3);
-    const row = (x, dir) => `<div class="row"><span>${TR.who(x)}<span class="sub">km ${one(x.pos.km)}, ${TR.dist(Math.abs(x.pos.km - r.km) * 1000)} ${dir}${x.pos.stopped ? ', <b>not moving</b>' : ''}. ${TR.seen(x)}</span></span></div>`;
+    const back = TR.near(E, r.km, 6, 30).filter(x => TR.cur(x) <= r.km).sort((a, b) => TR.cur(b) - TR.cur(a)).slice(0, 6);
+    const ahead = TR.near(E, r.km, 6, 30).filter(x => TR.cur(x) > r.km).sort((a, b) => TR.cur(a) - TR.cur(b)).slice(0, 3);
+    const row = (x, dir) => `<div class="row"><span>${TR.who(x)}<span class="sub">km ${one(TR.cur(x))}${x.pos.est ? ' (estimated)' : ''}, ${TR.dist(Math.abs(TR.cur(x) - r.km) * 1000)} ${dir}${x.pos.stopped ? ', <b>not moving</b>' : ''}. ${TR.seen(x)}</span></span></div>`;
     return `<div class="card trk"><h3>Runners near you</h3>` +
       (back.length ? `<p class="fd-hint">Coming towards you (nearest first):</p>` + back.map(x => row(x, 'back')).join('') : '<p class="muted">No tracked runners within 6 km behind you.</p>') +
       (ahead.length ? `<p class="fd-hint">Just past you:</p>` + ahead.map(x => row(x, 'ahead')).join('') : '') +

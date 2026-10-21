@@ -73,12 +73,17 @@ window.GPT100_CONFIG = {
       fire: {}                                            // Total Fire Ban, or Extreme / Catastrophic rating
     }
   },
-  // Live runner tracking (GPS-seuranta, tulospalvelu.fi). url: the public tracking page, for the Live tracking
-  // button. gps: the event's id from that link (the last part of the address, e.g. 20260328buffalostamp); the app
-  // then reads the runners' positions through the Worker's /gps/ relay and shows them in Find, Medical, Control
-  // and the field app. Leave gps blank until the event's link exists. For a rehearsal, open the app with
-  // ?gps=<event id> or ?gps=<full address of a folder holding init.txt and data.lst>.
-  tracking: { url: '', label: 'Live tracking', gps: '' },
+  // Live runner positions, from two feeds that cover for each other (js/tracking.js, js/timing.js, tools/TIMING.md).
+  // GPS trackers (GPS-seuranta, tulospalvelu.fi): url is the public tracking page, for the Live tracking button.
+  // gps is the event's id from that link (the last part of the address, e.g. 20260328buffalostamp); the app then
+  // reads the runners' positions through the Worker's /gps/ relay. Leave it blank until the event's link exists.
+  // Timing chips (RaceResult): chip is 'relay' once the timing team's Simple API link is in the Worker as the
+  // TIMING_URL secret (the link never goes in the app), or blank for none. chipEvery: seconds between reads.
+  // chipPoints: timing point names the app couldn't match to a course stop by itself, e.g. { 'TP3': { km: 99.5 } }
+  // (course '14k' for that course; the GPT100 otherwise). chipFields: column names, only if the feed sends rows
+  // without them. For a rehearsal: node tools/gps_demo_feed.mjs, then open the app with
+  // ?gps=<full address of the folder> (timing.json in the same folder is picked up), or ?chip=<address of the list>.
+  tracking: { url: '', label: 'Live tracking', gps: '', chip: '', chipEvery: 30, chipPoints: {} },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
   what3wordsKey: 'LBTPEWCQ'
