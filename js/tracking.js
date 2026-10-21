@@ -155,6 +155,19 @@
         if (best.offM < 60) break;
       }
       const t = (p[0] + EPOCH) * 1000;
+      // Where the course passes close to itself (Halls Gap, the out and back to Jimmy Creek), a wobbly fix can snap
+      // to the wrong pass and the km flicks back. Runners don't run backwards: if the nearest point is behind where
+      // this runner was a moment ago and another pass nearby keeps them going forward, take that one.
+      const E = best.E, LS = r.lastSnap && r.lastSnap.E === E ? r.lastSnap : null;
+      if (LS && LS.t === t) { best.ic = LS.ic; best.offM = LS.offM; }  // the same fix again (positions are recomputed every minute): keep the pick
+      else {
+        const prev = LS && LS.t < t && t - LS.t < 30 * 60e3 ? LS.km : null;
+        if (prev != null && E.route[best.ic][2] < prev - 0.05) {
+          const alt = E.revisits(best.ic, Math.max(80, best.offM + 40)).map(i => E.route[i]).filter(q => q[2] >= prev - 0.05).sort((a, b) => a[2] - b[2])[0];
+          if (alt) { best.ic = E.idxAtKm(alt[2]); best.offM = Math.round(window.GPT.metres([p[1], p[2]], [alt[0], alt[1]])); }
+        }
+        if (!LS || LS.t < t) r.lastSnap = { E, ic: best.ic, km: E.route[best.ic][2], offM: best.offM, t };
+      }
       // Moving: more than STOPPED_M from where they were STOPPED_MIN ago.
       const old = r.pts.find(q => (p[0] - q[0]) * 1000 <= STOPPED_MIN * 60e3) || r.pts[0];
       const moved = window.GPT.metres([old[1], old[2]], [p[1], p[2]]);
