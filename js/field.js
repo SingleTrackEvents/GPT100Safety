@@ -300,9 +300,9 @@
     const TR = window.GPTTracking;
     if (!TR) return '';
     if (!TR.ready()) return `<div class="card trk"><h3>Runners near you</h3><p class="muted">${esc(TR.status())}</p></div>`;
-    const back = TR.near(E, r.km, 6, 30).filter(x => x.pos.km <= r.km).sort((a, b) => b.pos.km - a.pos.km).slice(0, 6);
-    const ahead = TR.near(E, r.km, 6, 30).filter(x => x.pos.km > r.km).sort((a, b) => a.pos.km - b.pos.km).slice(0, 3);
-    const row = (x, dir) => `<div class="row"><span>${TR.who(x)}<span class="sub">km ${one(x.pos.km)}, ${TR.dist(Math.abs(x.pos.km - r.km) * 1000)} ${dir}${x.pos.stopped ? ', <b>not moving</b>' : ''}. ${TR.seen(x)}</span></span></div>`;
+    const back = TR.near(E, r.km, 6, 30).filter(x => TR.cur(x) <= r.km).sort((a, b) => TR.cur(b) - TR.cur(a)).slice(0, 6);
+    const ahead = TR.near(E, r.km, 6, 30).filter(x => TR.cur(x) > r.km).sort((a, b) => TR.cur(a) - TR.cur(b)).slice(0, 3);
+    const row = (x, dir) => `<div class="row"><span>${TR.who(x)}<span class="sub">km ${one(TR.cur(x))}${x.pos.est ? ' (estimated)' : ''}, ${TR.dist(Math.abs(TR.cur(x) - r.km) * 1000)} ${dir}${x.pos.stopped ? ', <b>not moving</b>' : ''}. ${TR.seen(x)}</span></span></div>`;
     return `<div class="card trk"><h3>Runners near you</h3>` +
       (back.length ? `<p class="fd-hint">Coming towards you (nearest first):</p>` + back.map(x => row(x, 'back')).join('') : '<p class="muted">No tracked runners within 6 km behind you.</p>') +
       (ahead.length ? `<p class="fd-hint">Just past you:</p>` + ahead.map(x => row(x, 'ahead')).join('') : '') +
@@ -607,7 +607,7 @@
         <li><b>Way out</b> The nearest vehicle access and how long it takes on foot, and the aid stations either side.</li>
         <li><b>Race</b> Pick your race (it stays picked): every aid station with its cut-off, and when you'll reach each one at your current pace (or from a target time). Handy for sweeps.</li>
         <li><b>Trail</b> Turn on <b>Keep updating</b> to follow your position and draw the trail you've walked.</li>
-      </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. In an emergency call 000.</p>` })
+      </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. In an emergency call 000.${C.tracking && C.tracking.credit && C.tracking.credit.name ? ` Timing and tracking by ${C.tracking.credit.url ? `<a href="${esc(C.tracking.credit.url)}" target="_blank" rel="noopener">${esc(C.tracking.credit.name)}</a>` : esc(C.tracking.credit.name)}.` : ''}</p>` })
     ]
   });
   let rz = null; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (map) map.invalidateSize(); }, 200); });
@@ -622,7 +622,7 @@
   $('fdNote').addEventListener('input', sendLinks);
   // Refresh the message time and links when the app is reopened.
   document.addEventListener('visibilitychange', () => { if (!document.hidden) sendLinks(); });
-  if (C.tracking && C.tracking.url) { const t = $('fdTrack'); t.hidden = false; t.innerHTML = `<a class="btn" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>`; }
+  if (C.tracking && C.tracking.url) { const t = $('fdTrack'); t.hidden = false; t.innerHTML = `<a class="btn" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>${C.tracking.credit && C.tracking.credit.name ? ` <span class="fd-hint">by ${C.tracking.credit.url ? `<a href="${esc(C.tracking.credit.url)}" target="_blank" rel="noopener">${esc(C.tracking.credit.name)}</a>` : esc(C.tracking.credit.name)}</span>` : ''}`; }
   function netStatus() { $('net').hidden = navigator.onLine; }
   addEventListener('online', netStatus); addEventListener('offline', netStatus); netStatus();
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));

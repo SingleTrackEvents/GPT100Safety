@@ -472,7 +472,7 @@
         <li><b>Help</b> Call 000 or race medical, share your location, or find your what3words (three words that pin you to a 3 m square, easy to read out).</li>
         <li><b>Schedule</b> What's on now, what's next, and the full schedule.</li>
         <li><b>Gear</b> Tick off your mandatory gear.</li>
-      </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. A guide only: follow the course markings and the race briefing.</p>`;
+      </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. A guide only: follow the course markings and the race briefing.${C.tracking && C.tracking.credit && C.tracking.credit.name ? ` Timing and tracking by ${C.tracking.credit.url ? `<a href="${esc(C.tracking.credit.url)}" target="_blank" rel="noopener">${esc(C.tracking.credit.name)}</a>` : esc(C.tracking.credit.name)}.` : ''}</p>`;
     body.innerHTML = h;
     $('rnIntroDots').innerHTML = Array.from({ length: STEPS }, (_, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('');
     $('rnIntroBack').style.visibility = i ? 'visible' : 'hidden';
@@ -504,7 +504,7 @@
   $('rnW3wGet').addEventListener('click', () => { $('rnW3wMsg').textContent = 'Finding you… (stand in the open)'; locate(); });
   showW3w();
   $('rnNotices').innerHTML = (INFO.notices || []).map(n => `<p class="notice">${esc(n.text)}</p>`).join('');
-  if (C.tracking && C.tracking.url) { const t = $('fdTrack'); t.hidden = false; t.innerHTML = `<a class="btn" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>`; }
+  if (C.tracking && C.tracking.url) { const t = $('fdTrack'); t.hidden = false; t.innerHTML = `<a class="btn" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>${C.tracking.credit && C.tracking.credit.name ? ` <span class="fd-hint">by ${C.tracking.credit.url ? `<a href="${esc(C.tracking.credit.url)}" target="_blank" rel="noopener">${esc(C.tracking.credit.name)}</a>` : esc(C.tracking.credit.name)}</span>` : ''}`; }
   setStage(pickStage());
   setMode(mode);
   setTab(tab);

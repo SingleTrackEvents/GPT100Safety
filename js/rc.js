@@ -130,7 +130,7 @@
         <div class="rc-tools"><span id="rcSync" class="rc-sync"></span>
           <label class="rc-who">You <input id="rcWho" type="text" maxlength="40" placeholder="Your name" value="${esc(who())}"></label>
           <button id="rcNew" class="btn primary small" type="button">New incident</button>
-          ${C.tracking && C.tracking.url ? `<a class="btn small" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>` : ''}
+          ${C.tracking && C.tracking.url ? `<a class="btn small" href="${esc(C.tracking.url)}" target="_blank" rel="noopener" title="${C.tracking.credit && C.tracking.credit.name ? 'Timing and tracking by ' + esc(C.tracking.credit.name) : ''}">${esc(C.tracking.label || 'Live tracking')}</a>` : ''}
           <button id="rcExport" class="btn small" type="button">Export</button></div>
       </div>
       <div class="rc-col rc-incs"><div id="rcForm"></div><div id="rcOpen"></div><details class="rc-closed"><summary id="rcClosedSum">Closed</summary><div id="rcClosed"></div></details></div>
@@ -175,11 +175,12 @@
     if (runnerLayer) { runnerLayer.clearLayers(); G.courses.forEach(E => TR.draw(runnerLayer, E, null, null, { find: true })); }
     if (!TR.ready()) { el.innerHTML = `<p class="rc-live">${esc(TR.status())}</p>`; return; }
     const w = TR.watch();
-    const row = (r, why) => `<div class="row"><span>${TR.who(r)}<span class="sub">${why}, km ${(r.pos.km).toFixed(1)}${r.pos.course !== G ? ' (' + esc(r.pos.course.label) + ')' : ''}, last fix ${TR.ago(r.pos.ageMs)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`;
+    const row = (r, why) => `<div class="row"><span>${TR.who(r)}<span class="sub">${why}, km ${TR.cur(r).toFixed(1)}${r.pos.est ? ' (estimated)' : ''}${r.pos.course !== G ? ' (' + esc(r.pos.course.label) + ')' : ''}. ${TR.where(r)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`;
     el.innerHTML = `<h3>Runner watch</h3><p class="rc-live">${esc(TR.status())}</p>` +
       (w.stopped.length ? `<h4>Not moving for 20 min</h4>` + w.stopped.slice(0, 10).map(r => row(r, 'Not moving')).join('') : '') +
+      (w.late.length ? `<h4>Late at the next checkpoint</h4>` + w.late.slice(0, 10).map(r => row(r, (r.pos.next.overdue ? 'Overdue' : 'Late') + ' at ' + esc(r.pos.next.name))).join('') : '') +
       (w.quiet.length ? `<h4>Tracker gone quiet</h4>` + w.quiet.slice(0, 10).map(r => row(r, 'No fix')).join('') : '') +
-      (!w.stopped.length && !w.quiet.length ? '<p class="rc-live">Everyone with a tracker is moving and reporting.</p>' : '');
+      (!w.stopped.length && !w.late.length && !w.quiet.length ? '<p class="rc-live">Everyone on course is moving and accounted for.</p>' : '');
   }
   if (window.GPTTracking) GPTTracking.onUpdate(() => { if (built) { renderWatch(); render(); } });
   // Flash a missing required field red (and focus the first one).
@@ -240,13 +241,14 @@
         ${i.km != null ? '<button class="btn small" data-act="find" type="button">Find</button>' : ''}</div>`}
     </div>`;
   }
-  // Where the incident's runner's tracker is now, from the live feed.
+  // Where the incident's runner is now, from the GPS tracker or the timing chips, whichever is newer.
   function liveBib(i) {
     const TR = window.GPTTracking;
     if (!TR || !i.bib || i.status === 'closed') return '';
     const r = TR.byBib(i.bib);
     if (!r || !r.pos) return '';
-    return `<p class="trk-bib">Tracker: km ${r.pos.km.toFixed(1)}${r.pos.offM > 60 ? ', ' + TR.dist(r.pos.offM) + ' off the course' : ''}, ${r.pos.stopped ? '<b>not moving</b>, ' : ''}last fix ${TR.ago(r.pos.ageMs)}${i.km != null && Math.abs(r.pos.km - i.km) > 0.3 ? ` <b>(${TR.dist(Math.abs(r.pos.km - i.km) * 1000)} from the logged km)</b>` : ''} <button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></p>`;
+    const km = TR.cur(r);
+    return `<p class="trk-bib">${r.pos.src === 'chip' ? 'Chips' : 'Tracker'}: km ${km.toFixed(1)}${r.pos.est ? ' (estimated)' : ''}${r.pos.offM > 60 ? ', ' + TR.dist(r.pos.offM) + ' off the course' : ''}. ${TR.where(r)}${i.km != null && !r.pos.done && Math.abs(km - i.km) > 0.3 ? ` <b>(${TR.dist(Math.abs(km - i.km) * 1000)} from the logged km)</b>` : ''} <button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></p>`;
   }
   function bindCards() {
     document.querySelectorAll('#rcBody .rc-card').forEach(el => {

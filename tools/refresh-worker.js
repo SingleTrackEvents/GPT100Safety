@@ -19,7 +19,11 @@
 //   GET  /gps/<event>/data.php?offset=…   the new positions since a byte offset (live events)
 //   GET  /gps/time.php                    the provider's clock
 //
+// Timing chip relay (the timing team's RaceResult Simple API list, tools/TIMING.md; the link lives here as a secret):
+//   GET  /timing/                         the latest list as JSON, cached 20 seconds on the edge
+//
 // Secret:    GITHUB_TOKEN   fine-grained key, this repository only, Actions read and write
+// Secret:    TIMING_URL     the RaceResult Simple API link for the timing list (optional, turns on /timing/)
 // Optional:  REPO, WORKFLOW, BRANCH, ALLOWED_ORIGIN (defaults below; several origins separated by commas)
 
 const DEFAULTS = {
@@ -207,12 +211,27 @@ async function gpsRelay(req, env, url, c) {
   return new Response(res.body, { status: res.status, headers });
 }
 
+// Relay the timing team's RaceResult list. The Simple API link is a secret here, so it's never in the app or on a
+// phone, and the edge cache keeps a room full of phones to one request upstream every 20 seconds
+// (RaceResult allows one call a second per link and caches its answer for 10 to 30 seconds anyway).
+async function timingRelay(req, env, url, c) {
+  const json = (o, status) => new Response(JSON.stringify(o), { status: status || 200, headers: c.headers });
+  if (!c.ok) return json({ error: 'Not allowed from this site' }, 403);
+  if (!env.TIMING_URL) return json({ error: 'Timing isn\'t set up on the Worker yet (needs the TIMING_URL secret)' }, 503);
+  const res = await fetch(env.TIMING_URL, { headers: { 'User-Agent': 'GPT100Safety relay' }, cf: { cacheTtl: 20, cacheEverything: true } });
+  if (!res.ok) return json({ error: 'The timing feed said ' + res.status }, 502);
+  return new Response(res.body, { status: 200, headers: Object.assign({}, c.headers, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=20' }) });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url), c = cors(env, req);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: c.headers });
     if (url.pathname.startsWith('/gps/') && req.method === 'GET') {
       try { return await gpsRelay(req, env, url, c); } catch (e) { return new Response('Tracking provider unreachable: ' + e.message, { status: 502, headers: c.headers }); }
+    }
+    if ((url.pathname === '/timing/' || url.pathname === '/timing') && req.method === 'GET') {
+      try { return await timingRelay(req, env, url, c); } catch (e) { return new Response(JSON.stringify({ error: 'Timing feed unreachable: ' + e.message }), { status: 502, headers: c.headers }); }
     }
     if (!env.GITHUB_TOKEN) return new Response(JSON.stringify({ error: 'The GITHUB_TOKEN secret is not set' }), { status: 500, headers: c.headers });
     try {

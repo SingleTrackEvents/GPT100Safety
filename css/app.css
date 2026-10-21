@@ -515,6 +515,10 @@ tr.muted td { color: var(--muted); }
 .trk-mk { min-width: 30px; height: 18px; padding: 0 4px; border-radius: 9px; background: #1666c9; color: #fff; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.5); font: 700 10px/14px var(--body); text-align: center; white-space: nowrap; }
 .trk-mk.stale { background: #9a9a9a; }
 .trk-mk.stopped { background: var(--red); }
+.trk-mk.est { background: #fff; color: #1666c9; border: 2px dashed #1666c9; }
+.trk-mk.est.stale { color: #777; border-color: #777; }
+.trk-mk.late { background: #fff3d6; color: #8a5a00; border-color: #b87700; }
+.trk-mk.overdue { background: #b84a00; color: #fff; border-color: #fff; }
 .trk-list .row { align-items: center; }
 .trk-watch h4 { margin: 8px 0 2px; font-size: 13px; }
 .trk-bib { font-size: 12px; color: var(--muted); margin-top: 4px; }
