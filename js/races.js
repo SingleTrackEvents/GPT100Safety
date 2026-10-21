@@ -38,7 +38,7 @@
     return def ? (MINI[def.id] = MINI[def.id] || mini(def)) : null;
   };
   // Each race point gets gk: its km on the course line. Aid stations are matched by name (in order);
-  // points that don't match (e.g. Stockyard Track) sit between their neighbours in proportion.
+  // points that don't match (a sheet point with no staffed point on the course) sit between their neighbours in proportion.
   function prepare(stage, course) {
     if (stage.ready) return stage;
     stage.course = course; stage.ready = true;

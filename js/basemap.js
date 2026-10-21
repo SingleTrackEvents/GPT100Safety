@@ -1,5 +1,6 @@
 // Map backgrounds for every map: a topo map (contours, tracks and peaks) by default, or the street map.
-// The layers button switches them, and the choice is remembered on this phone for all the maps.
+// The layers button switches them, and the choice is remembered on this phone for all the maps. The same button
+// ticks overlays on or off (helicopter landing sites, emergency markers, camps), added with GPTBaseMap.overlay.
 // The topo map 2 km either side of both courses (zoom 8 to 15) is hosted on this site (data/tiles.js lists it),
 // so it can be saved on the phone for use without signal. Closer in than zoom 15 it enlarges the saved map,
 // with OpenTopoMap's sharper tiles on top when there's signal. (The street map can't be saved: OpenStreetMap
@@ -27,9 +28,26 @@
     let pick = 'Topo'; try { const v = localStorage.getItem(KEY); if (bases[v]) pick = v; } catch (e) { }
     map.attributionControl.setPrefix(false);
     bases[pick].addTo(map);
-    L.control.layers(bases, null, { position: 'topright' }).addTo(map);
+    const ctrl = L.control.layers(bases, null, { position: 'topright' }).addTo(map);
     map.on('baselayerchange', e => { try { localStorage.setItem(KEY, e.name); } catch (err) { } });
-    return bases;
+    // Overlays (helipads, emergency markers...) are ticked on or off from the same button; the choice is remembered.
+    map.on('overlayadd', e => remember(e.name, true));
+    map.on('overlayremove', e => remember(e.name, false));
+    map._gptLayers = ctrl;
+    return ctrl;
+  };
+  const OVER = 'gptOverlays';
+  let quiet = false;
+  function remember(name, on) { if (quiet) return; try { const v = JSON.parse(localStorage.getItem(OVER) || '{}'); v[name] = on; localStorage.setItem(OVER, JSON.stringify(v)); } catch (e) { } }
+  // Adds an overlay to a map's layers button. on: whether it starts ticked, unless this phone remembers a choice.
+  window.GPTBaseMap.overlay = function (map, name, layer, on) {
+    const ctrl = map._gptLayers;
+    if (!ctrl) return layer;
+    ctrl.addOverlay(layer, name);
+    let want = !!on;
+    try { const v = JSON.parse(localStorage.getItem(OVER) || '{}'); if (typeof v[name] === 'boolean') want = v[name]; } catch (e) { }
+    if (want) { quiet = true; layer.addTo(map); quiet = false; }
+    return layer;
   };
 
   // ---------- saving the topo map on the phone ----------

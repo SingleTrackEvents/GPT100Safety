@@ -60,6 +60,9 @@
   pin = (color, size) => L.divIcon({ className: '', html: `<div class="pin" style="background:${color};width:${size}px;height:${size}px"></div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
   courseLayer = L.layerGroup().addTo(map);
   drawCourse(true);
+  // Layers from the layers button: helicopter landing sites on by default, the Parks Victoria markers off until wanted.
+  if (window.GPTHelipads) GPTHelipads.overlay(map, true);
+  if (window.GPTTrack) { GPTBaseMap.overlay(map, 'Emergency markers', GPTTrack.overlay(['emergency']), false); GPTBaseMap.overlay(map, 'Camps and assembly areas', GPTTrack.overlay(['camp', 'assembly']), false); }
   G.BASES.forEach(b => L.marker([b.lat, b.lon], { icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b><br>${w3wLink(G.data.bases_w3w && G.data.bases_w3w[b.key])}`).addTo(map));
 
   const legend = L.control({ position: 'bottomleft' });
@@ -68,6 +71,7 @@
     d.innerHTML = G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)}`).join('<br>') +
       '<br><i style="background:#111"></i>Aid station or water point<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
       `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach` +
+      (window.GPTHelipads ? '<br><span class="legend-head">Helicopter landing sites</span><br>' + GPTHelipads.legendHTML() : '') +
       (window.GPTTrack ? '<br><span class="legend-head">Track grade after a find</span><br>' + GPTTrack.legendHTML() : '') +
       (window.GPTTracking ? '<br><span class="trk-mk" style="display:inline-block;vertical-align:middle">1047</span> Tracked runner (grey: quiet, red: not moving)' : '');
     return d;
@@ -106,7 +110,7 @@
     G.ACCESS.forEach(a => {
       if (G.main && a.aid) return;
       L.marker([a.lat, a.lon], { icon: pin(G.isGated(a) ? '#6d3b8e' : '#888', 10) })
-        .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m walk to course' : ''}<br>${w3wLink(a.w3w)}`)
+        .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m walk to course' : ''}${a.note ? '<br>' + esc(a.note) : ''}<br>${w3wLink(a.w3w)}`)
         .addTo(courseLayer);
     });
     G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>${stopKind(a)}, ${kmTxt(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(courseLayer));
@@ -416,7 +420,7 @@
       <div class="eta"><span class="eyebrow">ETA</span><b>${G.fmt(b.total)}</b></div></div>
       <ol class="steps">
         <li><span><b>Drive</b> to ${esc(G.cleanName(a))}${gated ? '<span class="tag gated">Gated</span>' : ''}${a.aid ? `<span class="tag aid">${/water point/i.test(a.name) ? 'Water pt' : 'Aid stn'}</span>` : ''}
-          <span class="sub">${kmTxt(b.joinKm)}${b.connM > 50 ? ', ' + b.connM + ' m walk to the course' : ''}${a.w3w ? ' &middot; ' + w3wLink(a.w3w) : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
+          <span class="sub">${kmTxt(b.joinKm)}${b.connM > 50 ? ', ' + b.connM + ' m walk to the course' : ''}${a.w3w ? ' &middot; ' + w3wLink(a.w3w) : ''}${a.note ? '<br>' + esc(a.note) : ''}</span></span><span class="t">${G.fmt(b.drive)}</span></li>
         <li><span><b>Walk in</b> ${one(b.walkKm)} km${b.climb >= 5 ? ', ' + Math.round(b.climb) + ' m climb' : ''}
           <span class="sub">${b.joinKm > r.km ? 'Along the course, against race direction' : (b.joinKm < r.km ? 'Along the course, in race direction' : 'Straight to the course')}</span></span><span class="t">${G.fmt(b.walk)}</span></li>
       </ol>

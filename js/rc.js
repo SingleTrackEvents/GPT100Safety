@@ -160,6 +160,7 @@
       map = L.map('rcMap', { zoomControl: true });
       GPTBaseMap(map);
       L.polyline(G.route.map(p => [p[0], p[1]]), { color: '#d9531e', weight: 3, opacity: .7 }).addTo(map);
+      if (window.GPTHelipads) GPTHelipads.overlay(map, true);
       layer = L.layerGroup().addTo(map);
       runnerLayer = L.layerGroup().addTo(map);
       map.fitBounds(L.latLngBounds(G.route.map(p => [p[0], p[1]])).pad(0.04));
