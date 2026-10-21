@@ -19,7 +19,7 @@
   const C = window.GPT100_CONFIG, R = window.GPT100_DEMO;
   if (!C || !R) return;
   const T = C.tracking = C.tracking || {};
-  const BASE = 'https://demo.gpt100.invalid/feed/';  // never fetched: window.fetch answers it below
+  const ORIGIN = 'https://demo.gpt100.invalid', BASE = ORIGIN + '/feed/';  // never fetched: window.fetch answers it below
   T.gps = BASE; T.chip = BASE + 'timing.json'; T.credit = null;
   // Read the demo feeds every few seconds (the real feeds keep their providers' cadence, 15 and 30 s), so the
   // runners move smoothly at 10x and 60x instead of jumping every 15 s.
@@ -163,8 +163,9 @@
   const realFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     const url = typeof input === 'string' ? input : input && input.url;
-    if (typeof url !== 'string' || !url.startsWith(BASE)) return realFetch(input, init);
-    return serve(url.slice(BASE.length));
+    if (typeof url !== 'string' || !url.startsWith(ORIGIN + '/')) return realFetch(input, init);
+    const path = url.slice(ORIGIN.length + 1);
+    return path.startsWith('rc/') ? serveRC(path.slice(3), init) : serve(path.replace(/^feed\//, ''));
   };
   const resp = (body, h) => new Response(body, { status: 200, headers: Object.assign({ 'Content-Type': 'text/plain' }, h || {}) });
   async function serve(path) {
@@ -178,6 +179,103 @@
     }
     if (name === 'timing.json') return resp(JSON.stringify(timing()), { 'Content-Type': 'application/json' });
     return new Response('', { status: 404 });
+  }
+
+  // ---------- the Race Control board ----------
+  // The board's incidents follow a timeline in race time, so as the demo runs new calls come in, teams go on scene
+  // and incidents close. Changes made on the board (new incidents, steps, units, log entries) are kept on top of the
+  // timeline for this tab. The board opens without the medical password while the demo is on.
+  const HMS = (h, m) => (h * 60 + m) * 60e3;  // race time, hours and minutes after the Miler start
+  const STEPS = ['call', 'dispatched', 'onScene', 'leaving', 'closed'];
+  const SEED = [
+    { id: 'demo5', severity: 'routine', where: 'Mt Difficult Rd car park', reporter: 'Aid station lead', desc: 'Spectator 2WD bogged on the verge at the car park entrance, partly blocking the access road. Parks Victoria told, tow arranged.',
+      at: { call: HMS(6, 50), closed: HMS(7, 30) }, outcome: 'Other' },
+    { id: 'demo3', severity: 'routine', km: 35.3, bib: '1060', name: 'Sarah Young', race: 'GPT100 Miler', reporter: 'Mt Difficult Rd aid station', desc: 'Withdrew at Mt Difficult Rd, blisters both heels, dressed. Needs a lift back to Halls Gap.',
+      at: { call: HMS(7, 5), closed: HMS(7, 40) }, outcome: 'Treated, withdrew (DNF)' },
+    { id: 'demo1', severity: 'urgent', km: 36.3, bib: '1026', name: 'Casey Ward', race: 'GPT100 Miler', reporter: 'Runner, by phone', unit: 'team-hg', desc: 'Fell on the descent and slid off the track, right ankle, can\'t weight bear. Off the marked course, about 300 m below the track.',
+      at: { call: HMS(8, 34), dispatched: HMS(8, 38), onScene: HMS(9, 22), leaving: HMS(9, 58), closed: HMS(10, 40) }, outcome: 'Carried out' },
+    { id: 'demo2', severity: 'priority', km: 43.2, bib: '1015', name: 'Nina Russo', race: 'GPT100 Miler', reporter: 'Sweep 2, by radio', unit: 'u-Sweep-2', desc: 'Sitting at the trackside, vomiting and dizzy, can\'t keep fluids down. Sweep 2 with her, out of the wind.',
+      at: { call: HMS(8, 47), dispatched: HMS(8, 47), onScene: HMS(8, 47), leaving: HMS(9, 35), closed: HMS(10, 5) }, outcome: 'Walked out with crew' },
+    { id: 'demo4', severity: 'priority', km: 80.8, bib: '2211', name: 'Angus Burke', race: 'Stage 2', reporter: 'Race control, from the tracking', unit: 'u-Mt-William-SO', desc: 'Tracker shows no movement for 40 minutes on the summit track below Mt William, no answer on his phone. Mt William Safety Officers walking down to check.',
+      at: { call: HMS(8, 58), dispatched: HMS(9, 3), onScene: HMS(9, 40), leaving: HMS(10, 5), closed: HMS(10, 30) }, outcome: 'Treated, continued' },
+    { id: 'demo6', severity: 'urgent', km: 53.0, bib: '1033', name: 'Kate Murphy', race: 'GPT100 Miler', reporter: 'Another runner, by phone', unit: 'team-jc', desc: 'Collapsed near the Pinnacle track junction, conscious, chest pain and short of breath. Two runners with her.',
+      at: { call: HMS(9, 12), dispatched: HMS(9, 16), onScene: HMS(10, 5), leaving: HMS(10, 50), closed: HMS(11, 30) }, outcome: 'Ambulance' },
+    { id: 'demo7', severity: 'priority', km: 42.2, bib: '1042', name: 'Jamie Patel', race: 'GPT100 Miler', reporter: 'Race control, from the timing', unit: 'u-Sweep-1', desc: 'Overdue at Halls Gap, last chip read Mt Difficult Rd, tracker dead since then. Sweep 1 checking back along the track from Halls Gap.',
+      at: { call: HMS(9, 31), dispatched: HMS(9, 33) } }
+  ];
+  const CUSTOM = { 'u-Sweep-1': 'Sweep 1', 'u-Sweep-2': 'Sweep 2', 'u-Mt-William-SO': 'Mt William SO pair' };
+  const NOTES = [[HMS(8, 30), 'Halls Gap team back at base and restocked'], [HMS(9, 5), 'Weather: gusts 42 km/h on Mt William, under the trigger'], [HMS(9, 45), 'Mt William car park: 61 Stage 2 runners through']];
+  const STEP_TEXT = { dispatched: 'Dispatched', onScene: 'On scene', leaving: 'Leaving scene' };
+  const RCS = 'gpt100_demo_rc';
+  let over = { inc: {}, units: {}, log: [], n: 0 };  // changes made on the board, on top of the timeline
+  try { const v = JSON.parse(sessionStorage.getItem(RCS) || 'null'); if (v && v.key === want) over = v.over; } catch (e) { }
+  const saveRC = () => { try { sessionStorage.setItem(RCS, JSON.stringify({ key: want, over })); } catch (e) { } };
+  const merge = (a, b) => { const o = Object.assign({}, a); for (const [k, v] of Object.entries(b || {})) o[k] = v && typeof v === 'object' && !Array.isArray(v) && o[k] && typeof o[k] === 'object' ? merge(o[k], v) : v; return o; };
+  // The board as it stands at race time s: the timeline up to now, with the board's own changes on top.
+  function board() {
+    const s = simNow(), incidents = [], log = [], units = {};
+    let num = 0;
+    const unitLabel = id => CUSTOM[id] || (C.bases.find(b => 'team-' + b.key === id) || {}).name + ' team';
+    for (const d of SEED) {
+      if (d.at.call > s) continue;
+      num++;
+      const times = {}; let updated = 0;
+      STEPS.forEach((k, i) => { if (d.at[k] != null && d.at[k] <= s) { times[k] = realOf(d.at[k]); updated = Math.max(updated, times[k]); } });
+      let inc = { id: d.id, num, created: times.call, status: times.closed ? 'closed' : 'open', severity: d.severity, km: d.km ?? null, where: d.where || '', bib: d.bib || '', name: d.name || '', race: d.race || '', reporter: d.reporter || '', desc: d.desc, unit: d.unit || null, times, version: Object.keys(times).length, updated };
+      if (times.closed) inc.outcome = d.outcome;
+      STEPS.forEach((k, i) => {
+        if (!times[k]) return;
+        const text = k === 'call' ? `#${num} Logged: ${d.severity[0].toUpperCase() + d.severity.slice(1)}${d.km != null ? ', km ' + d.km : ''}, ${d.desc.slice(0, 80)}` : k === 'closed' ? `#${num} Closed: ${d.outcome}` : `#${num} ${STEP_TEXT[k]}${d.unit ? ' (' + unitLabel(d.unit) + ')' : ''}`;
+        log.push({ id: Math.round(times[k]) * 10 + i, t: times[k], updated: times[k], incident: d.id, kind: 'incident', text, who: 'Race control' });
+      });
+      if (d.unit && !times.closed && times.dispatched) {
+        const st = times.leaving ? 'returning' : times.onScene ? 'onscene' : 'tasked';
+        units[d.unit] = { id: d.unit, status: st, incident: d.id, updated, custom: !!CUSTOM[d.unit], label: CUSTOM[d.unit] };
+      }
+      const o = over.inc[d.id];
+      if (o) { inc = merge(inc, o.patch); inc.updated = Math.max(inc.updated, o.t); inc.version += o.n; }
+      incidents.push(inc);
+    }
+    for (const [id, o] of Object.entries(over.inc)) if (!SEED.some(d => d.id === id)) incidents.push(Object.assign({ id }, o.patch, { updated: o.t, version: o.n }));
+    for (const [id, label] of Object.entries(CUSTOM)) if (!units[id]) units[id] = { id, custom: true, label, status: 'available', incident: null, updated: realOf(0) };
+    for (const [id, o] of Object.entries(over.units)) units[id] = Object.assign(units[id] || { id }, o.patch, { id, updated: o.t });
+    NOTES.forEach(([at, text], i) => { if (at <= s) { const t = realOf(at); log.push({ id: Math.round(t) * 10 + 9, t, updated: t, incident: null, kind: 'note', text, who: 'Race control' }); } });
+    over.log.forEach(l => log.push(l));
+    return { incidents, units: Object.values(units), log: log.sort((a, b) => b.id - a.id) };
+  }
+  const json = (o, status) => new Response(JSON.stringify(o), { status: status || 200, headers: { 'Content-Type': 'application/json' } });
+  async function serveRC(path, init) {
+    await ready; setup();
+    const [name, qs] = path.split('?'), now = Date.now();
+    if (name === 'state') {
+      const since = +(new URLSearchParams(qs || '').get('since') || 0), b = board();
+      return json({ now, incidents: b.incidents.filter(i => i.updated > since), units: b.units.filter(u => u.updated > since), log: b.log.filter(l => l.updated > since).slice(0, 500) });
+    }
+    let body = {}; try { body = JSON.parse(init && init.body || '{}'); } catch (e) { return json({ error: 'Bad request' }, 400); }
+    const who = String(body.who || '').slice(0, 60);
+    const addLog = (incident, kind, text) => { over.log.push({ id: now * 10 + 5, t: now, updated: now, incident, kind, text: String(text).slice(0, 1000), who }); };
+    if (name === 'incident') {
+      const b = board(); let id = typeof body.id === 'string' ? body.id : null, cur = id && b.incidents.find(i => i.id === id);
+      if (cur) { const o = over.inc[id] || { patch: {}, t: 0, n: 0 }; o.patch = merge(o.patch, body.patch || {}); o.t = now; o.n++; over.inc[id] = o; }
+      else { id = id || 'i' + now.toString(36); over.n++; over.inc[id] = { patch: Object.assign({ created: now, status: 'open', num: 20 + over.n }, body.patch || {}), t: now, n: 1 }; }
+      const inc = board().incidents.find(i => i.id === id);
+      if (body.note) addLog(id, 'incident', '#' + inc.num + ' ' + body.note);
+      saveRC();
+      return json({ ok: true, incident: inc });
+    }
+    if (name === 'unit') {
+      if (typeof body.id !== 'string') return json({ error: 'Bad unit' }, 400);
+      const o = over.units[body.id] || { patch: {}, t: 0 }; o.patch = merge(o.patch, body.patch || {}); o.t = now; over.units[body.id] = o;
+      if (body.note) addLog(o.patch.incident || null, 'unit', body.note);
+      saveRC();
+      return json({ ok: true, unit: board().units.find(u => u.id === body.id) });
+    }
+    if (name === 'log') {
+      if (!body.text) return json({ error: 'Empty' }, 400);
+      addLog(typeof body.incident === 'string' ? body.incident : null, 'note', body.text); saveRC();
+      return json({ ok: true });
+    }
+    return json({ error: 'Not found' }, 404);
   }
 
   // ---------- the demo bar ----------
@@ -217,9 +315,10 @@
       return `<div class="row"><span><b>Bib ${r.bib}</b> ${esc(r.name)}${r.contest !== 'GPT100 Miler' ? ` (${esc(r.contest)})` : ''}<span class="sub">${NOTE[r.kase]}${when}</span></span>${canFind ? `<button class="btn small trk-go" type="button" data-bib="${r.bib}">Find</button>` : ''}</div>`;
     });
     list.innerHTML = `<h3>Who to find in the demo</h3><p class="muted">${R.runners.length} made-up runners (${Object.keys(R.contests).join(' and ')}). These ones have something going on; everyone else is running normally.</p>` + rows.join('') +
+      '<p class="muted">The Control board has their incidents, and more come in as the race runs.</p>' +
       '<p class="muted">Not moving shows after 20 real minutes at the same spot; late at the next checkpoint once the runner is past their expected time there. Both count real minutes, so run at 1x to see them come up as they would on the day.</p>';
   }
   if (document.body) build(); else addEventListener('DOMContentLoaded', build);
 
-  window.GPTDemo = { on: true, simNow, realOf, speed: () => seg().v, setSpeed, jump, runners: () => { setup(); return RUN; } };
+  window.GPTDemo = { on: true, rcBase: ORIGIN, simNow, realOf, speed: () => seg().v, setSpeed, jump, runners: () => { setup(); return RUN; } };
 })();

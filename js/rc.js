@@ -6,7 +6,10 @@
   const $ = id => document.getElementById(id);
   if (!$('rcBody')) return;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const BASE = (new URLSearchParams(location.search).get('rcapi') || W.refreshUrl || '').replace(/\/$/, '');
+  // The Worker, or ?rcapi=, or the demo's own board (js/demo.js), which also opens without the password.
+  const DEMO = !!(window.GPTDemo && window.GPTDemo.rcBase);
+  const BASE = (new URLSearchParams(location.search).get('rcapi') || (DEMO ? window.GPTDemo.rcBase : '') || W.refreshUrl || '').replace(/\/$/, '');
+  const unlocked = () => DEMO || !!(window.MedPlan && window.MedPlan.unlocked());
   const LSQ = 'gpt100_rc_queue', LSN = 'gpt100_rc_name';
   const SEV = { urgent: ['Urgent', '#c62828'], priority: ['Priority', '#e8710a'], routine: ['Routine', '#1d7f45'] };
   const UNIT_ST = { available: 'Available', tasked: 'Tasked', onscene: 'On scene', returning: 'Returning', unavailable: 'Unavailable' };
@@ -72,7 +75,7 @@
       if (j.incidents.length || j.units.length || j.log.length) render(); else { tick(); status(); }
     } catch (e) { lastErr = e.message; status(); if (e.status === 401 || e.status === 503) render(); }
   }
-  const ready = () => BASE && window.MedPlan && window.MedPlan.unlocked() && window.MedPlan.pw();
+  const ready = () => BASE && (DEMO || (window.MedPlan && window.MedPlan.unlocked() && window.MedPlan.pw()));
 
   // ---------- local changes ----------
   function newId() { return 'i' + now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -203,7 +206,7 @@
   function render() {
     if (!shown) return;
     if (!BASE) { $('rcBody').innerHTML = '<div class="rc-msg"><h2>Race Control</h2><p>Race Control needs the GPT100 Safety Worker. See tools/RACE_CONTROL.md.</p></div>'; built = false; return; }
-    if (!window.MedPlan || !window.MedPlan.unlocked()) {
+    if (!unlocked()) {
       built = false; if (map) { map.remove(); map = null; layer = null; }
       $('rcBody').innerHTML = '<div class="rc-msg"><h2>Race Control</h2><p>Race Control uses the medical password. Unlock the Medical tab on this device, then come back.</p><p><button class="btn primary" id="rcGoMed" type="button">Go to Medical</button></p></div>';
       $('rcGoMed').addEventListener('click', () => { location.hash = 'medical'; });
@@ -447,7 +450,7 @@
   // Rebuild only when the device locks or unlocks (the medical plan also calls this every minute when live).
   let authState = null;
   function onAuth() {
-    const st = !!(window.MedPlan && window.MedPlan.unlocked());
+    const st = unlocked();
     if (st === authState) return;
     authState = st;
     if (shown) { built = false; render(); sync(); }
