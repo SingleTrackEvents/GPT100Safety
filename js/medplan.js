@@ -274,6 +274,7 @@
     if (!window.L) { $('medMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
     map = L.map('medMap', { zoomControl: true });
     GPTBaseMap(map);
+    if (window.GPTHelipads) GPTHelipads.overlay(map, false);
     L.polyline(G.route.map(p => [p[0], p[1]]), { color: '#d9531e', weight: 3, opacity: .8 }).addTo(map);
     stMarks = {}; vMarks = {};
     P.stations.forEach(s => {

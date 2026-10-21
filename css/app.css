@@ -502,6 +502,11 @@ tr.muted td { color: var(--muted); }
 .tg-src { font-size: 11px; color: var(--muted); margin: 8px 0 0; }
 .tg-mk { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.5); font: 700 9px/16px var(--body); text-align: center; }
 .map-legend .legend-head { font-weight: 700; }
+/* Helicopter landing sites (js/helipads.js): used by Parks Victoria this year, current or expired on the DEECA list */
+.hls-mk { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.5); background: #333; color: #fff; font: 800 12px/18px var(--body); text-align: center; }
+.hls-mk.used { background: #0b6b3a; }
+.hls-mk.expired { background: #9a9a9a; }
+.hls-key { display: inline-block; width: 16px; height: 16px; font-size: 9px; line-height: 12px; margin-right: 5px; vertical-align: -3px; }
 
 /* Live runner tracking (js/tracking.js) */
 .trk .row { align-items: center; }

@@ -1,0 +1,116 @@
+// Helicopter landing sites (HLS) from data/helipads.js: a layer on the maps (ticked on or off from the layers button),
+// the nearest sites on the Find card and in the message, and the markers near a casualty when the layer is off.
+// Loads before js/track.js, which hands its helipad rows over to this when it's present.
+(function () {
+  const H = window.GPT100_HELIPADS;
+  if (!H) return;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const one = n => (Math.round(n * 10) / 10).toFixed(1);
+  const dist = m => m >= 950 ? one(m / 1000) + ' km' : Math.round(m / 10) * 10 + ' m';
+  function metres(a, b) {
+    const R = 6371000, la1 = a[0] * Math.PI / 180, la2 = b[0] * Math.PI / 180;
+    const dla = (b[0] - a[0]) * Math.PI / 180, dlo = (b[1] - a[1]) * Math.PI / 180;
+    const x = Math.sin(dla / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dlo / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(x));
+  }
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = d => d ? MONTHS[+d.slice(5, 7) - 1] + ' ' + d.slice(0, 4) : '';
+
+  // Three kinds of site on the map: used by Parks Victoria this year, current on the DEECA list, or expired on it.
+  const STATE = {
+    used: { label: 'Used by Parks Victoria, ' + H.used_when, col: '#0b6b3a' },
+    current: { label: 'Current on the DEECA list', col: '#333' },
+    expired: { label: 'Expired on the DEECA list', col: '#9a9a9a' }
+  };
+  const state = s => s.used ? 'used' : s.status === 'current' ? 'current' : 'expired';
+  const title = s => s.name + ' HLS';
+
+  // What we know about the site's condition, in one sentence.
+  function condition(s) {
+    const insp = s.inspected ? ', last inspected ' + month(s.inspected) : '';
+    if (s.used) return `A Parks Victoria helicopter used it in ${H.used_when}, so it's in good condition${s.status === 'expired' ? ' (the DEECA list has it expired' + insp + ')' : s.status === 'unlisted' ? ' (not on the DEECA list)' : ''}.`;
+    if (s.status === 'current') return `Current on the DEECA list${insp}. Some sites may need vegetation cleared.`;
+    return `Expired on the DEECA list${insp}${s.status_note ? '. ' + s.status_note : ''}. Check it before relying on it.`;
+  }
+  // Pad, surface, vehicle access and hazards.
+  function facts(s) {
+    const f = [];
+    if (s.diam_m || s.surface) f.push(`${s.diam_m ? Math.round(s.diam_m) + ' m ' : ''}${s.surface ? s.surface.toLowerCase() : 'pad'}`);
+    if (s.vehicle) f.push(/^no$/i.test(s.vehicle) ? 'no vehicle access' : s.vehicle + ' access');
+    if (s.ele_m) f.push(s.ele_m + ' m above sea level');
+    let t = f.join(', ');
+    if (s.hazards) t += (t ? '. ' : '') + 'Hazards: ' + s.hazards.charAt(0).toLowerCase() + s.hazards.slice(1).replace(/\.$/, '');
+    return t;
+  }
+  function popup(s) {
+    const st = state(s);
+    let h = `<b>${esc(title(s))}</b><br><span style="color:${STATE[st].col};font-weight:700">${esc(STATE[st].label)}</span>`;
+    if (s.note) h += `<br><b style="color:#c00">${esc(s.note)}</b>`;
+    h += `<br>${esc(condition(s))}`;
+    const f = facts(s); if (f) h += `<br>${esc(f.charAt(0).toUpperCase() + f.slice(1))}.`;
+    h += `<br>Course km ${one(s.km)}${s.off_m > 60 ? ', ' + dist(s.off_m) + ' off the course' : ''}`;
+    h += `<br><span style="color:#625c53">${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}${s.precise ? '' : ' (DEECA list position, to about 100 m)'}</span>`;
+    h += `<br><a href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}" target="_blank" rel="noopener">Directions</a>`;
+    return h;
+  }
+  function icon(s) {
+    return L.divIcon({ className: '', html: `<div class="hls-mk ${state(s)}">H</div>`, iconSize: [22, 22], iconAnchor: [11, 11] });
+  }
+  function marker(s) {
+    return L.marker([s.lat, s.lon], { icon: icon(s), zIndexOffset: 550, title: title(s) }).bindPopup(popup(s));
+  }
+
+  // The map layer: every site, once per map.
+  const LAYERS = [];
+  function layer() { const g = L.layerGroup(H.sites.map(marker)); LAYERS.push(g); return g; }
+  const shown = () => LAYERS.some(g => g._map);
+  function overlay(map, on) {
+    if (!window.L || !window.GPTBaseMap || !GPTBaseMap.overlay) return null;
+    return GPTBaseMap.overlay(map, 'Helicopter landing sites', layer(), on !== false);
+  }
+
+  // Sites near a point: along the course for those on it, straight line for the rest (as js/track.js does).
+  function near(lat, lon, km) {
+    return H.sites.map(s => {
+      const line = metres([lat, lon], [s.lat, s.lon]);
+      const along = km != null && s.off_m <= 150 ? Math.abs(s.km - km) * 1000 : null;
+      return Object.assign({ line, along, m: along != null ? along : line, onCourse: along != null }, s);
+    }).sort((x, y) => x.m - y.m);
+  }
+  function where(p, km) {
+    if (!p.onCourse || km == null) return `${dist(p.line)} away${p.off_m > 150 ? ', ' + dist(p.off_m) + ' off the course' : ''}`;
+    if (p.m < 60) return 'right here';
+    return `${dist(p.m)} ${p.km < km ? 'back' : 'ahead'} along the course, km ${one(p.km)}`;
+  }
+  // The two nearest within 10 km, best condition first when they're close together.
+  function pick(lat, lon, km) {
+    const N = near(lat, lon, km).filter(p => p.m < 10000);
+    const rank = p => state(p) === 'used' ? 0 : state(p) === 'current' ? 1 : 2;
+    const out = N.slice(0, 3).sort((x, y) => (rank(x) - rank(y)) || (x.m - y.m));
+    return out.slice(0, 2);
+  }
+
+  // Rows for the Track and carry-out card.
+  function rows(r, km) {
+    const P = pick(r.lat, r.lon, km);
+    if (!P.length) return `<div class="row"><span><b>No helicopter landing site within 10 km</b><span class="sub">The nearest are on the map's Helicopter landing sites layer.</span></span></div>`;
+    return P.map((p, i) => `<div class="row"><span><b>${i ? 'Also' : 'Nearest helicopter landing site'}: ${esc(title(p))}</b><span class="sub">${esc(where(p, km))}. ${esc(condition(p))}${facts(p) ? ' ' + esc(facts(p).charAt(0).toUpperCase() + facts(p).slice(1)) + '.' : ''}${p.note ? ` <b style="color:var(--red)">${esc(p.note)}</b>` : ''}</span></span><span class="tg-glyph" style="background:${STATE[state(p)].col}">H</span></div>`).join('');
+  }
+  // For the radio script and WhatsApp message.
+  function line(r, km) {
+    const P = pick(r.lat, r.lon, km);
+    if (!P.length || P[0].m >= 6000) return '';
+    const p = P[0];
+    return `Nearest HLS ${p.name}, ${where(p, km)}${p.used ? '' : p.status === 'current' ? ' (current, DEECA list)' : ' (expired on the DEECA list)'}${p.note ? '. ' + p.note : ''}`;
+  }
+  // The nearest sites on the result map when the layer is turned off.
+  function draw(layer, r, km) {
+    if (shown()) return;
+    pick(r.lat, r.lon, km).forEach(p => marker(p).addTo(layer));
+  }
+  function legendHTML() {
+    return ['used', 'current', 'expired'].map(k => `<span class="hls-mk ${k} hls-key">H</span>${esc(STATE[k].label)}`).join('<br>');
+  }
+
+  window.GPTHelipads = { sites: H.sites, source: H.source, near, pick, rows, line, draw, layer, overlay, legendHTML, popup, condition, facts, title };
+})();

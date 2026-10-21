@@ -108,7 +108,7 @@
     const h = (Date.now() - soT0) / 3600e3, live = h >= 0 && h <= SO.n;
     if (!soKey) {
       soKey = L.control({ position: 'bottomright' });
-      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on fd-so-key">SO</span>Safety Officers' + (live ? '<br><span class="so-mark fd-so-key" style="opacity:.5">SO</span>Not on post now' : ''); return d; };
+      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on fd-so-key">SO</span>Safety Officers' + (live ? '<br><span class="so-mark fd-so-key" style="opacity:.5">SO</span>Not on post now' : '') + (window.GPTHelipads ? '<br><span class="hls-mk used hls-key">H</span>Helicopter landing site' : ''); return d; };
       soKey.addTo(map);
     }
     SO.stations.forEach(s => {
@@ -274,7 +274,7 @@
     if (w) {
       h += `<div class="fd-way"><b>Walk out to ${esc(E.cleanName(w.a))}${E.isGated(w.a) ? ' <span class="tag gated">Gated</span>' : ''}</b>
         <span>${one(w.walkKm)} km, about ${E.fmt(w.walk)} on foot${w.a.w3w ? ` · <a href="https://w3w.co/${esc(w.a.w3w)}" target="_blank" rel="noopener">///${esc(w.a.w3w)}</a>` : ''}</span>
-        <span>Drive from there: ${r.results.filter(x => x.a === w.a).map(x => `${esc(x.base.name)} ${E.fmt(x.drive)}`).join(' · ')}</span></div>`;
+        <span>Drive from there: ${r.results.filter(x => x.a === w.a).map(x => `${esc(x.base.name)} ${E.fmt(x.drive)}`).join(' · ')}</span>${w.a.note ? `<span>${esc(w.a.note)}</span>` : ''}</div>`;
       seen.add(w.a);
     }
     [['Back', r.aid.prev], ['Ahead', r.aid.next]].forEach(([l, x]) => {
@@ -420,6 +420,9 @@
     raceLayer = L.layerGroup().addTo(map);
     soLayer = L.layerGroup().addTo(map);
     drawSO();
+    // Layers from the layers button: helicopter landing sites on by default, the Parks Victoria markers off until wanted.
+    if (window.GPTHelipads) GPTHelipads.overlay(map, true);
+    if (window.GPTTrack) { GPTBaseMap.overlay(map, 'Emergency markers', GPTTrack.overlay(['emergency']), false); GPTBaseMap.overlay(map, 'Camps and assembly areas', GPTTrack.overlay(['camp', 'assembly']), false); }
     trailLine = L.polyline([], { color: '#7a3db8', weight: 3, opacity: .9, dashArray: '1 6', lineCap: 'round', interactive: false }).addTo(map);
     if (window.GPTTracking) { runnerLayer = L.layerGroup().addTo(map); drawRunners(); }
     layer = L.layerGroup().addTo(map);

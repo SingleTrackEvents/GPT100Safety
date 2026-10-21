@@ -29,6 +29,9 @@
   };
   const HAZ = ['hazard', 'hazards', 'warning'];
   const SEGS = T.segments;
+  // Helipads come from js/helipads.js (the DEECA list) when it's loaded; the access maps' three are then left out.
+  const HL = window.GPTHelipads || null;
+  const PTS = HL ? T.points.filter(p => p.kind !== 'helipad') : T.points;
   const info = g => GRADES[g] || { label: 'Unmapped', col: '#ddd', text: '#333', note: 'Parks Victoria has no graded track mapped here. Expect it to be slow.' };
 
   function at(km) {
@@ -59,7 +62,7 @@
 
   // Points near a casualty: along the course for markers on it, straight line for the rest.
   function near(r, km) {
-    return T.points.map(p => {
+    return PTS.map(p => {
       const line = metres(r.lat, r.lon, p.lat, p.lon);
       const along = km != null && p.off_m <= 150 ? Math.abs(p.km - km) * 1000 : null;
       return Object.assign({ line, along, m: along != null ? along : line, onCourse: along != null }, p);
@@ -109,7 +112,8 @@
     const hz = N.filter(p => HAZ.includes(p.kind) && p.m < 1000);
     h += '<div class="tg-pts">';
     if (em) h += `<div class="row"><span><b>Nearest emergency marker${em.code ? ' ' + esc(em.code) : ' (no code printed)'}</b><span class="sub">${esc(where(em, km))}. Give this code to 000 for a precise location.</span></span><span class="tg-glyph" style="background:${KINDS.emergency.col}">EM</span></div>`;
-    if (hp) h += `<div class="row"><span><b>Nearest helipad${hp.name ? ', ' + esc(hp.name) : ''}</b><span class="sub">${esc(where(hp, km))}.</span></span><span class="tg-glyph" style="background:${KINDS.helipad.col}">H</span></div>`;
+    if (HL) h += HL.rows(r, km);
+    else if (hp) h += `<div class="row"><span><b>Nearest helipad${hp.name ? ', ' + esc(hp.name) : ''}</b><span class="sub">${esc(where(hp, km))}.</span></span><span class="tg-glyph" style="background:${KINDS.helipad.col}">H</span></div>`;
     if (as) h += `<div class="row"><span><b>Assembly area</b><span class="sub">${esc(where(as, km))}.</span></span><span class="tg-glyph" style="background:${KINDS.assembly.col};color:#111">A</span></div>`;
     if (!em) h += `<div class="row"><span><b>No emergency marker within 5 km</b><span class="sub">Give 000 the coordinates or what3words instead.</span></span></div>`;
     hz.forEach(p => { h += `<div class="row"><span><b>${esc(KINDS[p.kind].label)}</b><span class="sub">${esc(where(p, km))}.${p.kind === 'warning' ? ' Parks Victoria says to seek site specific information.' : ''}</span></span><span class="tg-glyph" style="background:${KINDS[p.kind].col};color:#111">!</span></div>`; });
@@ -131,7 +135,8 @@
     const v = o.vehicle || r.best;
     if (G.main && v) { const b = between(km, v.joinKm); if (b.parts.length > 1 || (b.worst && b.worst !== g)) s += `. Carry-out worst ${info(b.worst).label.toLowerCase()}`; }
     if (em && em.code && em.m < 3000) s += `. Nearest emergency marker ${em.code}, ${where(em, km)}`;
-    if (hp && hp.m < 6000) s += `. Nearest helipad ${hp.name ? hp.name + ', ' : ''}${where(hp, km)}`;
+    if (HL) { const l = HL.line(r, km); if (l) s += '. ' + l; }
+    else if (hp && hp.m < 6000) s += `. Nearest helipad ${hp.name ? hp.name + ', ' : ''}${where(hp, km)}`;
     return s + '.';
   }
 
@@ -147,12 +152,24 @@
       L.polyline(pts, { color: info(g).col, weight: 7, opacity: .9, interactive: false }).addTo(layer);
     }
     const km = r.km;
-    for (const p of T.points) {
+    for (const p of PTS) {
       if (Math.abs(p.km - km) > 6 && metres(r.lat, r.lon, p.lat, p.lon) > 5000) continue;
-      const k = KINDS[p.kind];
-      const icon = L.divIcon({ className: '', html: `<div class="tg-mk" style="background:${k.col};color:${HAZ.includes(p.kind) || p.kind === 'assembly' ? '#111' : '#fff'}">${k.glyph}</div>`, iconSize: [20, 20], iconAnchor: [10, 10] });
-      L.marker([p.lat, p.lon], { icon, zIndexOffset: 600 }).bindPopup(`<b>${esc(k.label)}${p.code ? ' ' + esc(p.code) : ''}</b>${p.name ? '<br>' + esc(p.name) : ''}<br>km ${one(p.km)}${p.off_m > 60 ? ', ' + dist(p.off_m) + ' off the course' : ''}`).addTo(layer);
+      if (OVER[p.kind] && OVER[p.kind]._map) continue; // already on the map from its layer
+      marker(p).addTo(layer);
     }
+    if (HL) HL.draw(layer, r, mainKm(G, r));
+  }
+  function marker(p) {
+    const k = KINDS[p.kind];
+    const icon = L.divIcon({ className: '', html: `<div class="tg-mk" style="background:${k.col};color:${HAZ.includes(p.kind) || p.kind === 'assembly' ? '#111' : '#fff'}">${k.glyph}</div>`, iconSize: [20, 20], iconAnchor: [10, 10] });
+    return L.marker([p.lat, p.lon], { icon, zIndexOffset: 600, title: k.label + (p.code ? ' ' + p.code : p.name ? ' ' + p.name : '') }).bindPopup(`<b>${esc(k.label)}${p.code ? ' ' + esc(p.code) : ''}</b>${p.name ? '<br>' + esc(p.name) : ''}<br>km ${one(p.km)}${p.off_m > 60 ? ', ' + dist(p.off_m) + ' off the course' : ''}`);
+  }
+  // Whole-course layers for the layers button: every point of these kinds (e.g. ['emergency'] or ['camp', 'assembly']).
+  const OVER = {};
+  function overlay(kinds) {
+    const g = L.layerGroup(PTS.filter(p => kinds.includes(p.kind)).map(marker));
+    kinds.forEach(k => { OVER[k] = g; });
+    return g;
   }
 
   // Whether the carry-out between two km crosses track that slows it (config.carryFactor).
@@ -166,5 +183,5 @@
     return ['easy', 'medium', 'hard', 'unassessed'].map(g => `<i class="ln" style="background:${GRADES[g].col}"></i>${GRADES[g].label}`).join('<br>');
   }
 
-  window.GPTTrack = { at, between, near, card, line, draw, slowed, legendHTML, GRADES, KINDS };
+  window.GPTTrack = { at, between, near, card, line, draw, overlay, slowed, legendHTML, GRADES, KINDS };
 })();
