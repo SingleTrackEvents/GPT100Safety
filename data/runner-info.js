@@ -1,5 +1,5 @@
 // Runner app details that aren't in the course sheet.
-// Schedule from https://www.gpt100.com.au/schedule (2026). Times are Melbourne local time.
+// Schedule from the GPT100 2026 Event Schedule doc (https://docs.google.com/document/d/1gp6QwAL87F9J60V7r0IRLyB9mMdvDCyyDbEbjsZejJY), which matches https://www.gpt100.com.au/schedule. Times are Melbourne local time.
 window.GPT_RUNNER_INFO = {
   // Race medical: shown as Call race medical. 1300 numbers can't take texts, so locations are shared instead.
   medicalPhone: '1300 375 352',
@@ -61,7 +61,7 @@ window.GPT_RUNNER_INFO = {
       ['16:00', '50k elite panels (female 4 pm, male 4:30 pm)', 'all'],
       ['17:00', 'Stage race elite panel', 'all'],
       ['17:30', 'Afternoon race briefing, Centenary Hall', 'stage 50k'],
-      ['18:00', 'Nightly meals (pasta party, book on Race Roster), Event Village forecourt', 'all'],
+      ['18:00', 'Nightly meals (pasta party, until 8 pm, book on Race Roster), Event Village forecourt', 'all'],
       ['18:30', 'Gear check, bib collection, tracker and drop bags (until 8 pm), Centenary Hall', 'stage 50k'],
       ['18:30', 'Gear check and bib collection (until 8 pm), Event Village', '33k 14k 6k']
     ] },
@@ -81,7 +81,7 @@ window.GPT_RUNNER_INFO = {
       ['12:00', 'Gear check and bib collection (until 4 pm), Event Village', '33k'],
       ['16:30', 'Miler elite panels (female 4:30 pm, male 5 pm)', 'all'],
       ['17:30', 'Race briefing, Centenary Hall', 'miler'],
-      ['18:00', 'Nightly meals (book on Race Roster), Event Village forecourt', 'all'],
+      ['18:00', 'Nightly meals (until 8 pm, book on Race Roster), Event Village forecourt', 'all'],
       ['18:30', 'Gear check, bib collection and drop bags (until 8 pm), Centenary Hall', 'miler'],
       ['19:00', 'Course cut-off', 'stage 50k'],
       ['19:00', 'Prize presentation and age group winners, Event Village forecourt', '50k']
@@ -97,7 +97,7 @@ window.GPT_RUNNER_INFO = {
       ['12:30', 'Halls Gap aid station "High Vibes" (until 8 pm), Event Village forecourt', 'miler crew'],
       ['16:00', 'Gear check and bib collection (until 6 pm), Event Village', '33k'],
       ['18:00', 'Stage 2 course cut-off, Mt William', 'stage'],
-      ['18:00', 'Nightly meals (book on Race Roster), Event Village forecourt', 'all']
+      ['18:00', 'Nightly meals (until 8 pm, book on Race Roster), Event Village forecourt', 'all']
     ] },
     { day: '2026-11-07', items: [
       ['05:00', 'Podium finishers (until 1 pm), Dunkeld', 'miler'],
@@ -107,7 +107,7 @@ window.GPT_RUNNER_INFO = {
       ['10:00', 'First Stage 3 finishers arrive, Griffin Fireline', 'stage'],
       ['14:00', 'Gear check and bib collection (until 7 pm), Dunkeld Info Centre', '33k'],
       ['18:00', 'Stage 3 course cut-off, Griffin Fireline', 'stage'],
-      ['18:00', 'Nightly meals (book on Race Roster), Event Village forecourt', 'all']
+      ['18:00', 'Nightly meals (until 8 pm, book on Race Roster), Event Village forecourt', 'all']
     ] },
     { day: '2026-11-08', items: [
       ['05:15', 'Shuttle to Griffin Fireline departs Halls Gap', 'stage'],
@@ -127,7 +127,7 @@ window.GPT_RUNNER_INFO = {
       ['10:00', 'First Stage 4 and 33k finishers arrive, Dunkeld', 'stage 33k'],
       ['12:00', 'Prize presentations, Dunkeld', '33k'],
       ['17:00', 'Course cut-off, Dunkeld', 'stage 33k'],
-      ['17:00', 'Nightly meals (book on Race Roster), Event Village forecourt', 'all'],
+      ['17:00', 'Nightly meals (until 7 pm, book on Race Roster), Event Village forecourt', 'all'],
       ['19:00', 'Prize presentation and age group winners, Event Village forecourt', 'miler stage'],
       ['20:00', 'Large finishers photo, then the event concludes', 'all']
     ] }
