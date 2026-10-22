@@ -143,3 +143,42 @@
 .rn-w3w-words:empty { display: none; }
 .rn-w3w-words a { color: #e11f26; text-decoration: none; }
 .rn-w3w .fd-hint { margin: 6px 0 10px; }
+/* Help: the emergency card in five languages (data/safety-cards.js) */
+.rn-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.rn-card-head h2 { margin: 0; }
+.rn-lang { width: auto; flex: 1; min-width: 150px; max-width: 260px; margin: 0; }
+.rn-card-intro { margin: 6px 0 10px; font-size: 14px; font-style: italic; color: var(--muted); }
+.rn-card-sumtitle { margin: 0 0 6px; font: 400 20px/1 var(--head); letter-spacing: .5px; }
+.rn-card-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.rn-card-sum div { background: var(--ink); color: #fff; border-radius: 10px; padding: 8px 10px; font-size: 13px; line-height: 1.35; }
+.rn-card-sum b { display: block; font: 400 22px/1 var(--head); letter-spacing: 1px; color: #ffcf33; margin-bottom: 4px; }
+.rn-card-sum b small { font: 700 10px var(--body); letter-spacing: 1px; color: #bdb7ad; margin-left: 6px; vertical-align: 2px; }
+.rn-card-sum a { color: #fff; font-weight: 700; }
+.rn-card-sec { border-top: 1px solid var(--line); }
+.rn-card-sec summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 0; font: 400 21px/1.1 var(--head); letter-spacing: .5px; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+.rn-card-sec summary::-webkit-details-marker { display: none; }
+.rn-card-sec summary::after { content: '+'; margin-left: auto; font: 700 20px/1 var(--body); color: var(--muted); }
+.rn-card-sec[open] summary::after { content: '\2212'; }
+.rn-card-n { flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #fff; font: 700 12px var(--body); letter-spacing: 0; }
+.rn-card-body { padding: 0 0 12px; font-size: 15px; line-height: 1.45; }
+.rn-card-body p { margin: 8px 0 0; }
+.rn-card-body p:first-child { margin-top: 0; }
+.rn-card-body a { color: #b0181d; font-weight: 700; text-decoration: none; }
+.rn-card-steps, .rn-card-bullets { margin: 8px 0 0; padding-left: 24px; }
+.rn-card-steps li, .rn-card-bullets li { margin: 4px 0; }
+.rn-card-steps li::marker { font-weight: 700; }
+.rn-card-alert { border: 2px solid var(--red); border-radius: 12px; padding: 10px 12px; background: var(--red-bg, #fbe6e6); }
+.rn-card-alert h4 { margin: 0 0 6px; font: 700 15px/1.3 var(--body); color: var(--red); }
+.rn-card-alert .rn-card-steps { margin-top: 6px; }
+.rn-card-nums { margin-top: 10px; border-top: 1px solid var(--line); }
+.rn-card-nums div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.rn-card-nums b { font-size: 17px; text-align: right; }
+.rn-card-nums b a { font-size: 22px; }
+.rn-card .rn-gear { padding: 6px 0; }
+.rn-card .rn-gear:first-child { border-top: 0; }
+/* Headings in Japanese, Chinese and Russian: the display font has no glyphs for them, so use the body font. */
+.rn-card:not([lang="en"]) summary, .rn-card:not([lang="en"]) .rn-card-sumtitle, .rn-card:not([lang="en"]) .rn-card-sum b { font-family: var(--body); font-weight: 700; letter-spacing: 0; }
+.rn-card:not([lang="en"]) summary { font-size: 16px; }
+.rn-card:not([lang="en"]) .rn-card-sumtitle { font-size: 16px; }
+.rn-card:not([lang="en"]) .rn-card-sum b { font-size: 17px; }
+.rn-card[lang="ja"], .rn-card[lang="zh-Hans"] { line-height: 1.6; }

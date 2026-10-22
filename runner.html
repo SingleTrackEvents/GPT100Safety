@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GPT100 Runner</title>
-<meta name="description" content="GPT100 runner and crew app: your race on the map, where you are, the next aid station, cut-offs, crew points and the schedule.">
+<meta name="description" content="GPT100 runner and crew app: your race on the map, where you are, the next aid station, cut-offs, crew points, the schedule and the emergency card in five languages.">
 <meta name="theme-color" content="#111111">
 <link rel="manifest" href="manifest-runner.webmanifest">
 <link rel="icon" href="icons/icon-48.png" type="image/png" sizes="48x48">
@@ -108,6 +108,15 @@
       <p class="fd-hint">If you're hurt or lost, stay on the course if you can: it's where we'll look for you. Keep warm and tell the next runner.</p>
       <p class="fd-hint" id="rnWithdraw"></p>
     </section>
+    <!-- The international runners' emergency card, in five languages (data/safety-cards.js) -->
+    <section class="fd-card rn-card-wrap">
+      <div class="rn-card-head">
+        <h2>Emergency card</h2>
+        <label for="rnLang" class="rn-vh">Language</label>
+        <select id="rnLang" class="rn-schedfor rn-lang" aria-label="Language"></select>
+      </div>
+      <div id="rnCard" class="rn-card"></div>
+    </section>
   </div>
 
   <!-- Schedule -->
@@ -157,6 +166,7 @@
 <script src="data/races.js"></script>
 <script src="data/runner-courses.js"></script>
 <script src="data/runner-info.js"></script>
+<script src="data/safety-cards.js"></script>
 <script src="js/races.js"></script>
 <script src="js/runner.js"></script>
 </body>

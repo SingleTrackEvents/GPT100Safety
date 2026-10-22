@@ -99,6 +99,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Aid stations and cut-offs:** every point with race km, leg distance and climb, cut-off, and your expected time from a target time (between the first runner's time and the cut-off).
 - **I'm crewing:** just the crew points (shuttle-only ones marked), with directions, cut-offs and the runner's expected times, from their target time or from where they were last seen.
 - **Need help?** Call 000, call race medical (1300 375 352), Share my location (text or WhatsApp, with race km, position and what3words), **Your what3words** (three words for your 3 m square to read out to 000 or race medical; your coordinates instead when there's no signal), and how to withdraw (only through an aid station manager).
+- **Emergency card** (on the Help tab, below Need help?): the international runners' emergency card in English, Japanese, Simplified Chinese, Russian and Polish, the same text as the printed card handed out at registration (`data/safety-cards.js`, from the v0.5 documents in Drive). A language picker (remembered, and first set from the phone's language), the STOP, CALL, TELL, STAY summary, then the card's eight sections to open one at a time: emergency numbers (with the 000 interpreter steps), tell us where you are, lost or stopping, a before-you-start checklist with ticks kept on the phone, show this card, weather and fire, snake bite, and another runner needs help. 000, 112 and the Medical Team number are tap-to-call. Only the card is translated; the rest of the app is in English.
 - **Schedule** from gpt100.com.au, with **On now** and **Up next** at the top (refreshed every minute). Its own dropdown shows your race (and crew shuttles in crew mode), the Full schedule, or any other race. Past items are greyed and the ones on now highlighted.
 - **Mandatory gear checklist** for each race from gpt100.com.au/mandatory-gear, with the spec for each item, ticks kept on the phone and a packed count. The 6k, 5k and 2k have no mandatory gear.
 - The GPT6k and the Dunkeld 5k and 2k courses come from their Strava GPX files (`tools/import_gpx.mjs`, into `data/runner-courses.js`), with the turnaround shown. On out-and-back courses, the locate button tells the way out from the way back using your last fix or the race clock.
@@ -271,6 +272,7 @@ These are planning estimates. Always check access, gates and closures on the day
 | `runner.html`, `js/runner.js`, `css/runner.css` | Runner app |
 | `data/runner-courses.js` | Runner app courses from GPX (6k, 5k, 2k) |
 | `data/races.js`, `data/runner-info.js` | Races from the course sheet, and the runner app's contact, gear and notices |
+| `data/safety-cards.js` | The international runners' emergency card in five languages, for the runner app's Help tab |
 | `js/races.js` | Races, cut-offs and expected times, shared by the runner and field apps |
 | `js/intro.js` | First-time intro and how-to for the staff and field apps |
 | `js/viewport.js` | Keeps the bottom tabs on the real bottom of the screen (iPhone home screen apps can open with the layout the wrong height the first time) |
