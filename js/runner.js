@@ -169,20 +169,21 @@
     } catch (e) { /* no signal or no key: the numbers will do */ }
   }
   function showW3w() {
-    const w = $('rnW3wWords'), m = $('rnW3wMsg');
+    const w = $('rnW3wWords'), n = $('rnW3wNums'), m = $('rnW3wMsg'), U = T();
     if (!w) return;
-    const ok = here && Date.now() - here.t < 15 * 60e3;
+    const ok = here && Date.now() - here.t < 15 * 60e3, nums = ok ? `${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}` : '';
     if (ok && here.w3w) {
       w.innerHTML = `<a href="https://w3w.co/${esc(here.w3w)}" target="_blank" rel="noopener">///${esc(here.w3w)}</a>`;
-      m.textContent = `Your spot at ${hm.format(new Date(here.t))}, to within 3 m. If you call 000 or race medical, read these three words out: they can find you from them.`;
+      n.textContent = `${U.nums}: ${nums}`;
+      m.textContent = fill(U.w3wReady, { time: hm.format(new Date(here.t)) });
     } else if (ok) {
-      w.textContent = `${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}`;
-      m.textContent = navigator.onLine ? 'Getting your three words…' : 'what3words needs signal. Read out these numbers instead (your position), or try again when you have a bar of signal.';
+      w.textContent = nums; n.textContent = '';
+      m.textContent = navigator.onLine ? U.w3wGetting : U.w3wNoSignal;
     } else {
-      w.textContent = '';
-      m.textContent = 'what3words gives every 3 m square three words, easy to read out to 000 or race medical. Tap below to find yours.';
+      w.textContent = ''; n.textContent = '';
+      m.textContent = U.w3wIntro;
     }
-    $('rnW3wGet').textContent = ok ? 'Update my 3 words' : 'Find my 3 words';
+    $('rnW3wGet').textContent = ok ? U.update3 : U.find3;
   }
   // Where you are, as the line under the profile on the Map tab: race km, the next aid station with its
   // distance, climb, cut-off and when you'd get there, and any off-course or poor GPS warning.
@@ -239,11 +240,11 @@
     return `GPT100 runner location: ${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}${here.w3w ? ` what3words ///${here.w3w}` : ''}`;
   }
   const fresh = () => here && Date.now() - here.t < 5 * 60e3;
-  function textLink() { $('rnShareMsg').textContent = fresh() ? `Ready: km ${one(here.rk)}, GPS ±${Math.round(here.acc)} m. Sends your race km and position by text or WhatsApp.` : 'Finds your position first, then sends your race km and position by text or WhatsApp.'; }
+  function textLink() { $('rnShareMsg').textContent = fresh() ? fill(T().shareReady, { km: one(here.rk), acc: Math.round(here.acc) }) : T().shareHint; }
   $('rnShare').addEventListener('click', async () => {
     // The phone only opens the share sheet straight from a tap, so a new fix needs a second tap.
-    if (!fresh()) { $('rnShareMsg').textContent = 'Finding you… (stand in the open)'; locate(() => { $('rnShareMsg').textContent = `Found you at km ${one(here.rk)} (GPS ±${Math.round(here.acc)} m). Tap Share my location again to send it.`; $('rnShare').textContent = 'Send my location'; }); return; }
-    $('rnShare').textContent = 'Share my location';
+    if (!fresh()) { $('rnShareMsg').textContent = T().finding; locate(() => { $('rnShareMsg').textContent = fill(T().found, { km: one(here.rk), acc: Math.round(here.acc), send: T().send }); $('rnShare').textContent = T().send; }); return; }
+    $('rnShare').textContent = T().share;
     const text = locationText();
     if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
     location.href = 'sms:?&body=' + encodeURIComponent(text);
@@ -395,10 +396,13 @@
     show();
   }
 
-  // ---------- emergency card (the international runners' card, in five languages) ----------
-  // data/safety-cards.js carries the same text as the printed cards. The language is remembered; the first time it
-  // follows the phone's language. 000, 112 and the Medical Team number are tap-to-call. The checklist ticks are kept.
+  // ---------- Help tab: one safety flow in the runner's language ----------
+  // data/safety-cards.js carries the emergency card for international runners, written around the app's own tools,
+  // plus the Help tab's labels and status lines, in five languages. The language is remembered; the first time it
+  // follows the phone's language. Show in English flips the tab for crew or medics to read, without changing the choice.
+  // 000, 112 and the Medical Team number are tap-to-call. The before-you-start ticks are kept on the phone.
   const CARDS = window.GPT_SAFETY_CARDS || { langs: [], cards: {} };
+  let flipEn = false;
   function cardLang() {
     const saved = store.get('lang');
     if (saved && CARDS.cards[saved]) return saved;
@@ -406,33 +410,62 @@
     const hit = CARDS.langs.find(l => nl.startsWith(l.code));
     return hit ? hit.code : 'en';
   }
+  const viewLang = () => flipEn ? 'en' : cardLang();
+  const T = () => (CARDS.cards[viewLang()] || CARDS.cards.en || { ui: {} }).ui;
+  const fill = (s, o) => String(s || '').replace(/\{(\w+)\}/g, (m, k) => k in o ? o[k] : m);
   const phoneRe = /\b(000|112|1300 375 352)\b/g;
   const rich = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(phoneRe, m => `<a href="tel:${m.replace(/\s/g, '')}">${m}</a>`);
-  function card() {
-    const sel = $('rnLang'), el = $('rnCard');
-    if (!sel || !el || !CARDS.langs.length) return;
-    const code = cardLang(), c = CARDS.cards[code], ticks = store.get('cardTicks', {});
+  function helpTab() {
+    const sel = $('rnLang'), tabEl = document.querySelector('.rn-helptab');
+    if (!sel || !tabEl || !CARDS.langs.length) return;
+    const chosen = cardLang(), c = CARDS.cards[viewLang()], U = c.ui, H = c.help, ticks = store.get('cardTicks', {});
     if (!sel.options.length) sel.innerHTML = CARDS.langs.map(l => `<option value="${l.code}">${esc(l.label)}</option>`).join('');
-    sel.value = code;
+    sel.value = chosen;
+    const flip = $('rnLangFlip');
+    flip.hidden = chosen === 'en';
+    flip.textContent = flipEn ? CARDS.cards[chosen].ui.backTo : CARDS.cards[chosen].ui.showEnglish;
+    tabEl.lang = c.lang;
+    // Need help?
+    $('rnHelpTitle').textContent = U.needHelp;
+    $('rnCall000').textContent = U.call000; $('rnCall000Sub').innerHTML = rich(U.call000Sub);
+    if (INFO.medicalPhone) $('rnCallMed').innerHTML = `${esc(U.callMed)}<small>${esc(INFO.medicalPhone)}</small>`;
+    $('rnCallMedSub').innerHTML = rich(U.callMedSub);
+    $('rnInterp').innerHTML = `<h4>${rich(H.interp.title)}</h4>` + H.interp.text.map(t => `<p>${rich(t)}</p>`).join('');
+    // Tell us where you are
+    $('rnWhereTitle').textContent = U.whereTitle; $('rnW3wTitle').textContent = U.w3wTitle;
+    $('rnShare').textContent = fresh() ? U.send : U.share;
+    $('rnWhereSteps').innerHTML = H.where.steps.map(t => `<li>${rich(t)}</li>`).join('');
+    $('rnWhereNotes').innerHTML = H.where.notes.map(t => `<p>${rich(t)}</p>`).join('');
+    // Lost or stopping
+    $('rnLostTitle').textContent = U.lostTitle;
+    $('rnLost').innerHTML = H.lost.map(t => `<p>${rich(t)}</p>`).join('');
+    $('rnOpenMap').textContent = U.openMap;
+    // In an emergency, then the rest of the card to open one at a time
+    $('rnSumTitle').textContent = U.summaryTitle;
+    $('rnSum').innerHTML = H.summary.map(x => `<div><b>${esc(x[0])}${x[1] ? `<small>${esc(x[1])}</small>` : ''}</b><span>${rich(x[2])}</span></div>`).join('');
     const list = (cls, items, tag) => `<${tag} class="${cls}">${items.map(t => `<li>${rich(t)}</li>`).join('')}</${tag}>`;
     const block = b => {
       if (b.type === 'p') return `<p>${rich(b.text)}</p>`;
       if (b.type === 'steps') return list('rn-card-steps', b.items, 'ol');
       if (b.type === 'bullets') return list('rn-card-bullets', b.items, 'ul');
       if (b.type === 'check') return b.items.map((t, i) => `<label class="rn-gear"><input type="checkbox" data-i="${i}"${ticks[i] ? ' checked' : ''}><span>${rich(t)}</span></label>`).join('');
-      if (b.type === 'table') return `<div class="rn-card-nums">${b.rows.map(r => `<div><span>${rich(r[0])}</span><b>${rich(r[1])}</b></div>`).join('')}</div>`;
+      if (b.type === 'gear') return `<p class="fd-hint">${esc(U.gearTab)} <button type="button" class="fd-linkbtn" data-go="gear">Gear</button></p>`;
       if (b.type === 'alert') return `<div class="rn-card-alert"><h4>${rich(b.title)}</h4>${(b.text || []).map(t => `<p>${rich(t)}</p>`).join('')}${b.steps ? list('rn-card-steps', b.steps, 'ol') : ''}${(b.after || []).map(t => `<p>${rich(t)}</p>`).join('')}</div>`;
       return '';
     };
-    el.lang = c.lang;
-    el.innerHTML = `<p class="rn-card-intro">${rich(c.intro)}</p>
-      <h3 class="rn-card-sumtitle">${esc(c.summaryTitle)}</h3>
-      <div class="rn-card-sum">${c.summary.map(s => `<div><b>${esc(s[0])}${s[1] ? `<small>${esc(s[1])}</small>` : ''}</b><span>${rich(s[2])}</span></div>`).join('')}</div>` +
-      c.sections.map((s, i) => `<details class="rn-card-sec"${i === 0 ? ' open' : ''}><summary><span class="rn-card-n">${esc(s.n)}</span>${esc(s.title)}</summary><div class="rn-card-body">${s.blocks.map(block).join('')}</div></details>`).join('') +
-      `<p class="fd-hint">${esc(CARDS.note || '')}</p>`;
-    el.querySelectorAll('input[type=checkbox]').forEach(cb => cb.onchange = () => { ticks[cb.dataset.i] = cb.checked; store.set('cardTicks', ticks); });
+    const open = store.get('cardOpen', {});
+    $('rnCard').innerHTML = H.sections.map((x, i) => `<details class="rn-card-sec" data-i="${i}"${open[i] ? ' open' : ''}><summary><span class="rn-card-n">${i + 1}</span>${esc(x.title)}</summary><div class="rn-card-body">${x.blocks.map(block).join('')}</div></details>`).join('');
+    $('rnCardNote').textContent = U.note;
+    $('rnCard').querySelectorAll('input[type=checkbox]').forEach(cb => cb.onchange = () => { ticks[cb.dataset.i] = cb.checked; store.set('cardTicks', ticks); });
+    $('rnCard').querySelectorAll('details').forEach(d => d.ontoggle = () => { open[d.dataset.i] = d.open; store.set('cardOpen', open); });
+    $('rnCard').querySelectorAll('[data-go]').forEach(b => b.onclick = () => setTab(b.dataset.go));
+    textLink(); showW3w();
   }
-  if ($('rnLang')) $('rnLang').addEventListener('change', () => { store.set('lang', $('rnLang').value); card(); });
+  if ($('rnLang')) {
+    $('rnLang').addEventListener('change', () => { store.set('lang', $('rnLang').value); flipEn = false; helpTab(); });
+    $('rnLangFlip').addEventListener('click', () => { flipEn = !flipEn; helpTab(); });
+    $('rnOpenMap').addEventListener('click', () => setTab('map'));
+  }
 
   // ---------- save the map for offline (as in the field app) ----------
   const OM = window.GPTOfflineMap;
@@ -508,7 +541,7 @@
         <li><b>Home</b> Your race at a glance: the countdown, start and cut-off, and what's on next.</li>
         <li><b>Map</b> Your race on a big topo map. Tap <b>◎</b> to see where you are: your race km, the next aid station, the climb to it, its cut-off and when you'll get there show under the profile.</li>
         <li><b>${mode === 'crew' ? 'Crew' : 'Aid'}</b> ${mode === 'crew' ? 'Crew points with directions and your runner’s expected times.' : 'Every aid station with cut-offs. Add a target time to see your splits.'}</li>
-        <li><b>Help</b> Call 000 or race medical, share your location, or find your what3words (three words that pin you to a 3 m square, easy to read out). Below that, the emergency card: what to do if you're hurt, lost or bitten, in English, Japanese, Chinese, Russian or Polish.</li>
+        <li><b>Help</b> Your safety tab, in English, Japanese, Chinese, Russian or Polish: call 000 or race medical, find your three words (what3words) and GPS numbers to read out, share your location, and what to do if you're lost, bitten, or helping another runner.</li>
         <li><b>Schedule</b> What's on now, what's next, and the full schedule.</li>
         <li><b>Gear</b> Tick off your mandatory gear.</li>
       </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. A guide only: follow the course markings and the race briefing.${C.tracking && C.tracking.credit && C.tracking.credit.name ? ` Timing and tracking by ${C.tracking.credit.url ? `<a href="${esc(C.tracking.credit.url)}" target="_blank" rel="noopener">${esc(C.tracking.credit.name)}</a>` : esc(C.tracking.credit.name)}.` : ''}</p>`;
@@ -538,11 +571,9 @@
     km: { toRace: k => stage ? toRace(stage, k) : k, toCourse: k => stage ? toCourse(stage, k) : k },
     title: () => !stage ? '' : `${race.short}${race.stages.length > 1 ? ' ' + stage.label : ''}: ${one(stage.points[stage.points.length - 1].km)} km`
   });
-  if (INFO.medicalPhone) { $('rnCallMed').hidden = false; $('rnCallMed').href = 'tel:' + INFO.medicalPhone.replace(/\s/g, ''); $('rnCallMed').innerHTML = `Call race medical<small>${esc(INFO.medicalPhone)}</small>`; }
-  $('rnWithdraw').textContent = INFO.withdraw || '';
-  card();
-  $('rnW3wGet').addEventListener('click', () => { $('rnW3wMsg').textContent = 'Finding you… (stand in the open)'; locate(); });
-  showW3w();
+  if (INFO.medicalPhone) { $('rnCallMed').hidden = false; $('rnCallMed').href = 'tel:' + INFO.medicalPhone.replace(/\s/g, ''); }
+  $('rnW3wGet').addEventListener('click', () => { $('rnW3wMsg').textContent = T().finding; locate(); });
+  helpTab();
   $('rnNotices').innerHTML = (INFO.notices || []).map(n => `<p class="notice">${esc(n.text)}</p>`).join('');
   if (C.tracking && C.tracking.url) { const t = $('fdTrack'); t.hidden = false; t.innerHTML = `<a class="btn" href="${esc(C.tracking.url)}" target="_blank" rel="noopener">${esc(C.tracking.label || 'Live tracking')}</a>${C.tracking.credit && C.tracking.credit.name ? ` <span class="fd-hint">by ${C.tracking.credit.url ? `<a href="${esc(C.tracking.credit.url)}" target="_blank" rel="noopener">${esc(C.tracking.credit.name)}</a>` : esc(C.tracking.credit.name)}</span>` : ''}`; }
   setStage(pickStage());
