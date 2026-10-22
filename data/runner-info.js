@@ -3,8 +3,6 @@
 window.GPT_RUNNER_INFO = {
   // Race medical: shown as Call race medical. 1300 numbers can't take texts, so locations are shared instead.
   medicalPhone: '1300 375 352',
-  // How a runner withdraws (only through an aid station manager).
-  withdraw: 'To withdraw, tell the aid station manager at the next aid station. Never leave the course without telling them: we will search for you.',
   // Shuttle-only crew points. Placeholder until the shuttle plan is set.
   shuttleNote: 'Crew access by shuttle only. Shuttles run every 30 minutes from the crew car park (pick-up point to be confirmed).',
   // Mandatory gear, by race id, from https://www.gpt100.com.au/mandatory-gear (2026). [item, tip].

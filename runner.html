@@ -89,33 +89,48 @@
     </section>
   </div>
 
-  <!-- Help -->
-  <div class="rn-tab" data-tab="help" hidden>
+  <!-- Help: one safety flow in the runner's language (data/safety-cards.js). The buttons keep their ids; the text
+       around them is rendered by js/runner.js in the picked language. -->
+  <div class="rn-tab rn-helptab" data-tab="help" hidden>
+    <div class="rn-lang-row">
+      <label for="rnLang" class="rn-vh">Language</label>
+      <select id="rnLang" class="rn-schedfor rn-lang" aria-label="Language"></select>
+      <button type="button" class="btn rn-flip" id="rnLangFlip" hidden></button>
+    </div>
     <section class="fd-card rn-safety">
-      <h2>Need help?</h2>
+      <h2 id="rnHelpTitle">Need help?</h2>
       <div class="rn-help">
-        <a class="fd-big fd-urgent" href="tel:000">Call 000</a>
+        <a class="fd-big fd-urgent" href="tel:000" id="rnCall000">Call 000</a>
+        <p class="rn-help-sub" id="rnCall000Sub"></p>
         <a class="fd-big" id="rnCallMed" href="#" hidden>Call race medical</a>
-        <button class="fd-big fd-wa" id="rnShare" type="button">Share my location</button>
+        <p class="rn-help-sub" id="rnCallMedSub"></p>
       </div>
-      <p class="fd-hint" id="rnShareMsg"></p>
-      <div class="rn-w3w">
-        <h3>Your what3words</h3>
-        <p class="rn-w3w-words" id="rnW3wWords"></p>
-        <p class="fd-hint" id="rnW3wMsg"></p>
-        <button type="button" class="btn" id="rnW3wGet">Find my 3 words</button>
-      </div>
-      <p class="fd-hint">If you're hurt or lost, stay on the course if you can: it's where we'll look for you. Keep warm and tell the next runner.</p>
-      <p class="fd-hint" id="rnWithdraw"></p>
+      <div class="rn-card-alert" id="rnInterp"></div>
     </section>
-    <!-- The international runners' emergency card, in five languages (data/safety-cards.js) -->
-    <section class="fd-card rn-card-wrap">
-      <div class="rn-card-head">
-        <h2>Emergency card</h2>
-        <label for="rnLang" class="rn-vh">Language</label>
-        <select id="rnLang" class="rn-schedfor rn-lang" aria-label="Language"></select>
+    <section class="fd-card">
+      <h2 id="rnWhereTitle">Tell us where you are</h2>
+      <div class="rn-w3w">
+        <h3 id="rnW3wTitle">Your three words</h3>
+        <p class="rn-w3w-words" id="rnW3wWords"></p>
+        <p class="rn-w3w-nums" id="rnW3wNums"></p>
+        <p class="fd-hint" id="rnW3wMsg"></p>
+        <button type="button" class="fd-big rn-w3w-btn" id="rnW3wGet">Find my 3 words</button>
       </div>
+      <div class="rn-help rn-help-share"><button class="fd-big fd-wa" id="rnShare" type="button">Share my location</button></div>
+      <p class="fd-hint" id="rnShareMsg"></p>
+      <ol class="rn-card-steps" id="rnWhereSteps"></ol>
+      <div class="rn-card-body" id="rnWhereNotes"></div>
+    </section>
+    <section class="fd-card">
+      <h2 id="rnLostTitle">Lost or stopping</h2>
+      <div class="rn-card-body" id="rnLost"></div>
+      <button type="button" class="btn" id="rnOpenMap">Open the map</button>
+    </section>
+    <section class="fd-card rn-card-wrap">
+      <h3 class="rn-card-sumtitle" id="rnSumTitle"></h3>
+      <div class="rn-card-sum" id="rnSum"></div>
       <div id="rnCard" class="rn-card"></div>
+      <p class="fd-hint" id="rnCardNote"></p>
     </section>
   </div>
 
