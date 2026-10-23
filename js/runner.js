@@ -329,8 +329,9 @@
   setInterval(() => { if (tab === 'schedule' && !document.hidden) drawSchedule(); }, 60e3);
 
   // ---------- the plan: aid stations, cut-offs and expected times ----------
-  // Pace p from the target time (0 = the first runner's time, 1 = the cut-off), or for crews from where
-  // the runner was last seen.
+  // Pace p from the target time (0 = the first runner's finish, 1 = the final cut-off), or for crews from where
+  // the runner was last seen. The time at each point for that p comes from js/races.js (the splits fitted to last
+  // year's field where the race has them).
   function targetPace() {
     const S = stage, P = S.points, v = $('rnTarget').value.trim(), m = /^(\d{1,2})(?:[:.h ](\d{1,2}))?$/.exec(v);
     if (!m) return null;
@@ -349,7 +350,7 @@
       const off = at < p.ft ? p.ft - at : at > p.ct ? at - p.ct : 0;
       if (!best || off < best.off) best = { at, off };
     }
-    return { p: (best.at - p.ft) / ((p.ct - p.ft) || 1), i, at: best.at };
+    return { p: paceAt(S, p.km, best.at), i, at: best.at };
   }
   function plan() {
     if (!stage) return;
