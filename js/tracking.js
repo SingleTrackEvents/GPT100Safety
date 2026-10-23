@@ -111,9 +111,10 @@
   // A runner's pace fraction, from their last two chip reads (or their start), else mid-pack.
   function fracOf(chip) {
     if (!chip || chip.reads.length < 2) return 0.5;
-    const R = chip.reads;
-    let a = R[R.length - 2], b = R[R.length - 1];
-    if (b.km - a.km < 2 && R.length > 2) a = R[0];
+    const R = chip.reads, b = R[R.length - 1];
+    let a = null;
+    for (let i = R.length - 2; i >= 0; i--) if (b.km - R[i].km >= 2) { a = R[i]; break; }
+    if (!a) a = R[0];
     if (b.km - a.km < 0.5) return 0.5;
     const M = model(chip.course), fast = M.fast(a.km, b.km), slow = M.slow(a.km, b.km);
     if (slow <= fast) return 0.5;
