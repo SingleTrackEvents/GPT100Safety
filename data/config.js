@@ -79,12 +79,13 @@ window.GPT100_CONFIG = {
   // reads the runners' positions through the Worker's /gps/ relay. Leave it blank until the event's link exists.
   // Timing chips (RaceResult): chip is 'relay' once the timing team's Simple API link is in the Worker as the
   // TIMING_URL secret (the link never goes in the app), or blank for none. chipEvery: seconds between reads.
+  // chipContests: names for the feed's contest numbers, e.g. { 5: 'GPT100 Miler', 6: '50k', 7: '14k' } (ask the timing team).
   // chipPoints: timing point names the app couldn't match to a course stop by itself, e.g. { 'TP3': { km: 99.5 } }
   // (course '14k' for that course; the GPT100 otherwise). chipFields: column names, only if the feed sends rows
   // without them. For a rehearsal: node tools/gps_demo_feed.mjs, then open the app with
   // ?gps=<full address of the folder> (timing.json in the same folder is picked up), or ?chip=<address of the list>.
   // credit: the timing and tracking provider, named in the intros, next to the Live tracking button and in the tracking status.
-  tracking: { url: '', label: 'Live tracking', gps: '', chip: '', chipEvery: 30, chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
+  tracking: { url: '', label: 'Live tracking', gps: '', chip: '', chipEvery: 30, chipContests: {}, chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
   what3wordsKey: 'LBTPEWCQ'

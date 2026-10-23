@@ -24,8 +24,12 @@
   const G = window.GPT;
 
   // ---------- names: timing points matched to the course stops ----------
-  const norm = s => String(s || '').toLowerCase().replace(/\bmount\b/g, 'mt').replace(/car\s*park/g, 'carpark').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
-  const STOP = new Set(['aid', 'station', 'water', 'point', 'checkpoint', 'cp', 'tp', 'timing', 'the', 'of', 'at', 'in', 'out', 'emergency', 'split', 'and', 'gpt100', 'gpt']);
+  // Names come squashed from RaceResult ("CopperMineTrack", "MTDifficultRd", "BainggugCPIN"): split the words out first.
+  const unsquash = s => String(s || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').replace(/([A-Z]{2,})(IN|OUT)$/, '$1 $2');
+  const norm = s => unsquash(s).toLowerCase().replace(/\bmount\b/g, 'mt').replace(/car\s*park\b|\bcp\b/g, 'carpark').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const STOP = new Set(['aid', 'station', 'water', 'point', 'checkpoint', 'tp', 'timing', 'the', 'of', 'at', 'in', 'out', 'arrive', 'arrival', 'depart', 'departure', 'emergency', 'split', 'and', 'gpt100', 'gpt']);
+  // "HallsGapIn" and "HallsGapOut" are the same spot: the base name, and which read it is.
+  const inOut = label => { const m = norm(label).match(/^(.*?)\s*(in|out|arrive|arrival|depart|departure)$/); return m ? { base: m[1], dir: /^(in|arr)/.test(m[2]) ? 'in' : 'out' } : { base: norm(label), dir: '' }; };
   const toks = s => norm(s).split(' ').filter(w => w && !STOP.has(w));
   // How alike two names are: shared words, or one squashed name inside the other ("GAR" in "GAR Trailhead").
   function score(a, b) {
@@ -69,8 +73,12 @@
     return hit;
   }
   // Which course a contest runs on: the 14k course for the 14k and 6k, the GPT100 for the rest, none for the Dunkeld fun runs.
+  // RaceResult may give the contest as a number: tracking.chipContests in the config names them, e.g. { 5: 'GPT100 Miler' }.
+  const contestName = c => { const s = String(c == null ? '' : c).trim(); const m = T.chipContests && (T.chipContests[s] || T.chipContests[+s]); return m ? String(m) : s; };
+  let numericContests = false;
   function courseOf(contest) {
     const n = norm(contest);
+    if (/^\d+$/.test(n)) { numericContests = true; return G; }
     if (/\b(14|6) ?k\b/.test(n)) return G.course('14k');
     if (/\b(5|2) ?k\b|family|kids/.test(n)) return null;
     return G;
@@ -118,7 +126,7 @@
     if (/^(lastname|last|surname|familyname)$/.test(n)) return 'last';
     if (/^(contest|contestname|race|event|distance|category|course)$/.test(n)) return 'contest';
     if (/^(status|state)$/.test(n)) return 'status';
-    if (/^(time|nettime|chiptime|guntime|racetime|rank|place|pos|position|gender|sex|age|agegroup|agegrp|club|team|city|nation|country|id|pid|rrid|email|phone|comment)$/.test(n)) return 'skip';
+    if (/^(time|nettime|chiptime|guntime|racetime|rank|place|pos|position|gender|sex|age|agegroup|agegrp|club|team|city|nation|country|id|pid|rrid|email|phone|comment|diff|behind|gap to leader)$/.test(n)) return 'skip';
     return 'point';
   }
   // A time from the feed, in ms: a full date and time, a Unix time, or a Melbourne time of day
@@ -167,21 +175,26 @@
       }
       if (!bib || !/^\d+$/.test(bib)) continue;
       name = name || (first + ' ' + last).trim();
+      const lf = name.match(/^([^,]+),\s*(.+)$/); if (lf) name = lf[2].trim() + ' ' + lf[1].trim();
+      contest = contestName(contest);
       const E = courseOf(contest);
       if (!E) continue;
       const race = raceOf(contest);
       // Every timing point in the list is a place the runner will be read (so the app knows the next one), read or not yet.
       const pointOf = rd => { const p = pointFor(rd.label, E, race); if (!p) unmatched.add(rd.label); else { const key = E.id + '|' + p.name; if (!pts.has(key)) pts.set(key, { name: p.name, course: E, km: p.kms[0], n: 0, lastT: 0 }); } return p; };
       reads.filter(rd => !rd.t).forEach(pointOf);
-      const out = [];
+      const out = [], kmOfBase = new Map();
       let lastKm = -1;
       for (const rd of reads.filter(rd => rd.t).sort((a, b) => a.t - b.t)) {
         const p = pointOf(rd);
         if (!p) continue;
-        // A stop the course passes twice: the first passing not yet behind them.
-        const km = p.kms.find(k => k > lastKm + 0.2) ?? p.kms[p.kms.length - 1];
+        // An In and an Out read at the same aid station are the same spot. Otherwise, a stop the course passes
+        // twice (the out and back at Jimmy Creek) is the first passing not yet behind them.
+        const io = inOut(rd.label);
+        let km = io.dir && kmOfBase.has(io.base) ? kmOfBase.get(io.base) : (p.kms.find(k => k > lastKm + 0.2) ?? p.kms[p.kms.length - 1]);
+        if (io.dir) kmOfBase.set(io.base, km);
         lastKm = Math.max(lastKm, km);
-        out.push({ name: p.name, km, t: rd.t });
+        out.push({ name: p.name + (io.dir === 'out' ? ' (out)' : ''), km, t: rd.t });
         const q = pts.get(E.id + '|' + p.name); q.n++; q.lastT = Math.max(q.lastT, rd.t);
       }
       let st = statusOf(status);
@@ -193,6 +206,7 @@
     S.points = [...pts.values()].sort((a, b) => a.course.id === b.course.id ? a.km - b.km : a.course.main ? -1 : 1);
     S.unmatched = [...unmatched];
     S.rows = rows.length;
+    S.numericContests = numericContests;
   }
 
   // ---------- reading the feed ----------
@@ -226,7 +240,8 @@
     if (!S.ready) return 'Timing chips: loading…';
     const on = [...S.runners.values()].filter(r => r.last && !r.status).length;
     return `Timing chips: ${on} runner${on === 1 ? '' : 's'} between checkpoints, ${S.points.length} timing point${S.points.length === 1 ? '' : 's'} matched to the course, updated ${ago(Date.now() - S.updated)}` +
-      (S.error ? ', last fetch failed' : '') + (S.unmatched.length ? `. Not matched to the course: ${S.unmatched.join(', ')} (add them to tracking.chipPoints)` : '') + '.';
+      (S.error ? ', last fetch failed' : '') + (S.unmatched.length ? `. Not matched to the course: ${S.unmatched.join(', ')} (add them to tracking.chipPoints)` : '') +
+      (S.numericContests ? '. The feed gives contests as numbers, so every runner is taken as on the GPT100 course (name them in tracking.chipContests)' : '') + '.';
   }
   function onUpdate(fn) { S.listeners.push(fn); if (S.ready || S.off) fn(); }
   window.GPTTiming = { state: S, ready: () => S.ready, on: () => !S.off, byBib, runners: () => [...S.runners.values()], points: () => S.points, pointsAfter, status, onUpdate, hm, when, score, norm };
