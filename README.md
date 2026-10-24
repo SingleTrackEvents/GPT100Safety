@@ -38,7 +38,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 - Every access point, aid station and base has a what3words address stored in the app, so it shows even with no signal. Tap one to open it in the what3words app, which can navigate there.
 - Search by what3words, with suggestions near the course as you type. If a word is misheard or the address lands a long way from the course, the app suggests likely alternatives near the race.
-- With signal, the casualty's what3words is looked up and added to the result, the message and the WhatsApp text, along with the parking spot's what3words.
+- With signal, the casualty's what3words is looked up and added to the result, the message and the WhatsApp text, along with the parking spot's what3words. Without signal, the stored words of the course point stand in (exact for a km, within 30 m for a spot), marked as saved words.
 
 **Live runner tracking** (when the GPS tracking link is set, see below)
 
@@ -100,7 +100,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **I'm crewing:** just the crew points (shuttle-only ones marked), with directions, cut-offs and the runner's expected times, from their target time or from where they were last seen.
 - **Help**, the safety tab, in English, Japanese, Simplified Chinese, Russian or Polish (a language picker at the top, remembered, and first set from the phone's language; **Show in English** flips the tab for crew or medics to read without changing the runner's choice). It carries the international runners' emergency card (`data/safety-cards.js`, from the v0.5 documents in Drive) rewritten around the app's own tools, so the app is the runner's safety tool and the printed card its backup:
   - **Need help?** Call 000 and Call race medical (1300 375 352), each with what it's for, then the 000 interpreter steps for runners not confident in English (say Ambulance, Victoria, then your language).
-  - **Tell us where you are:** Find my 3 words shows your what3words and, always, your GPS numbers (the card says to read the numbers when English is hard, and they work with no signal); Share my location sends km, position and words by text or WhatsApp; then the three steps to give 000 or race medical, the no-signal plan, and Emergency+ as the backup.
+  - **Tell us where you are:** Find my 3 words shows your what3words and, always, your GPS numbers (the card says to read the numbers when English is hard, and they work with no signal). With no signal, the stored three words of the nearest course point (within 30 m, from `data/course-w3w.js`) stand in, with how far away that point is; Share my location sends km, position and words by text or WhatsApp; then the three steps to give 000 or race medical, the no-signal plan, and Emergency+ as the backup.
   - **Lost or stopping:** the Map tab's locate button for how far off the course you are and which way, the markers, withdrawing through an aid station, and an Open the map button.
   - **In an emergency** (STOP, CALL, TELL, STAY), then five sections to open one at a time: snake bite, another runner needs help, weather and fire, before you start (a checklist with ticks kept on the phone, including this app installed with the map saved, and a link to the Gear tab) and show this screen. 000, 112 and the Medical Team number are tap-to-call throughout.
   - The card sentences are the checked v0.5 translations; the sentences that name the app's buttons, and the tab's own labels and status lines, are new and still need the interpreter check (see the note at the top of `data/safety-cards.js`).
@@ -119,13 +119,13 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Race tab** (handy for sweeps): pick the race (and stage), as in the runner app. Every aid station with its cut-off; after Where am I? during the race, the expected time at each one comes from your position and the clock (or from a target time), and Where am I? adds your race km and the next cut-off. Shares `js/races.js` with the runner app.
 - **Safety Officer posts** on the map (yellow SO, from the public `data/safety-officers.js`, no names): tap one for its shifts. During the event, posts not staffed right now are faded (refreshed every 5 minutes).
 - **Your trail:** every GPS fix (with Keep updating on, as you move) is kept on the phone for 24 hours and drawn on the map as a dotted purple line, with the distance covered. Clear it any time.
-- **Where am I?** One tap uses the phone's GPS: km on the course (the GPT100, or the 14k when that's nearer), between which aid stations, how far off the course, height, GPS accuracy, coordinates and what3words. No GPS? Type the km.
+- **Where am I?** One tap uses the phone's GPS: km on the course (the GPT100, or the 14k when that's nearer), between which aid stations, how far off the course, height, GPS accuracy, coordinates and what3words (with no signal, the stored words of the nearest course point within 30 m, marked as saved). No GPS? Type the km.
 - **Off the course,** the answer depends on how far: up to 50 m is on the course; 50 to 300 m says "Just off the course. The course is 120 m south-west of you"; 300 m to 2 km names the access point or aid station you're at, gives the direction back, and notes that the walk-out times assume you get back onto the course first; 2 to 10 km gives the distance and nearest course point (and the base, if you're at one) with no walking times; over 10 km gives no course answers at all. The map draws a dashed line back to the course. A GPS fix worse than ±100 m says to stand in the open and try again.
 - **Send my location** or **Urgent: casualty here** opens WhatsApp with the message ready (km, place, coordinates, map link, what3words, nearest vehicle access, and for urgent, the fastest team), plus an optional note.
 - **Nearest way out:** the closest vehicle access by walking time (gated or not) and the drive from there to each base, and the aid stations either side.
 - **Track and carry-out:** the same card as the staff app's Find, for where you are: the Parks Victoria track grade and stretcher type, what a carry-out crosses to the nearest way out and to the aid stations either side, the road grade at that access, and the nearest emergency marker (GNP code for 000), the nearest helicopter landing sites, assembly area and track hazards. The map colours the course by grade between the aid stations either side. Send my location and Urgent carry the grade, emergency marker and nearest landing site.
 - **Weather here:** now and the next 3 hours, triggers, BOM warnings and fires nearby. The map shows you and the way out.
-- Works offline once opened with signal (what3words and fresh weather need signal). Add it to the home screen: it opens straight to the field app.
+- Works offline once opened with signal (live what3words and fresh weather need signal; the stored course words don't). Add it to the home screen: it opens straight to the field app.
 - **Live tracking:** when the tracking link is known, put it in `data/config.js` (`tracking.url`) and a Live tracking button appears here and on the Race Control board.
 
 **Admin** (`admin.html`, for the Race Director or safety lead)
@@ -137,7 +137,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 ## Using it offline
 
-Open the app once with signal and it saves itself to the device. After that, Find works with no signal. Map tiles are saved as you view them, so it's worth zooming along the course once before race day. what3words lookups need signal.
+Open the app once with signal and it saves itself to the device. After that, Find works with no signal. Map tiles are saved as you view them, so it's worth zooming along the course once before race day. Live what3words lookups need signal; without it, the apps use the stored words of the nearest course point (see below).
 
 On a phone, use **Add to Home Screen** so it opens like an app.
 
@@ -164,6 +164,10 @@ python3 tools/update_course.py path/to/course.gpx
 ```
 
 Then run `python3 tools/add_w3w.py` to give any new points a what3words address.
+
+**what3words along the whole course**
+
+`data/course-w3w.js` holds the three words of every route point of the GPT100 and the 14k (one about every 24 m), in route order, made by `python3 tools/add_course_w3w.py`. With no signal, the runner app's Find my 3 words, the field app's Where am I? and the staff app's Find show the stored words of the nearest course point (exact for a km, within 30 m for a GPS fix) and say how far away that point is. The script sends one request every 0.8 seconds (`--delay` to change it), saves as it goes and can be stopped and restarted. Run it again after a course changes (`--all` to redo every point); points already looked up are otherwise kept.
 
 The update script replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check a few km in Find afterwards and commit `data/course.js`.
 

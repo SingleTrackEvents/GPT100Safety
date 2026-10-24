@@ -476,12 +476,19 @@
     history.replaceState(null, '', hash);
     refreshMessage(r);
     // Look up the casualty's what3words when there's signal (the spot they were found at, else the course point).
+    // Without signal, the stored words of the course point (exact for a km, within 30 m for a spot) stand in.
     if (!r.casW3w) {
       const at = q.lat != null ? [q.lat, q.lon] : [r.lat, r.lon];
       w3wAt(at[0], at[1]).then(w => {
-        if (!w || last !== r) return;
+        if (last !== r) return;
+        let saved = '';
+        if (!w) {
+          const n = q.lat != null ? G.nearW3w(q.lat, q.lon) : { words: G.storedW3w(r.ic), m: 0 };
+          if (!n || !n.words) return;
+          w = n.words; saved = ` <small>(saved words${n.m ? `, course ${n.m} m away` : ''})</small>`;
+        }
         r.casW3w = w;
-        $('casW3w').innerHTML = (q.lat != null ? 'Casualty ' : 'Course point ') + w3wLink(w);
+        $('casW3w').innerHTML = (q.lat != null ? 'Casualty ' : 'Course point ') + w3wLink(w) + saved;
         refreshMessage(r);
         if (casMarker) casMarker.setPopupContent(`<b>Casualty</b><br>${kmTxt(r.km)}<br>${w3wLink(w)}`);
       });

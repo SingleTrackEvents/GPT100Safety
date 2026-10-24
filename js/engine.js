@@ -84,6 +84,16 @@
       return { ic: bi, offM: Math.round(metres([lat, lon], [route[bi][0], route[bi][1]])) };
     }
 
+    // what3words of each course point, stored in data/course-w3w.js (tools/add_course_w3w.py) so the apps can
+    // show three words with no signal. storedW3w(i): the words of route point i. nearW3w(lat, lon): the words
+    // of the nearest course point and how far away it is, or null when it's further than maxM (30 m).
+    const STORED_W3W = (window.GPT100_COURSE_W3W || {})[def.main ? 'gpt100' : def.id] || [];
+    function storedW3w(i) { return STORED_W3W[i] || null; }
+    function nearW3w(lat, lon, maxM) {
+      const s = snap(lat, lon), w = storedW3w(s.ic);
+      return w && s.offM <= (maxM || 30) ? { words: w, m: s.offM, ic: s.ic } : null;
+    }
+
     // Other places the course passes the same spot (an out and back, or a loop's start and finish).
     function revisits(ic, maxM) {
       maxM = maxM || 40;
@@ -258,7 +268,7 @@
     return {
       id: def.id, name: def.name, label: def.label, note: def.note || '', main: !!def.main,
       data: D, config: C, route, ACCESS, AID: STOPS, BASES, crossings: def.main ? D.crossings : [],
-      idxAtKm, snap, metres, climb, carryMin, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName,
+      idxAtKm, snap, storedW3w, nearW3w, metres, climb, carryMin, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName,
       totalKm: def.total_km
     };
   }

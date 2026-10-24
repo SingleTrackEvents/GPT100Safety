@@ -7,7 +7,8 @@
 // `ui` holds the app's own labels and status lines. `help` holds the card text. Both are per language.
 // Translation status (21 October 2026): the card sentences are the v0.5 translations (Chinese checked by Joe Zhang,
 // Japanese with Mirai, Russian and Polish unchecked). The app-only sentences (ui, and the card sentences that now name
-// the app's buttons) are new and still need the interpreter check. Keep this file in step with the documents.
+// the app's buttons) are new and still need the interpreter check, as is w3wStored (24 October 2026, the saved
+// three words shown with no signal). Keep this file in step with the documents.
 // Markup in the text: **bold**. 000, 112 and the Medical Team number become tap-to-call links. {km} {acc} {time} {send}
 // are filled in by the app.
 window.GPT_SAFETY_CARDS = {
@@ -31,6 +32,7 @@ window.GPT_SAFETY_CARDS = {
         w3wReady: `Your spot at {time}, to within 3 m. Read these three words out in English, exactly as shown.`,
         w3wGetting: `Getting your three words… If they don't come, read out the numbers.`,
         w3wNoSignal: `No signal for the three words. Read out these numbers instead: your position. You can say them in your own language once the 000 interpreter is on the line.`,
+        w3wStored: `No signal, so these are the saved three words for the nearest point of the course, {m} m from you. Read them out in English, then the GPS numbers too.`,
         nums: `GPS numbers`, share: `Share my location`, send: `Send my location`,
         shareHint: `Finds your position first, then sends your race km and position by text or WhatsApp.`,
         shareReady: `Ready: km {km}, GPS ±{acc} m. Sends your race km and position by text or WhatsApp.`,
@@ -124,6 +126,7 @@ window.GPT_SAFETY_CARDS = {
         w3wReady: `{time}の現在地、誤差3m以内。この3つの単語を表示どおり英語で読み上げてください。`,
         w3wGetting: `3つの単語を取得中…表示されない場合は数字を読み上げてください。`,
         w3wNoSignal: `電波がないため3つの単語を取得できません。代わりにこの数字（現在地）を読み上げてください。000の通訳につながったら日本語で言ってかまいません。`,
+        w3wStored: `電波がないため、保存済みの3つの単語を表示しています。コース上であなたに最も近い地点（{m}m先）のものです。英語で読み上げ、続けてGPSの数字も読み上げてください。`,
         nums: `GPSの数字`, share: `現在地を共有`, send: `現在地を送信`,
         shareHint: `まず現在地を確認し、レースのkmと位置をSMSまたはWhatsAppで送ります。`,
         shareReady: `準備完了：{km}km、GPS誤差±{acc}m。レースのkmと位置をSMSまたはWhatsAppで送ります。`,
@@ -217,6 +220,7 @@ window.GPT_SAFETY_CARDS = {
         w3wReady: `你在{time}的位置，精确到3米。请按屏幕显示用英语读出这三个单词。`,
         w3wGetting: `正在获取三个单词…如果没有显示，请读出数字。`,
         w3wNoSignal: `没有信号，无法获取三个单词。请改为读出这些数字（你的位置）。接通000的翻译后，可以用中文说这些数字。`,
+        w3wStored: `没有信号，这是已保存的三个单词，对应离你最近的赛道点（距你{m}米）。请用英语读出，然后再读出GPS数字。`,
         nums: `GPS数字`, share: `分享我的位置`, send: `发送我的位置`,
         shareHint: `先定位，然后通过短信或WhatsApp发送你的赛道公里数和位置。`,
         shareReady: `已就绪：{km}公里，GPS误差±{acc}米。通过短信或WhatsApp发送你的赛道公里数和位置。`,
@@ -310,6 +314,7 @@ window.GPT_SAFETY_CARDS = {
         w3wReady: `Ваше место в {time}, точность 3 м. Прочитайте эти три слова по-английски, как они показаны.`,
         w3wGetting: `Получаем три слова… Если они не появятся, прочитайте цифры.`,
         w3wNoSignal: `Нет сигнала для трёх слов. Прочитайте вместо них эти цифры: ваши координаты. С переводчиком 000 цифры можно назвать по-русски.`,
+        w3wStored: `Нет сигнала, поэтому показаны сохранённые три слова ближайшей точки трассы, в {m} м от вас. Прочитайте их по-английски, а затем и GPS-координаты.`,
         nums: `GPS-координаты`, share: `Поделиться местоположением`, send: `Отправить местоположение`,
         shareHint: `Сначала определяет ваше положение, затем отправляет километр трассы и координаты по SMS или WhatsApp.`,
         shareReady: `Готово: км {km}, GPS ±{acc} м. Отправляет километр трассы и координаты по SMS или WhatsApp.`,
@@ -403,6 +408,7 @@ window.GPT_SAFETY_CARDS = {
         w3wReady: `Twoja pozycja o {time}, z dokładnością do 3 m. Przeczytaj te trzy słowa po angielsku, dokładnie tak, jak są wyświetlone.`,
         w3wGetting: `Pobieram trzy słowa… Jeśli się nie pojawią, przeczytaj liczby.`,
         w3wNoSignal: `Brak zasięgu, nie można pobrać trzech słów. Zamiast nich przeczytaj te liczby: to twoja pozycja. Gdy dołączy tłumacz 000, liczby możesz podać po polsku.`,
+        w3wStored: `Brak zasięgu, więc to zapisane trzy słowa najbliższego punktu trasy, {m} m od ciebie. Przeczytaj je po angielsku, a potem także współrzędne GPS.`,
         nums: `Współrzędne GPS`, share: `Udostępnij moją lokalizację`, send: `Wyślij moją lokalizację`,
         shareHint: `Najpierw ustala twoją pozycję, potem wysyła kilometr trasy i pozycję SMS-em lub przez WhatsApp.`,
         shareReady: `Gotowe: km {km}, GPS ±{acc} m. Wysyła kilometr trasy i pozycję SMS-em lub przez WhatsApp.`,

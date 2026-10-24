@@ -134,13 +134,14 @@
       if (!best || s.offM < best.s.offM - (E.main ? 0 : 50)) best = { E, s };
     });
     const E = best.E, r = E.assess(best.s.ic);
-    here = { lat, lon, E, r, offM: best.s.offM, gps, t: Date.now(), w3w: null };
+    // near: the stored words of the nearest course point (data/course-w3w.js), for when there's no signal.
+    here = { lat, lon, E, r, offM: best.s.offM, gps, t: Date.now(), w3w: null, near: E.nearW3w(lat, lon), w3wDone: false };
     render();
     lookupW3w(lat, lon);
   }
   function fromKm(km) {
-    const E = MAIN, ic = E.idxAtKm(km), p = E.route[ic];
-    here = { lat: p[0], lon: p[1], E, r: E.assess(ic), offM: 0, gps: null, t: Date.now(), w3w: null, manual: true };
+    const E = MAIN, ic = E.idxAtKm(km), p = E.route[ic], w = E.storedW3w(ic);
+    here = { lat: p[0], lon: p[1], E, r: E.assess(ic), offM: 0, gps: null, t: Date.now(), w3w: null, near: w ? { words: w, m: 0, ic } : null, w3wDone: false, manual: true };
     render();
     lookupW3w(p[0], p[1]);
   }
@@ -176,15 +177,23 @@
   }
   const locBtn = () => document.querySelector('.rn-locbtn');
 
-  // ---------- what3words (needs signal; the key only works on the live site) ----------
+  // ---------- what3words ----------
+  // The live lookup needs signal (and the key only works on the live site). Without it, the result shows the
+  // stored words of the nearest course point (within 30 m), marked as saved.
   async function lookupW3w(lat, lon) {
-    if (!navigator.onLine || !C.what3wordsKey) return;
-    try {
-      const qs = new URLSearchParams({ key: C.what3wordsKey, coordinates: lat.toFixed(5) + ',' + lon.toFixed(5) });
-      const j = await (await fetch('https://api.what3words.com/v3/convert-to-3wa?' + qs)).json();
-      if (j.words && here && here.lat === lat) { here.w3w = j.words; render(); }
-    } catch (e) { /* no signal or no key: leave it out */ }
+    const mine = () => here && here.lat === lat && here.lon === lon;
+    if (navigator.onLine && C.what3wordsKey) {
+      try {
+        const qs = new URLSearchParams({ key: C.what3wordsKey, coordinates: lat.toFixed(5) + ',' + lon.toFixed(5) });
+        const j = await (await fetch('https://api.what3words.com/v3/convert-to-3wa?' + qs)).json();
+        if (j.words && mine()) { here.w3w = j.words; here.w3wDone = true; render(); return; }
+      } catch (e) { /* no signal or no key: the stored words will do */ }
+    }
+    if (mine()) { here.w3wDone = true; render(); }
   }
+  // The words to show or send: the live ones, else the stored words of the nearest course point.
+  const w3wLink = w => `<a href="https://w3w.co/${esc(w)}" target="_blank" rel="noopener">///${esc(w)}</a>`;
+  const savedNote = () => here.near.m ? `saved words, course ${here.near.m} m away` : 'saved words';
 
   // ---------- show it ----------
   function between(r) {
@@ -229,7 +238,7 @@
     $('fdOut').classList.toggle('far', S.tier === 'far');
     $('fdOut').classList.toggle('long', S.tier === 'long');
     const poor = g && g.acc > POOR_GPS_M ? `<p class="notice warn"><b>GPS isn't accurate enough yet</b> (±${Math.round(g.acc)} m). Stand in the open and tap Where am I? again.</p>` : '';
-    const pos = `<p class="fd-facts">${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${g ? ` · GPS ±${Math.round(g.acc)} m` : ''}${here.w3w ? ` · <a href="https://w3w.co/${esc(here.w3w)}" target="_blank" rel="noopener">///${esc(here.w3w)}</a>` : ''}</p>`;
+    const pos = `<p class="fd-facts">${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${g ? ` · GPS ±${Math.round(g.acc)} m` : ''}${here.w3w ? ` · ${w3wLink(here.w3w)}` : here.w3wDone && here.near ? ` · ${w3wLink(here.near.words)} (${savedNote()})` : ''}</p>`;
     const kmTag = E.main ? '' : `<span class="fd-course">${esc(E.name)}</span>`;
     if (S.tier === 'far') {
       $('fdWhere').innerHTML = `${poor}
@@ -381,7 +390,7 @@
       urgent ? `URGENT: casualty ${S.tier === 'on' ? 'at ' : ''}${where}.` : `My location: ${where}.`,
       note ? 'Note: ' + note : '',
       `Position ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${here.gps ? ` (GPS ±${Math.round(here.gps.acc)} m)` : ' (from the km)'}.`,
-      here.w3w ? `what3words ///${here.w3w}` : '',
+      here.w3w ? `what3words ///${here.w3w}` : here.near ? `what3words ///${here.near.words} (${savedNote()})` : '',
       `Map: https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}`,
       w ? `Nearest vehicle access: ${E.cleanName(w.a)}${E.isGated(w.a) ? ' (gated)' : ''}, ${one(w.walkKm)} km walk.` : '',
       urgent && !long ? `Fastest team: ${r.best.base.name}, about ${E.fmt(r.best.total)}.` : '',

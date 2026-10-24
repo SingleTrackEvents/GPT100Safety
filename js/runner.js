@@ -153,32 +153,43 @@
     const expect = prev != null ? prev + 0.3 : started ? toCourse(stage, Math.max(0, interpKm(stage, now))) : En.route[cands[0]][2];
     const bi = cands.reduce((a, b) => Math.abs(En.route[b][2] - expect) < Math.abs(En.route[a][2] - expect) ? b : a, cands[0]);
     const q = En.route[bi];
-    here = { stage, t: now, lat, lon, acc, ic: bi, gk: q[2], rk: Math.max(0, toRace(stage, q[2])), ele: q[3], offM: Math.round(bd), cp: [q[0], q[1]], w3w: null };
+    // near: the stored words of the nearest course point (data/course-w3w.js), for when there's no signal.
+    here = { stage, t: now, lat, lon, acc, ic: bi, gk: q[2], rk: Math.max(0, toRace(stage, q[2])), ele: q[3], offM: Math.round(bd), cp: [q[0], q[1]], w3w: null, near: En.nearW3w(lat, lon), w3wDone: false };
     render();
     lookupW3w(lat, lon);
   }
-  // what3words: three words for your 3 m square, easy to read out to 000 or race medical. Needs signal
-  // (the key only works on the live site); without it, the Help tab shows your position as numbers instead.
+  // what3words: three words for your 3 m square, easy to read out to 000 or race medical. The live lookup
+  // needs signal (and the key only works on the live site). Without it, the Help tab shows the stored words of
+  // the course point nearest you (within 30 m), and always your position as numbers.
   async function lookupW3w(lat, lon) {
     showW3w();
-    if (!navigator.onLine || !C.what3wordsKey) return;
-    try {
-      const qs = new URLSearchParams({ key: C.what3wordsKey, coordinates: lat.toFixed(5) + ',' + lon.toFixed(5) });
-      const j = await (await fetch('https://api.what3words.com/v3/convert-to-3wa?' + qs)).json();
-      if (j.words && here && here.lat === lat && here.lon === lon) { here.w3w = j.words; showW3w(); }
-    } catch (e) { /* no signal or no key: the numbers will do */ }
+    const mine = () => here && here.lat === lat && here.lon === lon;
+    if (navigator.onLine && C.what3wordsKey) {
+      try {
+        const qs = new URLSearchParams({ key: C.what3wordsKey, coordinates: lat.toFixed(5) + ',' + lon.toFixed(5) });
+        const j = await (await fetch('https://api.what3words.com/v3/convert-to-3wa?' + qs)).json();
+        if (j.words && mine()) { here.w3w = j.words; here.w3wDone = true; showW3w(); return; }
+      } catch (e) { /* no signal or no key: the stored words or the numbers will do */ }
+    }
+    if (mine()) { here.w3wDone = true; showW3w(); }
   }
+  const w3wLink = w => `<a href="https://w3w.co/${esc(w)}" target="_blank" rel="noopener">///${esc(w)}</a>`;
   function showW3w() {
     const w = $('rnW3wWords'), n = $('rnW3wNums'), m = $('rnW3wMsg'), U = T();
     if (!w) return;
     const ok = here && Date.now() - here.t < 15 * 60e3, nums = ok ? `${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}` : '';
     if (ok && here.w3w) {
-      w.innerHTML = `<a href="https://w3w.co/${esc(here.w3w)}" target="_blank" rel="noopener">///${esc(here.w3w)}</a>`;
+      w.innerHTML = w3wLink(here.w3w);
       n.textContent = `${U.nums}: ${nums}`;
       m.textContent = fill(U.w3wReady, { time: hm.format(new Date(here.t)) });
+    } else if (ok && here.w3wDone && here.near) {
+      // No live words: the stored words of the course point nearest you.
+      w.innerHTML = w3wLink(here.near.words);
+      n.textContent = `${U.nums}: ${nums}`;
+      m.textContent = fill(U.w3wStored, { m: Math.max(3, here.near.m) });
     } else if (ok) {
       w.textContent = nums; n.textContent = '';
-      m.textContent = navigator.onLine ? U.w3wGetting : U.w3wNoSignal;
+      m.textContent = here.w3wDone ? U.w3wNoSignal : U.w3wGetting;
     } else {
       w.textContent = ''; n.textContent = '';
       m.textContent = U.w3wIntro;
@@ -237,7 +248,7 @@
   }
   // Share my location: the race, km and position, by text or WhatsApp (the phone's share sheet).
   function locationText() {
-    return `GPT100 runner location: ${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}${here.w3w ? ` what3words ///${here.w3w}` : ''}`;
+    return `GPT100 runner location: ${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}${here.w3w ? ` what3words ///${here.w3w}` : here.near ? ` what3words ///${here.near.words} (the course, ${Math.max(3, here.near.m)} m from me)` : ''}`;
   }
   const fresh = () => here && Date.now() - here.t < 5 * 60e3;
   function textLink() { $('rnShareMsg').textContent = fresh() ? fill(T().shareReady, { km: one(here.rk), acc: Math.round(here.acc) }) : T().shareHint; }
