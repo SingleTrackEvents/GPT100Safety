@@ -95,7 +95,7 @@
     h += `<p class="tg-here">${chip(g)} <span class="tg-note">${esc(i.note)}</span></p>`;
     const b = o.vehicle || r.best;
     if (G.main && b) {
-      const rows = [[`To the vehicle at ${esc(G.cleanName(b.a))}`, between(km, b.joinKm)]];
+      const rows = [[`To ${o.vehicle ? 'the vehicle' : 'the team\'s vehicle'} at ${esc(G.cleanName(b.a))}`, between(km, b.joinKm)]];
       if (r.aid.prev) rows.push([`Back to ${esc(r.aid.prev.a.name)}`, between(km, r.aid.prev.a.trail_km)]);
       if (r.aid.next) rows.push([`Ahead to ${esc(r.aid.next.a.name)}`, between(km, r.aid.next.a.trail_km)]);
       h += '<div class="tg-rows">';
@@ -137,7 +137,7 @@
     if (em && em.code && em.m < 3000) s += `. Nearest emergency marker ${em.code}, ${where(em, km)}`;
     if (HL) { const l = HL.line(r, km); if (l) s += '. ' + l; }
     else if (hp && hp.m < 6000) s += `. Nearest helipad ${hp.name ? hp.name + ', ' : ''}${where(hp, km)}`;
-    return s + '.';
+    return /\.$/.test(s) ? s : s + '.';
   }
 
   // Map: the course coloured by grade around the casualty, and the markers near it.
