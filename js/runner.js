@@ -13,6 +13,8 @@
   // Races, cut-offs and expected times (js/races.js, shared with the field app).
   const { mel, fmt, hm, when, dur, engineFor, prepare, toRace, toCourse, timeAt, interpKm, paceAt, liveEta } = window.GPTRaces;
 
+  // Off the course from this far: go-back help, no ETA. 100 m keeps GPS wobble on the track from setting it off.
+  const OFF = 100;
   // ---------- what's picked ----------
   let mode = store.get('mode', 'runner'), race = R.races.find(r => r.id === store.get('race')) || R.races[0], stage = null;
   const { stagesOf, currentStage } = window.GPTRaces;
@@ -236,7 +238,7 @@
       whereNow = `${poor}<b class="rn-warn">${esc(fill(UL('offFar'), { dist: dist(here.offM), race: rlab() }))}</b><br>${back}<br>${line}`;
       profile.setHere(null); textLink(); home(); return;
     }
-    const nx = P.find(p => p.km > here.rk + 0.05), isOff = here.offM > 50;
+    const nx = P.find(p => p.km > here.rk + 0.05), isOff = here.offM > OFF;
     let h = poor + bold(fill(UL('kmOf'), { km: one(here.rk), len: one(fin.km) }), 'rn-km-now');
     if (isOff) h += ` · <span class="rn-warn">${esc(fill(UL('offBy'), { dist: dist(here.offM) }))}</span><br>${back}<br>${line}`;
     if (nx) {
@@ -254,7 +256,7 @@
     const S = stage, now = Date.now(), start = S.points[0].ft.getTime();
     if (now < start) return `<br><span class="rn-dim">${esc(fill(UL('raceStarts'), { time: when(S.points[0].ft) }))}</span>`;
     if (now > S.points[S.points.length - 1].ct.getTime() + 6 * 3600e3) return '';
-    const L = liveEta(S, here.rk, now, nx);
+    const L = liveEta && liveEta(S, here.rk, now, nx); // (an older js/races.js has none)
     if (!L || L.early) return '';
     if (L.behind) return `<br><span class="rn-warn">${bold(UL('etaBehind'))}</span>`;
     // The day too, when it isn't today.
@@ -274,7 +276,7 @@
     meLayer.clearLayers();
     const me = [here.lat, here.lon];
     if (here.acc) L.circle(me, { radius: here.acc, color: '#1666c9', weight: 1, fillOpacity: .12, interactive: false }).addTo(meLayer);
-    if (here.offM > 50) L.polyline([me, here.cp], { color: '#111', weight: 2, dashArray: '4 6', interactive: false }).addTo(meLayer);
+    if (here.offM > OFF) L.polyline([me, here.cp], { color: '#111', weight: 2, dashArray: '4 6', interactive: false }).addTo(meLayer);
     L.circleMarker(me, { radius: 9, color: '#fff', weight: 3, fillColor: '#1666c9', fillOpacity: 1 }).bindTooltip('You').addTo(meLayer);
     if ($('fdMap').offsetWidth) map.fitBounds(L.latLngBounds([me, here.cp]).pad(0.6), { maxZoom: 15 }); else needFit = true;
   }
@@ -282,7 +284,7 @@
   function locationText() {
     // Far from the picked course, the race km means little: say so rather than give one.
     const rl = `${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}`;
-    return `GPT100 runner location: ${here.offM > 2000 ? `${dist(here.offM)} from the ${rl} course (check which race)` : `${rl}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}`}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}${here.w3w ? ` what3words ///${here.w3w}` : here.near ? ` what3words ///${here.near.words} (the course, ${Math.max(3, here.near.m)} m from me)` : ''}`;
+    return `GPT100 runner location: ${here.offM > 2000 ? `${dist(here.offM)} from the ${rl} course (check which race)` : `${rl}, km ${one(here.rk)}${here.offM > OFF ? ` (${dist(here.offM)} off the course)` : ''}`}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}${here.w3w ? ` what3words ///${here.w3w}` : here.near ? ` what3words ///${here.near.words} (the course, ${Math.max(3, here.near.m)} m from me)` : ''}`;
   }
   const fresh = () => here && Date.now() - here.t < 5 * 60e3;
   // Far from the picked course the race km means little: say how far, as the shared text does.

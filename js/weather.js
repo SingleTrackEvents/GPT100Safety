@@ -440,8 +440,12 @@
     if ($('wxKm')) { $('wxKm').value = km; $('wxWhen').value = localInput(t); }
     drawTimeline(); readout(); colourMap(t);
   }
+  // Text colours for the canvas, from the page's light or dark colours.
+  const cssCol = (n, d) => (getComputedStyle(document.documentElement).getPropertyValue(n) || '').trim() || d;
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => drawTimeline()); } catch (e) { }
   function drawTimeline() {
     const cv = $('wxTl'); if (!cv) return;
+    const INK = cssCol('--ink', '#111'), MUTED = cssCol('--muted', '#625c53');
     const g = ds.grid, [h0, h1] = rangeHours(g), nh = h1 - h0 + 1;
     const Wd = cv.parentElement.clientWidth || 600, Ht = Math.round(Math.max(300, Math.min(480, Wd * 0.72)));
     const dpr = window.devicePixelRatio || 1;
@@ -471,15 +475,15 @@
     for (let h = h0; h <= h1; h++) {
       const lh = g.lh[h];
       if (lh === 0) {
-        x.fillStyle = '#111'; x.fillRect(xh(h), L.top - 4, 1, L.h + 4);
+        x.fillStyle = '#111'; x.fillRect(xh(h), L.top - 4, 1, L.h + 4); x.fillStyle = INK;
         // Day labels: full where there's room, shorter on long ranges.
         const lab = L.cw * 24 > 70 ? WX.fmtDay(g.t0 + h * HOUR) : WX.fmtDay(g.t0 + h * HOUR).split(' ').slice(0, 2).join(' ');
         if (L.cw * 24 > 34 || g.lh[h] === 0 && Math.round((h - h0) / 24) % 2 === 0) x.fillText(lab, xh(h) + 3, 9);
-      } else if (lh === 12 && nh < 100) { x.fillStyle = '#625c53'; x.fillText('12:00', xh(h) + 2, L.top + L.h + 12); }
+      } else if (lh === 12 && nh < 100) { x.fillStyle = MUTED; x.fillText('12:00', xh(h) + 2, L.top + L.h + 12); }
     }
-    if (nh <= 100 && g.lh[h0] !== 0) { x.fillStyle = '#111'; x.fillText(WX.fmtDay(g.t0 + h0 * HOUR), L.left + 2, 9); }
+    if (nh <= 100 && g.lh[h0] !== 0) { x.fillStyle = INK; x.fillText(WX.fmtDay(g.t0 + h0 * HOUR), L.left + 2, 9); }
     // Km axis with aid stations.
-    x.fillStyle = '#625c53'; x.textAlign = 'right';
+    x.fillStyle = MUTED; x.textAlign = 'right';
     for (let k = 0; k <= TOTAL; k += 20) x.fillText(k, L.left - 5, yk(k));
     x.textAlign = 'left';
     x.strokeStyle = 'rgba(0,0,0,.18)'; x.lineWidth = 1;
@@ -506,7 +510,7 @@
         x.beginPath(); x.moveTo(xh(h) + L.cw / 2, L.top); x.lineTo(xh(h) + L.cw / 2, L.top + L.h); x.globalAlpha = .4; x.stroke(); x.globalAlpha = 1;
       }
     }
-    x.fillStyle = '#625c53'; x.fillText('km', 4, L.top + L.h + 12);
+    x.fillStyle = MUTED; x.fillText('km', 4, L.top + L.h + 12);
   }
   function keyHTML(k) { return (VARS[k].key || []).map(([l, c]) => `<span><i style="background:${c}"></i>${esc(l)}</span>`).join(' '); }
   function conditions(g, km, t) {
@@ -613,13 +617,13 @@
     let ticks = '';
     for (let t = Math.ceil(t0 / (6 * HOUR)) * 6 * HOUR; t <= t1; t += 6 * HOUR) {
       const p = WX.parts(t);
-      ticks += `<line x1="${X(t)}" x2="${X(t)}" y1="${Ht - 22}" y2="${Ht - 18}" stroke="#625c53"/><text x="${X(t)}" y="${Ht - 6}" text-anchor="middle">${p.hour === '00' ? p.weekday : p.hour + ':00'}</text>`;
+      ticks += `<line x1="${X(t)}" x2="${X(t)}" y1="${Ht - 22}" y2="${Ht - 18}" style="stroke:var(--muted)"/><text x="${X(t)}" y="${Ht - 6}" text-anchor="middle">${p.hour === '00' ? p.weekday : p.hour + ':00'}</text>`;
     }
     const yt = [lo, Math.round((lo + hi) / 2), hi].map(v => `<text x="26" y="${Y(v) + 4}" text-anchor="end">${v}°</text>`).join('');
-    return `<svg class="wx-journey" viewBox="0 0 ${Wd} ${Ht}" data-kind="${S.kind}"><path d="${ele}" fill="#ece9e1"/>${storms}${bars}
+    return `<svg class="wx-journey" viewBox="0 0 ${Wd} ${Ht}" data-kind="${S.kind}"><path d="${ele}" style="fill:var(--wx-ele)"/>${storms}${bars}
       <path d="${line('t')}" fill="none" stroke="#c62828" stroke-width="2"/><path d="${line('at')}" fill="none" stroke="#2a4d9b" stroke-width="2" stroke-dasharray="4 3"/>
       ${ticks}${yt}<line class="now" x1="0" x2="0" y1="0" y2="${Ht - 22}" stroke="#d9531e" stroke-width="2" visibility="hidden"/></svg>
-      <p class="wx-key"><span><i class="ln" style="background:#c62828"></i>Temperature</span> <span><i class="ln" style="background:#2a4d9b"></i>Feels like</span> <span><i style="background:#2f7fc1"></i>Rain</span> <span><i style="background:#ece9e1"></i>Height</span></p>`;
+      <p class="wx-key"><span><i class="ln" style="background:#c62828"></i>Temperature</span> <span><i class="ln" style="background:#2a4d9b"></i>Feels like</span> <span><i style="background:#2f7fc1"></i>Rain</span> <span><i style="background:var(--wx-ele)"></i>Height</span></p>`;
   }
   function simUpdate() {
     if (!$('wxSimT')) return;
@@ -719,13 +723,13 @@
     const night = h => g.lh[h] >= 20 || g.lh[h] < 6;
     for (let h = h0; h <= h1; h++) if (night(h) && (h === h0 || !night(h - 1))) {
       let e = h; while (e < h1 && night(e + 1)) e++;
-      svg += `<rect x="${X(h).toFixed(1)}" y="10" width="${(X(e + 1) - X(h)).toFixed(1)}" height="${Ht - 40}" fill="rgba(20,30,60,.07)"/>`;
+      svg += `<rect x="${X(h).toFixed(1)}" y="10" width="${(X(e + 1) - X(h)).toFixed(1)}" height="${Ht - 40}" style="fill:var(--wx-night)"/>`;
     }
     for (let h = h0; h <= h1; h++) {
       const lh = g.lh[h];
       if (lh === 0) svg += `<line x1="${X(h)}" x2="${X(h)}" y1="10" y2="${Ht - 30}" stroke="#bbb"/><text x="${X(h) + 3}" y="${Ht - 16}">${WX.fmtDay(g.t0 + h * HOUR)}</text>`;
     }
-    for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4; svg += `<text x="32" y="${Y(v) + 4}" text-anchor="end">${v.toFixed(MVARS[mdVar][2] && hi - lo < 10 ? 1 : 0)}</text><line x1="36" x2="${Wd - 8}" y1="${Y(v)}" y2="${Y(v)}" stroke="#eee"/>`; }
+    for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4; svg += `<text x="32" y="${Y(v) + 4}" text-anchor="end">${v.toFixed(MVARS[mdVar][2] && hi - lo < 10 ? 1 : 0)}</text><line x1="36" x2="${Wd - 8}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:var(--chip-bg)"/>`; }
     if (mdVar === 'cbase') { const e = g.points[mdPoint].ele; svg += `<line x1="36" x2="${Wd - 8}" y1="${Y(e)}" y2="${Y(e)}" stroke="${STATUS_COL.close}" stroke-width="2" stroke-dasharray="6 4"/><text x="${Wd - 10}" y="${Y(e) - 4}" text-anchor="end">This point, ${e} m: cloud base below the line means in cloud</text>`; }
     (LINES[mdVar] || []).forEach(([v, st]) => { if (v >= lo && v <= hi) svg += `<line x1="36" x2="${Wd - 8}" y1="${Y(v)}" y2="${Y(v)}" stroke="${STATUS_COL[st]}" stroke-width="1.5" stroke-dasharray="6 4"/>`; });
     if (band) {
@@ -741,12 +745,12 @@
     });
     let dm = '', on = false;
     med.forEach((v, k) => { if (v == null) { on = false; return; } dm += (on ? 'L' : 'M') + X(h0 + k).toFixed(1) + ',' + Y(v).toFixed(1); on = true; });
-    svg += `<path d="${dm}" fill="none" stroke="#111" stroke-width="3"/>`;
+    svg += `<path d="${dm}" fill="none" style="stroke:var(--svg-ink)" stroke-width="3"/>`;
     if (mdT == null || hourIdx(g, mdT) < h0 || hourIdx(g, mdT) > h1) mdT = g.t0 + Math.max(h0, Math.min(h1, hourIdx(g, nowS()))) * HOUR;
     const hs = hourIdx(g, mdT);
     svg += `<line x1="${X(hs)}" x2="${X(hs)}" y1="10" y2="${Ht - 30}" stroke="#d9531e" stroke-width="2"/>`;
     $('wxChart').innerHTML = `<svg id="wxMsvg" class="wx-models" viewBox="0 0 ${Wd} ${Ht}">${svg}<rect id="wxMhit" x="36" y="10" width="${Wd - 44}" height="${Ht - 40}" fill="transparent"/></svg>
-      <div class="wx-legend">${ids.map((m, i) => `<button data-m="${m}" class="${mdHidden[m] ? 'off' : ''}"><i style="background:${MCOL[i % MCOL.length]}"></i>${esc(WX.modelName(m))}</button>`).join('')}<span><i style="background:#111"></i>Consensus</span>${band && ej >= 0 ? `<span><i style="background:rgba(217,83,30,.35)"></i>Ensemble range (80% of ${ensN() || 'the ensemble'} forecasts)</span>` : ''}</div>`;
+      <div class="wx-legend">${ids.map((m, i) => `<button data-m="${m}" class="${mdHidden[m] ? 'off' : ''}"><i style="background:${MCOL[i % MCOL.length]}"></i>${esc(WX.modelName(m))}</button>`).join('')}<span><i style="background:var(--svg-ink)"></i>Consensus</span>${band && ej >= 0 ? `<span><i style="background:rgba(217,83,30,.35)"></i>Ensemble range (80% of ${ensN() || 'the ensemble'} forecasts)</span>` : ''}</div>`;
     $('wxChart').querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => { mdHidden[b.dataset.m] = !mdHidden[b.dataset.m]; drawModels(g, f); }));
     $('wxMhit').addEventListener('click', e => {
       const svgEl = $('wxMsvg'), r = svgEl.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * Wd;

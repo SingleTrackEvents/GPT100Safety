@@ -12,7 +12,8 @@ window.GPT100_CONFIG = {
   evacPace: 30,     // stretcher / carry-out, min per km on Medium or Easy track
   // Carry-out slows on the harder Parks Victoria track grades (data/track-grades.js): multiplier on evacPace by grade.
   carryFactor: { hard: 1.75, unassessed: 1.5 },
-  climbPenalty: 0.10, // min per metre of ascent
+  climbPenalty: 0.10, // min per metre of ascent (10 min per 100 m, Naismith), walking in and carrying out
+  nightFactor: 1.3, // walk-in and carry-out take this much longer between sunset and sunrise (not the drive)
   driveFactor: 1.2, // multiplier on measured drive times for access roads
   // Races on the GPT100 course, for converting a runner's race km to GPT100 km.
   // from/to are aid stations on the GPT100 course (their names in the app).
@@ -79,13 +80,17 @@ window.GPT100_CONFIG = {
   // reads the runners' positions through the Worker's /gps/ relay. Leave it blank until the event's link exists.
   // Timing chips (RaceResult): chip is 'relay' once the timing team's Simple API link is in the Worker as the
   // TIMING_URL secret (the link never goes in the app), or blank for none. chipEvery: seconds between reads.
-  // chipContests: names for the feed's contest numbers, e.g. { 5: 'GPT100 Miler', 6: '50k', 7: '14k' } (ask the timing team).
+  // The feed's contest names are matched to the races by themselves ("GPT100 Solo/Pairs" the Miler, "GPT50K", "Stage 2",
+  // "GPT33K", "GPT14K", "GPT6K"); a name it can't match shows in the tracking status line and those runners aren't placed.
+  // chipContests: overrides, the feed's contest name (or number) to a race, e.g. { 'GPT Multi-Day': 'Stage 2', 7: '14k' },
+  // or 'none' for a contest that isn't tracked. chipDay: blank on race days (times of day hang off each race's start
+  // day in data/races.js); a date ('2026-10-26') or 'today' anchors every race to that day, for a rehearsal.
   // chipPoints: timing point names the app couldn't match to a course stop by itself, e.g. { 'TP3': { km: 99.5 } }
   // (course '14k' for that course; the GPT100 otherwise). chipFields: column names, only if the feed sends rows
   // without them. For a rehearsal: node tools/gps_demo_feed.mjs, then open the app with
   // ?gps=<full address of the folder> (timing.json in the same folder is picked up), or ?chip=<address of the list>.
   // credit: the timing and tracking provider, named in the intros, next to the Live tracking button and in the tracking status.
-  tracking: { url: '', label: 'Live tracking', gps: '', chip: '', chipEvery: 30, chipContests: {}, chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
+  tracking: { url: '', label: 'Live tracking', gps: '', chip: '', chipEvery: 30, chipContests: {}, chipDay: '', chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
   what3wordsKey: 'LBTPEWCQ'
