@@ -519,7 +519,7 @@
 
   function show(ic, q) {
     // Times for now (the demo's clock when it's running): night walk and carry times between sunset and sunrise.
-    const r = G.assess(ic, G.now()); r.q = q; last = r;
+    const r = G.assess(ic, G.now ? G.now() : Date.now()); r.q = q; last = r;
     if (profile) profile.setHere({ E: G, km: r.km, ele: r.ele });
     r.casW3w = q.words || null;
     r.raceKm = raceKmOf(r.km);

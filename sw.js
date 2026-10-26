@@ -47,7 +47,12 @@ self.addEventListener('install', e => {
     caches.open(VERSION).then(async c => {
       const pre = await caches.open(NEXT + BUILD), miss = [];
       for (const u of SHELL) { const hit = await pre.match(u); if (hit) await c.put(u, hit); else miss.push(u); }
-      return c.addAll(miss.map(u => new Request(u, { cache: 'reload' })));
+      await c.addAll(miss.map(u => new Request(u, { cache: 'reload' })));
+      // A stale copy of a page (an old CDN copy mid-deploy) would ask for another build's files: try again later instead.
+      for (const u of PAGES.filter(u => /(\/|\.html)$/.test(u))) {
+        const r = await c.match(u), b = r && buildOf(await r.text());
+        if (b && b !== BUILD) { await caches.delete(VERSION); throw new Error('page ' + u + ' is build ' + b); }
+      }
     }),
     caches.open(LIB).then(c => Promise.all(LIBS.map(u => caches.match(u).then(hit => hit ? c.put(u, hit) : c.add(u)).catch(() => { }))))
   ]).then(() => self.skipWaiting()));
@@ -129,7 +134,16 @@ async function page(e, req, url) {
   }
   down = false; heard = Date.now();
   if (!res.ok) return res;
-  const b = buildOf(await res.clone().text()) || BUILD;
+  // The body can stall after the headers: the saved page then, as for a stalled answer.
+  let html = await Promise.race([res.clone().text(), new Promise(r => t = setTimeout(r, down ? SHORT : WAIT, null))]);
+  clearTimeout(t);
+  if (html == null) {
+    down = true;
+    const r = await saved();
+    if (r) { net.stop(); return r; }
+    html = await res.clone().text().catch(() => '');
+  }
+  const b = buildOf(html) || BUILD;
   if (b === BUILD) {
     // The server is on this build (a newer one was taken back): files fetched ahead for that one go.
     if (await newer) { newer = Promise.resolve(false); await caches.keys().then(ks => Promise.all(ks.filter(ahead).map(k => caches.delete(k)))); }
@@ -140,7 +154,7 @@ async function page(e, req, url) {
   if (+b < +BUILD) return await saved() || res;
   // A newer build: shown once all its files are in, else the saved page with its own files (the rest still land, for next time).
   newer = Promise.resolve(true);
-  if (await fetchBuild(e, b, await res.clone().text(), key)) { await (await caches.open(NEXT + b)).put(key, res.clone()); remember(built, id, b); return res; }
+  if (await fetchBuild(e, b, html, key)) { await (await caches.open(NEXT + b)).put(key, res.clone()); remember(built, id, b); return res; }
   const r = await saved();
   if (!r) remember(built, id, b);
   return r || res;
