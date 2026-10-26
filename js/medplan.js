@@ -289,10 +289,8 @@
     });
     const legend = L.control({ position: 'bottomleft' });
     legend.onAdd = () => {
-      const d = L.DomUtil.create('div', 'map-legend');
-      d.innerHTML = MEDICAL.map(g => `<i style="background:${col(g)}"></i>${g}`).join('<br>') +
-        '<br><i style="background:#9e9e9e"></i>Safety Officers only<br>Size = runners per hour<br>Red ring = on call';
-      return d;
+      return G.foldKey(L.DomUtil.create('div', 'map-legend'), MEDICAL.map(g => `<i style="background:${col(g)}"></i>${g}`).join('<br>') +
+        '<br><i style="background:#9e9e9e"></i>Safety Officers only<br>Size = runners per hour<br>Red ring = on call');
     };
     legend.addTo(map);
     fitMap();
@@ -331,12 +329,12 @@
     if (!fmap || !window.L) return;
     if (findLayer) { findLayer.remove(); findLayer = null; }
     // Safety Officer posts are public (data/safety-officers.js); the unlocked plan has the same posts.
-    const src = P || SO;
+    const src = G.soPlaces ? G.soPlaces(P || SO) : P || SO;
     if (!src) { if (soKey) { soKey.remove(); soKey = null; } return; }
     if (!T0) T0 = new Date(src.t0);
     if (!soKey) {
       soKey = L.control({ position: 'bottomright' });
-      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers on post<br><span class="so-mark" style="display:inline-block;width:22px;margin-right:5px">SO</span>Not on post at this time'; return d; };
+      soKey.onAdd = () => G.foldKey(L.DomUtil.create('div', 'map-legend'), '<span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers on post<br><span class="so-mark" style="display:inline-block;width:22px;margin-right:5px">SO</span>Not on post at this time', 'SO key');
       soKey.addTo(fmap);
     }
     const h = curH();
@@ -359,7 +357,7 @@
   // plus climb; on another course (the 14k) by distance on the ground, allowing 40% for the track.
   const soKm = {};
   function soNear(r) {
-    const src = P || SO;
+    const src = G.soPlaces ? G.soPlaces(P || SO) : P || SO;
     if (!src) return null;
     if (!T0) T0 = new Date(src.t0);
     const h = curH(), C = window.GPT100_CONFIG, main = !r.course || r.course === G.id;
@@ -451,7 +449,7 @@
     return VEH().map(v => { const s = vehicle(v, h); return { id: v, label: P.veh[v], where: s.moving ? 'to ' + s.moving.b : s.at }; });
   }
   function soOnPost() {
-    const src = P || SO;
+    const src = G.soPlaces ? G.soPlaces(P || SO) : P || SO;
     if (!src) return [];
     if (!T0) T0 = new Date(src.t0);
     const h = curH();
