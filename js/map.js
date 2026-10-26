@@ -125,13 +125,13 @@
     let best = null;
     for (const E of courses) { const s = E.snap(e.latlng.lat, e.latlng.lng); if (!best || s.offM < best.offM) best = { E, ic: s.ic, offM: s.offM }; }
     if (!best || best.offM > 2000) return;
-    const E = best.E, r = E.assess(best.ic), b = r.best, p = E.route[best.ic];
+    const E = best.E, r = E.assess(best.ic, E.now ? E.now() : Date.now()), b = r.best, p = E.route[best.ic];
     const between = r.aid.prev && r.aid.next ? `<br>${esc(r.aid.prev.a.name)} ${one(r.aid.prev.distKm)} km back, ${esc(r.aid.next.a.name)} ${one(r.aid.next.distKm)} km ahead` : '';
     const hash = `#ll=${e.latlng.lat.toFixed(5)},${e.latlng.lng.toFixed(5)}` + (E.main ? '' : '&c=' + E.id);
     const near = TR && TR.ready() ? TR.near(E, r.km, 3, 3) : [];
     tapPop = L.popup({ maxWidth: 280 }).setLatLng([p[0], p[1]]).setContent(
       `<b>${esc(E.name)} km ${one(r.km)}</b>${best.offM > 150 ? ` (${best.offM >= 1000 ? one(best.offM / 1000) + ' km' : Math.round(best.offM) + ' m'} from the tap)` : ''}${between}` +
-      `<br>Send <b>${esc(b.base.name)} team</b> via ${esc(E.cleanName(b.a))}${E.isGated(b.a) ? ' (gated)' : ''}: drive ${E.fmt(b.drive)}, walk ${one(b.walkKm)} km, <b>ETA ${E.fmt(b.total)}</b>${b.total > C.redMin ? ' <span style="color:var(--red);font-weight:700">(over ' + E.fmt(C.redMin) + ')</span>' : ''}` +
+      `<br>Send <b>${esc(b.base.name)} team</b> via ${esc(E.cleanName(b.a))}${E.isGated(b.a) ? ' (gated)' : ''}: drive ${E.fmt(b.drive)}, walk ${one(b.walkKm)} km, <b>ETA ${E.fmt(b.total)}</b>${r.night ? ' (night)' : ''}${b.total > C.redMin ? ' <span style="color:var(--red);font-weight:700">(over ' + E.fmt(C.redMin) + ')</span>' : ''}` +
       (near.length ? `<br>Nearby: ${near.map(x => `bib ${esc(x.bib)} (km ${one(TR.cur(x))})`).join(', ')}` : '') +
       `<br><a class="btn small" style="margin-top:6px" href="${esc(findHref(hash))}">Open in Find</a>`).openOn(map);
   });

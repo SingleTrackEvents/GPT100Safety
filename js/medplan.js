@@ -378,6 +378,7 @@
         distKm = G.metres([s.lat, s.lon], [r.lat, r.lon]) / 1000 * 1.4;
         walk = distKm * C.walkPace;
       }
+      walk *= r.nightFactor || 1;  // the same night allowance as the team's walk-in
       const now = here.filter(p => on(p, h));
       const next = here.filter(p => p.a > h).sort((a, b) => a.a - b.a)[0];
       out.push({ s, d: main ? k.km - r.km : null, distKm, walk, now, next, ground: !main });

@@ -123,7 +123,9 @@
   function assess(inc) {
     if (inc.km == null || isNaN(inc.km)) return null;
     const E = courseOf(inc);
-    try { return E.assess(E.idxAtKm(inc.km)); } catch (e) { return null; }
+    // At the time the unit was sent (or now), so night walk and carry times match Find.
+    const t = (!window.GPTDemo && inc.times && inc.times.dispatched) || (E.now ? E.now() : Date.now());  // the demo runs on race time
+    try { return E.assess(E.idxAtKm(inc.km), t); } catch (e) { return null; }
   }
   // Expected time to reach the casualty for the unit sent (a base team), or the fastest team before one is sent. Null when not known.
   function eta(inc) {
@@ -491,7 +493,7 @@
   // The fastest team to the km, and a backup.
   function suggest(d) {
     const r = assess(d), best = r && r.results[0];
-    return best ? `Suggested: <b>${esc(best.base.name)} team</b>, ETA ${G.fmt(best.total)} via ${esc(G.cleanName(best.a))}${r.results[1] ? `; backup ${esc(r.results[1].base.name)}, ${G.fmt(r.results[1].total)}` : ''}.` : '';
+    return best ? `Suggested: <b>${esc(best.base.name)} team</b>, ETA ${G.fmt(best.total)} via ${esc(G.cleanName(best.a))}${r.results[1] ? `; backup ${esc(r.results[1].base.name)}, ${G.fmt(r.results[1].total)}` : ''}.${r.night ? ' Night times.' : ''}` : '';
   }
   function keep(f) { ['where', 'bib', 'name', 'race', 'reporter', 'desc', 'unit'].forEach(k => { draft[k] = f[k].value; }); draft.severity = f.sev.value; }
   function save(f) {
