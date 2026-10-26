@@ -994,7 +994,7 @@
     const warn = latest.warnings && latest.warnings.items ? latest.warnings.items.filter(w => w.relevant) : [];
     const hits = c.status.hits.filter(x => x.status !== 'ok');
     const inc = latest.incidents && latest.incidents.items ? latest.incidents.items.filter(x => x.kind !== 'warning' && G.metres([lat, lon], [x.lat, x.lon]) < 15000) : [];
-    return `<div class="wx-near"><b>Weather now:</b> ${(c.t + dz).toFixed(0)}°C, feels ${(c.at + dz).toFixed(0)}°C, gusts ${Math.round(c.g)} km/h, ${esc(WX.codeText(c.code).toLowerCase())}.
+    return `<div class="wx-near"><b>Weather now:</b> ${Math.round(c.t + dz)}°C, feels ${Math.round(c.at + dz)}°C, gusts ${Math.round(c.g)} km/h, ${esc(WX.codeText(c.code).toLowerCase())}.
       Next 3 hours: ${rain >= 0.2 ? rain.toFixed(1) + ' mm rain' : 'dry'}, gusts to ${Math.round(gust)} km/h${storm ? ', <b>thunderstorm possible</b>' : ''}.
       ${hits.map(x => `<span class="wx-pill st-${x.status}">${WX.LABELS[x.key]}: ${WORD[x.status]}</span>`).join(' ')}
       ${warn.map(w => `<br><a class="wx-near-warn" href="${esc(w.link)}" target="_blank" rel="noopener">BOM: ${esc(w.title)}</a>`).join('')}
