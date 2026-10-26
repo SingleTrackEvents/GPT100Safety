@@ -77,7 +77,7 @@
   function racePace() {
     const P = stage.points, fin = P[P.length - 1], v = $('fdTarget').value.trim(), m = /^(\d{1,2})(?:[:.h ](\d{1,2}))?$/.exec(v);
     if (m) return { p: (P[0].ft.getTime() + (+m[1] * 60 + +(m[2] || 0)) * 60000 - fin.ft) / (fin.ct - fin.ft), from: 'target' };
-    const rp = racePos(), now = clock(), L = rp && now < fin.ct.getTime() + 6 * 3600e3 ? RX.livePace(stage, rp.rk, now) : null;
+    const rp = racePos(), now = clock(), L = rp && RX.livePace && now < fin.ct.getTime() + 6 * 3600e3 ? RX.livePace(stage, rp.rk, now) : null;
     return L ? Object.assign(L, { from: 'here', rp }) : null;
   }
   // The point you're at (within 0.3 km, as the Where card says) and the next one after it.
@@ -91,7 +91,7 @@
   function etaLine(rp, nx) {
     const fin = stage.points[stage.points.length - 1], t = clock();
     if (t >= fin.ct.getTime() + 6 * 3600e3) return null;
-    const L = RX.liveEta(stage, rp.rk, t, nx);
+    const L = RX.liveEta && RX.liveEta(stage, rp.rk, t, nx); // (an older js/races.js has none)
     if (!L || L.early) return null;
     if (L.behind) return { ok: false, s: 'A runner here now is well behind cut-off pace.' };
     if (L.p < 0 || L.eta <= t) return null;

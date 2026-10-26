@@ -254,7 +254,7 @@
     const S = stage, now = Date.now(), start = S.points[0].ft.getTime();
     if (now < start) return `<br><span class="rn-dim">${esc(fill(UL('raceStarts'), { time: when(S.points[0].ft) }))}</span>`;
     if (now > S.points[S.points.length - 1].ct.getTime() + 6 * 3600e3) return '';
-    const L = liveEta(S, here.rk, now, nx);
+    const L = liveEta && liveEta(S, here.rk, now, nx); // (an older js/races.js has none)
     if (!L || L.early) return '';
     if (L.behind) return `<br><span class="rn-warn">${bold(UL('etaBehind'))}</span>`;
     // The day too, when it isn't today.

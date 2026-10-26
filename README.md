@@ -147,6 +147,16 @@ The app is live at **https://singletrackevents.github.io/GPT100Safety/** through
 
 It's a plain static site with no build step. Offline mode needs the site served over https, which GitHub Pages does.
 
+**Releasing a change.** Each release has a build number. The pages ask for every script and stylesheet with it (`js/app.js?v=69`), and `sw.js` saves each build in its own cache. So a phone never runs a page with files from two releases, even on a patchy link where only some of the new files get through: it shows the new page once all its files are in, and until then the saved page with its own files. Before you merge a change to code, styles or pages, run:
+
+```
+node tools/bump_version.mjs
+```
+
+This moves `BUILD` in `sw.js` and every `?v=` in the five pages to the next number, and warns if a page uses a file `sw.js` doesn't save for offline. Commit those changes with yours. Use a new number every time: to undo a release, revert it and bump again. Never go back to an old number, or phones that already have the newer one keep it.
+
+A change to a data file alone (such as `data/access-edits.js`, below) also lands without a bump: phones with good signal take the new file, and save it. A bump makes sure it lands as one set with everything else.
+
 ## Updating access points
 
 1. Open `admin.html`, click **Edit access points**, and add, edit or delete points.
@@ -300,7 +310,7 @@ These are planning estimates. Always check access, gates and closures on the day
 | `tools/weather_watch.mjs`, `.github/workflows/weather.yml` | Hourly weather watch and phone alerts |
 | `tools/weather_extra.mjs`, `tools/weather_verify.mjs` | Ensembles, BOM observations and forecasts, VicEmergency and EPA; the model check against the BOM stations |
 | `icons/` | GPT100 Miler logo: header mark, full logo (admin login) and app icons |
-| `sw.js`, `manifest.webmanifest` | Offline support and Add to Home Screen |
+| `sw.js`, `manifest.webmanifest`, `tools/bump_version.mjs` | Offline support and Add to Home Screen; the release build number (see Hosting) |
 
 ## Coming later
 

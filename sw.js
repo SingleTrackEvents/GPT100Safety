@@ -1,13 +1,24 @@
-// Offline support. App files use network first (so updates land), falling back to the cache when the network
-// hasn't answered in a few seconds (weak signal). A page that opens from the cache takes the rest of its files
-// from the cache too, so one page load never mixes files from two versions of the app.
-// Leaflet, fonts and map tiles are cached as they're used; the topo map can also be saved whole (js/basemap.js).
-const VERSION = 'gpt100-v68';
-const SHELL = [
-  './', 'index.html', 'css/app.css', 'js/engine.js', 'js/app.js',
-  'data/config.js', 'data/course.js', 'data/courses.js', 'data/course-w3w.js', 'data/access-edits.js', 'data/medplan.enc.js', 'data/safety-officers.js', 'js/medplan.js',
-  'data/pacing.js', 'data/splits.js', 'js/weather-core.js', 'js/weather.js', 'js/rc.js', 'js/basemap.js', 'js/intro.js', 'js/viewport.js', 'js/races.js', 'js/profile.js', 'data/tiles.js', 'data/helipads.js', 'js/helipads.js', 'data/track-grades.js', 'js/track.js', 'js/timing.js', 'js/tracking.js', 'js/fullscreen.js', 'js/demo.js', 'data/demo-runners.js', 'map.html', 'js/map.js',
-  'manifest.webmanifest', 'field.html', 'js/field.js', 'css/field.css', 'manifest-field.webmanifest', 'runner.html', 'js/runner.js', 'css/runner.css', 'data/races.js', 'data/runner-courses.js', 'data/runner-info.js', 'data/safety-cards.js', 'manifest-runner.webmanifest', 'admin.html', 'icons/mark.png', 'icons/logo.png', 'icons/icon-48.png', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
+// Offline support. Each build of the app is saved whole, in its own cache. The pages ask for their scripts and styles
+// with the build number (js/app.js?v=69), so a page never gets another build's file in its place: after an update a
+// page shows new only once all its new files are in, and until then the saved page runs with its own saved files.
+// tools/bump_version.mjs moves BUILD and every ?v= in the pages together (README, Hosting).
+// Pages use the network first (so updates land), falling back to the saved copy when the network hasn't answered in a
+// few seconds (weak signal). Leaflet, fonts and map tiles are cached as they're used; the topo map can also be saved
+// whole (js/basemap.js).
+const BUILD = '69';
+const VERSION = 'gpt100-v' + BUILD;
+const NEXT = 'gpt100-next-v'; // + a newer build: files for its pages, fetched before that build's worker is in
+// Pages, manifests and icons, saved by their own address.
+const PAGES = ['./', 'index.html', 'field.html', 'runner.html', 'map.html', 'admin.html', 'manifest.webmanifest', 'manifest-field.webmanifest', 'manifest-runner.webmanifest',
+  'icons/mark.png', 'icons/logo.png', 'icons/icon-48.png', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+// Scripts and styles, saved as the pages ask for them (with ?v=BUILD).
+const FILES = [
+  'css/app.css', 'css/field.css', 'css/runner.css', 'js/engine.js', 'js/app.js', 'js/medplan.js', 'js/weather-core.js', 'js/weather.js', 'js/rc.js', 'js/basemap.js', 'js/intro.js',
+  'js/viewport.js', 'js/races.js', 'js/profile.js', 'js/helipads.js', 'js/track.js', 'js/timing.js', 'js/tracking.js', 'js/fullscreen.js', 'js/demo.js', 'js/map.js', 'js/field.js', 'js/runner.js',
+  'data/config.js', 'data/course.js', 'data/courses.js', 'data/course-w3w.js', 'data/access-edits.js', 'data/medplan.enc.js', 'data/safety-officers.js', 'data/pacing.js', 'data/splits.js',
+  'data/tiles.js', 'data/helipads.js', 'data/track-grades.js', 'data/demo-runners.js', 'data/races.js', 'data/runner-courses.js', 'data/runner-info.js', 'data/safety-cards.js'
+];
+const LIBS = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://unpkg.com/leaflet@1.9.4/dist/images/layers.png',
@@ -15,6 +26,7 @@ const SHELL = [
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700&display=swap',
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600;700&display=swap'
 ];
+const SHELL = PAGES.concat(FILES.map(u => u + '?v=' + BUILD));
 const TILES = 'gpt100-tiles';
 const OFFLINE_MAP = 'gpt100-offline-map'; // the saved topo map (js/basemap.js); kept across updates
 const WX_CACHE = 'gpt100-weather';
@@ -23,20 +35,27 @@ const KEEP = [VERSION, TILES, OFFLINE_MAP, WX_CACHE, LIB];
 const MAX_TILES = 2500;
 const WAIT = 3500; // ms to wait for the network before answering from the cache
 const SHORT = 1000; // ... for a page while the last request got no answer
+const QUICK = 1000; // ... for a saved file of this build (a late answer still updates the saved copy)
 const GIVE_UP = 20000; // ms after which a request still going is dropped, so a stalled one never keeps the worker busy
 
 // The app's own files must all save, fresh from the server (not the browser's own cache), so the saved set
-// is one version. Leaflet and fonts are saved if they can be (or kept from before), so a slow or failed
-// download of them never stops the app working offline.
+// is one build. Files a page of this build already fetched under the older worker are taken from there.
+// Leaflet and fonts are saved if they can be (or kept from before), so a slow or failed download of them
+// never stops the app working offline.
 self.addEventListener('install', e => {
   e.waitUntil(Promise.all([
-    caches.open(VERSION).then(c => c.addAll(SHELL.filter(u => !u.startsWith('http')).map(u => new Request(u, { cache: 'reload' })))),
-    caches.open(LIB).then(c => Promise.all(SHELL.filter(u => u.startsWith('http')).map(u => caches.match(u).then(hit => hit ? c.put(u, hit) : c.add(u)).catch(() => { }))))
+    caches.open(VERSION).then(async c => {
+      const pre = await caches.open(NEXT + BUILD), miss = [];
+      for (const u of SHELL) { const hit = await pre.match(u); if (hit) await c.put(u, hit); else miss.push(u); }
+      return c.addAll(miss.map(u => new Request(u, { cache: 'reload' })));
+    }),
+    caches.open(LIB).then(c => Promise.all(LIBS.map(u => caches.match(u).then(hit => hit ? c.put(u, hit) : c.add(u)).catch(() => { }))))
   ]).then(() => self.skipWaiting()));
 });
-// Only this version's files stay, so a fallback to the cache is always one matching set.
+// Only this build's files stay (and any newer build's, fetched ahead), so a fallback to the cache is always one set.
+const ahead = k => k.startsWith(NEXT) && +k.slice(NEXT.length) > +BUILD;
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => !KEEP.includes(k)).map(k => caches.delete(k))))
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => !KEEP.includes(k) && !ahead(k)).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -62,11 +81,14 @@ function within(net, ms) {
 }
 // down: the last request got no answer (timed out or failed); any answer clears it. heard: when the network last answered.
 let down = false, heard = 0;
-// Pages that opened from the cache (by client id): their files come from the cache too. Pages that came new
-// from the network (changed since saved, so likely a new version): their files wait longer for the network
-// before an older saved copy is used, as old and new files may not work together.
-const fromCache = new Set(), changed = new Set();
-const remember = (set, id) => { set.add(id); if (set.size > 50) set.delete(set.values().next().value); };
+// Pages that opened from the cache (by client id): their files come from the cache too. Pages of a newer build
+// than this worker's (client id -> build): their files come from that build's files only.
+const fromCache = new Set(), built = new Map();
+const remember = (s, id, v) => { s instanceof Map ? s.set(id, v) : s.add(id); if (s.size > 50) s.delete(s.keys().next().value); };
+// Once the server has a newer build, its answers for this build's addresses are the newer files, so this
+// build's files then come from the cache only. (Found again from the caches when the worker restarts.)
+let newer = caches.keys().then(ks => ks.some(ahead));
+const buildOf = html => (html.match(/\?v=(\d+)"/) || [])[1];
 
 // Network first, but answer from the cache when the network hasn't answered in `wait` ms. With nothing saved,
 // wait on the network after all. patient (a page's files): keep waiting while other answers are still coming
@@ -88,6 +110,86 @@ function netFirst(e, net, saved, fallback, wait, patient) {
   });
 }
 const offline = (status, html) => new Response(html || '', { status, headers: html ? { 'Content-Type': 'text/html; charset=utf-8' } : {} });
+const none = nav => !nav ? offline(504) : offline(503, '<!DOCTYPE html><meta name="viewport" content="width=device-width, initial-scale=1"><title>GPT100 Safety</title><p style="font:16px sans-serif;margin:24px">This page isn\'t saved on this device and there\'s no signal. Try again with signal, or <a href="./">open the staff app</a>.</p>');
+
+// A page: from the network (asked each time, the server answers "not modified" when nothing changed), or the saved
+// copy when the network hasn't answered in time. A missing page falls back to the staff app (not admin).
+async function page(e, req, url) {
+  const key = url.origin + url.pathname, id = e.resultingClientId, c = await caches.open(VERSION);
+  const saved = async () => { const r = await c.match(key) || (/admin\.html$/.test(url.pathname) ? null : await c.match('index.html')); if (r) remember(fromCache, id); return r; };
+  // (A page's own request can't be copied with changes, so it's asked again by its address.)
+  const net = timed(req.url, { cache: 'no-cache', credentials: 'same-origin', redirect: 'manual' });
+  let t, res = await Promise.race([net.catch(() => null), new Promise(r => t = setTimeout(r, down ? SHORT : WAIT, 'late'))]);
+  clearTimeout(t);
+  if (!res || res === 'late') {
+    down = true;
+    const r = await saved();
+    if (r) { net.stop(); return r; }
+    if (!(res && (res = await net.catch(() => null)))) return none(true);
+  }
+  down = false; heard = Date.now();
+  if (!res.ok) return res;
+  const b = buildOf(await res.clone().text()) || BUILD;
+  if (b === BUILD) {
+    // The server is on this build (a newer one was taken back): files fetched ahead for that one go.
+    if (await newer) { newer = Promise.resolve(false); await caches.keys().then(ks => Promise.all(ks.filter(ahead).map(k => caches.delete(k)))); }
+    await c.put(key, res.clone());
+    return res;
+  }
+  // An older build than this worker's (a stale copy on the way): the saved page.
+  if (+b < +BUILD) return await saved() || res;
+  // A newer build: shown once all its files are in, else the saved page with its own files (the rest still land, for next time).
+  newer = Promise.resolve(true);
+  if (await fetchBuild(e, b, await res.clone().text(), key)) { await (await caches.open(NEXT + b)).put(key, res.clone()); remember(built, id, b); return res; }
+  const r = await saved();
+  if (!r) remember(built, id, b);
+  return r || res;
+}
+// Fetch every file a page of build b asks for into that build's cache; true when all are in within WAIT.
+const pending = new Map();
+function fetchBuild(e, b, html, base) {
+  const urls = [...new Set([...html.matchAll(/(?:src|href)="([^"]+\?v=[^"]+)"/g)].map(m => new URL(m[1], base)).filter(u => u.origin === location.origin).map(u => u.href))];
+  return caches.open(NEXT + b).then(c => new Promise(done => {
+    const t = setTimeout(done, WAIT, false);
+    Promise.all(urls.map(u => {
+      if (!pending.has(u)) {
+        const p = c.match(u).then(hit => hit || timed(u, { cache: 'no-cache' }).then(r => { if (!r.ok) throw r; return c.put(u, r); }));
+        pending.set(u, p); p.then(() => pending.delete(u), () => pending.delete(u)); e.waitUntil(p.catch(() => { }));
+      }
+      return pending.get(u);
+    })).then(() => done(true), () => done(false)).then(() => clearTimeout(t));
+  }));
+}
+// A script, style or other file. Its build is its ?v=, else its page's.
+async function file(e, req, url) {
+  const v = url.searchParams.get('v'), b = v || built.get(e.clientId) || BUILD;
+  const look = async name => await caches.match(req, { cacheName: name }) || (!v && await caches.match(req, { cacheName: name, ignoreSearch: true }));
+  if (b !== BUILD) {
+    // Another build's file: that build's copy or the network, never this build's copy in its place.
+    const hit = await look(NEXT + b) || await look('gpt100-v' + b);
+    if (hit) return hit;
+    try {
+      const res = await timed(req, { cache: 'no-cache' });
+      if (res.ok && +b > +BUILD && await caches.has(NEXT + b)) { const copy = res.clone(); e.waitUntil(caches.open(NEXT + b).then(c => c.put(req, copy))); }
+      return res;
+    } catch (err) { return none(); }
+  }
+  const hit = await look(VERSION);
+  if (hit && (fromCache.has(e.clientId) || await newer)) return hit;
+  // This build's file: the network if it answers quickly (an update without a new build lands straight away), else
+  // the saved copy, which a late answer still updates. With nothing saved, the network after all.
+  const net = timed(req, { cache: 'no-cache' }), got = net.then(res => {
+    down = false; heard = Date.now();
+    if (res.ok) { const copy = res.clone(); e.waitUntil(newer.then(n => n || caches.open(VERSION).then(c => c.put(req, copy)))); }
+    return res;
+  });
+  e.waitUntil(got.catch(() => { }));
+  if (!hit) { got.stop = net.stop; return (fromCache.has(e.clientId) ? within(got, WAIT) : got).catch(() => none()); }
+  return new Promise(done => {
+    const t = setTimeout(done, QUICK, hit);
+    got.then(res => done(res.ok ? res : hit), () => done(hit)).then(() => clearTimeout(t));
+  });
+}
 
 self.addEventListener('fetch', e => {
   const req = e.request;
@@ -123,36 +225,7 @@ self.addEventListener('fetch', e => {
   }
 
   if (url.origin === location.origin) {
-    // Ask the server each time (it answers "not modified" when nothing changed), so updates land straight away.
-    // A missing page falls back to the staff app; a missing script or file gets an error, never a page in its place.
-    const nav = req.mode === 'navigate';
-    const mine = () => caches.open(VERSION).then(c => c.match(req, { ignoreSearch: true }).then(r => r || (nav && !/admin\.html$/.test(url.pathname) ? c.match('index.html') : null)));
-    const none = () => !nav ? offline(504) : offline(503, '<!DOCTYPE html><meta name="viewport" content="width=device-width, initial-scale=1"><title>GPT100 Safety</title><p style="font:16px sans-serif;margin:24px">This page isn\'t saved on this device and there\'s no signal. Try again with signal, or <a href="./">open the staff app</a>.</p>');
-    // A page that opened from the cache: its saved files straight away, the network only for one not saved.
-    if (!nav && fromCache.has(e.clientId)) {
-      e.respondWith(mine().then(r => r || within(timed(req), WAIT).catch(() => null).then(res => res || none())));
-      return;
-    }
-    // A page answered late (after it opened from the cache) isn't saved, so the saved page keeps its own files.
-    let late = false;
-    // (A page's own request can't be copied with changes, so it's asked again by its address.)
-    const net = nav ? timed(req.url, { cache: 'no-cache', credentials: 'same-origin', redirect: 'manual' }) : timed(req, { cache: 'no-cache' }), kept = net.then(res => {
-      if (!res.ok || (nav && late)) return res;
-      const copy = res.clone();
-      if (!nav) { caches.open(VERSION).then(c => c.put(req, copy)); return res; }
-      return caches.open(VERSION).then(async c => {
-        const old = await c.match(req, { ignoreSearch: true }), h = r => r.headers.get('etag') + ' ' + r.headers.get('last-modified');
-        if (!old || h(old) !== h(res)) remember(changed, e.resultingClientId);
-        await c.put(req, copy);
-        return res;
-      }, () => res);
-    });
-    kept.stop = net.stop;
-    const saved = () => mine().then(r => {
-      if (r && nav) { late = true; remember(fromCache, e.resultingClientId); }
-      return r;
-    });
-    e.respondWith(netFirst(e, kept, saved, none, nav ? (down ? SHORT : WAIT) : changed.has(e.clientId) ? 3 * WAIT : WAIT, !nav));
+    e.respondWith(req.mode === 'navigate' ? page(e, req, url) : file(e, req, url));
     return;
   }
 
