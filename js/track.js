@@ -19,7 +19,7 @@
   };
   const ROADS = { sealed: 'Sealed road, 2WD', unsealed: 'Unsealed road, 2WD', '4wd': '4WD only' };
   const KINDS = {
-    emergency: { label: 'Emergency marker', col: '#0a84ff', glyph: 'EM' },
+    emergency: { label: 'Emergency marker', col: '#0066cc', glyph: 'EM' },
     helipad: { label: 'Helipad', col: '#333', glyph: 'H' },
     assembly: { label: 'Assembly area', col: '#e3b505', glyph: 'A' },
     camp: { label: 'GPT campsite', col: '#2e8b57', glyph: 'C' },

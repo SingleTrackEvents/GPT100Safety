@@ -85,7 +85,7 @@
       const posts = SO.posts.filter(p => p.station === s.name && !/passage/i.test(p.label));
       if (!posts.length) return;
       const now = posts.filter(p => p.a <= h && p.z > h), lit = !live || now.length;
-      L.marker([s.lat, s.lon], { title: s.name + ' Safety Officers', zIndexOffset: 400, opacity: lit ? 1 : 0.45, icon: L.divIcon({ className: '', html: `<div class="so-mark${lit ? ' on' : ''}">SO</div>`, iconSize: [24, 18], iconAnchor: [12, 9] }) })
+      L.marker([s.lat, s.lon], { title: s.name + ' Safety Officers', zIndexOffset: 400, icon: L.divIcon({ className: '', html: `<div class="so-mark${lit ? ' on' : ''}">SO</div>`, iconSize: [24, 18], iconAnchor: [12, 9] }) })
         .bindPopup(`<b>${esc(s.name)}</b> &middot; Safety Officers<br>${live ? (now.length ? '<b>On post now</b><br>' : 'Not on post now<br>') : ''}` + posts.map(p => `${esc(p.label)}: ${soTime(p.a)} to ${soTime(p.z)}`).join('<br>')).addTo(soLayer);
     });
   }

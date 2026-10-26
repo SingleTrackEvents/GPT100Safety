@@ -14,7 +14,7 @@
   const BASE = ([Q.get('rcapi'), DEMO ? window.GPTDemo.rcBase : '', W.refreshUrl].find(u => u && !linked(u)) || '').replace(/\/$/, '');
   const unlocked = () => DEMO || !!(window.MedPlan && window.MedPlan.unlocked());
   const LSQ = 'gpt100_rc_queue', LSN = 'gpt100_rc_name';
-  const SEV = { urgent: ['Urgent', '#c62828'], priority: ['Priority', '#e8710a'], routine: ['Routine', '#1d7f45'] };
+  const SEV = { urgent: ['Urgent', '#c62828', '#fff'], priority: ['Priority', '#e8710a', '#111'], routine: ['Routine', '#1d7f45', '#fff'] };  // label, colour, text on it
   const UNIT_ST = { available: 'Available', tasked: 'Tasked', onscene: 'On scene', returning: 'Returning', unavailable: 'Unavailable' };
   const OUTCOMES = ['Treated, continued', 'Treated, withdrew (DNF)', 'Walked out with crew', 'Carried out', 'Ambulance', 'Air evacuation', 'Other'];
   const STEPS = [['dispatched', 'Dispatched'], ['onScene', 'On scene'], ['leaving', 'Leaving scene']];
@@ -288,7 +288,7 @@
     const t = i.times || {}, sev = SEV[i.severity] || ['Unrated', '#777'], e = eta(i), closed = i.status === 'closed';
     const next = STEPS.find(([k]) => !t[k]);
     const loc = i.km != null ? `km ${(+i.km).toFixed(1)} <span>${esc(placeAt(+i.km))}</span>` : esc(i.where || 'Location not given');
-    return `<div class="rc-card${closed ? ' closed' : ''}" data-id="${i.id}" style="--sev:${sev[1]}">
+    return `<div class="rc-card${closed ? ' closed' : ''}" data-id="${i.id}" style="--sev:${sev[1]};--sev-ink:${sev[2] || '#fff'}">
       <div class="rc-card-top"><b>#${i.num || '…'}</b><span class="rc-sev">${sev[0]}</span><span class="rc-loc">${loc}</span>
         <span class="rc-timer" data-t0="${t.call || i.created}" data-due="${t.dispatched && e != null && !t.onScene ? t.dispatched + e * 60000 : ''}"></span></div>
       <p class="rc-what">${esc(i.desc || '')}${i.bib || i.name ? ` <span class="rc-runner">${esc([i.bib ? 'Bib ' + i.bib : '', i.name, i.race].filter(Boolean).join(', '))}</span>` : ''}</p>
@@ -402,7 +402,7 @@
       const ll = i.lat != null ? [i.lat, i.lon] : i.km != null ? (p => [p[0], p[1]])(courseOf(i).route[courseOf(i).idxAtKm(+i.km)]) : null;
       if (!ll) return;
       const sev = SEV[i.severity] || ['', '#777'];
-      L.marker(ll, { icon: L.divIcon({ className: '', html: `<div class="rc-pin" style="background:${sev[1]}">${i.num || '…'}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }) })
+      L.marker(ll, { icon: L.divIcon({ className: '', html: `<div class="rc-pin" style="background:${sev[1]};color:${sev[2] || '#fff'}">${i.num || '…'}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }) })
         .bindTooltip(`#${i.num || '…'} ${esc(i.desc || '')}`).on('click', () => { const el = document.querySelector(`.rc-card[data-id="${i.id}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }).addTo(layer);
     });
   }
@@ -412,7 +412,7 @@
     if (!$('rcClock')) return;
     $('rcClock').textContent = tf.format(new Date());
     const open = [...incidents.values()].filter(i => i.status !== 'closed');
-    $('rcCounts').innerHTML = ['urgent', 'priority', 'routine'].map(k => { const n = open.filter(i => i.severity === k).length; return n ? `<span class="rc-count" style="background:${SEV[k][1]}">${n} ${SEV[k][0].toLowerCase()}</span>` : ''; }).join('') || '<span class="rc-count ok">No open incidents</span>';
+    $('rcCounts').innerHTML = ['urgent', 'priority', 'routine'].map(k => { const n = open.filter(i => i.severity === k).length; return n ? `<span class="rc-count" style="background:${SEV[k][1]};color:${SEV[k][2]}">${n} ${SEV[k][0].toLowerCase()}</span>` : ''; }).join('') || '<span class="rc-count ok">No open incidents</span>';
     document.querySelectorAll('#rcBody .rc-timer').forEach(el => {
       const card = el.closest('.rc-card'); if (card.classList.contains('closed')) { el.textContent = ''; return; }
       const t0 = +el.dataset.t0, due = +el.dataset.due || 0, n = now();
@@ -458,7 +458,7 @@
     const races = (C.races || []).map(x => x.label);
     box.innerHTML = `<form class="rc-form" autocomplete="off"><h3>${editing ? 'Edit #' + (d.num || '…') : 'New incident'}</h3>
       ${d.note ? `<p class="notice warn">${esc(d.note)}</p>` : ''}
-      <div class="rc-sevs">${Object.entries(SEV).map(([k, [l, c]]) => `<label style="--c:${c}"><input type="radio" name="sev" value="${k}"${(d.severity || 'priority') === k ? ' checked' : ''}> ${l}</label>`).join('')}</div>
+      <div class="rc-sevs">${Object.entries(SEV).map(([k, [l, c]]) => `<label style="--c:${c};--ci:${SEV[k][2]}"><input type="radio" name="sev" value="${k}"${(d.severity || 'priority') === k ? ' checked' : ''}> ${l}</label>`).join('')}</div>
       <div class="rc-grid">
         <label><span>Km on ${esc((courseOf(d).name) || 'course')} <em class="rc-req">*</em></span><input name="km" inputmode="decimal" value="${d.km != null ? (+d.km).toFixed(1) : ''}" placeholder="e.g. 87.3"></label>
         <label><span>Or where <em class="rc-req">*</em></span><input name="where" value="${esc(d.where || '')}" placeholder="Description or what3words"></label>

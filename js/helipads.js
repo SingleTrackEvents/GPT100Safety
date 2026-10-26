@@ -20,7 +20,7 @@
   const STATE = {
     used: { label: 'Used by Parks Victoria, ' + H.used_when, col: '#0b6b3a' },
     current: { label: 'Current on the DEECA list', col: '#333' },
-    expired: { label: 'Expired on the DEECA list', col: '#9a9a9a' }
+    expired: { label: 'Expired on the DEECA list', col: '#6e6e6e' }
   };
   // A site the DEECA list calls unsuitable (Roses Gap: loose stones) is never shown as in good condition.
   const unfit = s => /not suitable/i.test(s.status_note || '');

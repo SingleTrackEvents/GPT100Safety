@@ -147,7 +147,7 @@
     if (!soKey) {
       // Bottom left: on a short map the right side is full (layers, full screen, ◎).
       soKey = L.control({ position: 'bottomleft' });
-      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on fd-so-key">SO</span>Safety Officers' + (live ? '<br><span class="so-mark fd-so-key" style="opacity:.5">SO</span>Not on post now' : '') + (window.GPTHelipads ? '<br><span class="hls-mk used hls-key">H</span>Helicopter landing site' : ''); return d; };
+      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on fd-so-key">SO</span>Safety Officers' + (live ? '<br><span class="so-mark fd-so-key">SO</span>Not on post now' : '') + (window.GPTHelipads ? '<br><span class="hls-mk used hls-key">H</span>Helicopter landing site' : ''); return d; };
       soKey.addTo(map);
     }
     SO.stations.forEach(s => {
@@ -155,7 +155,7 @@
       if (!posts.length) return;
       const now = posts.filter(p => p.a <= h && p.z > h), lit = !live || now.length;
       L.marker([s.lat, s.lon], {
-        zIndexOffset: 400, opacity: lit ? 1 : 0.45, title: s.name + ' Safety Officers',
+        zIndexOffset: 400, title: s.name + ' Safety Officers',
         icon: L.divIcon({ className: '', html: `<div class="so-mark${lit ? ' on' : ''}">SO</div>`, iconSize: [24, 18], iconAnchor: [12, 9] })
       }).bindPopup(`<b>${esc(s.name)}</b> · Safety Officers<br>${live ? (now.length ? '<b>On post now</b><br>' : 'Not on post now<br>') : ''}` +
         posts.map(p => `${esc(p.label)}: ${soTime(p.a)} to ${soTime(p.z)}`).join('<br>')).addTo(soLayer);

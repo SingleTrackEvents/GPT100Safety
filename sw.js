@@ -5,7 +5,7 @@
 // Pages use the network first (so updates land), falling back to the saved copy when the network hasn't answered in a
 // few seconds (weak signal). Leaflet, fonts and map tiles are cached as they're used; the topo map can also be saved
 // whole (js/basemap.js).
-const BUILD = '69';
+const BUILD = '70';
 const VERSION = 'gpt100-v' + BUILD;
 const NEXT = 'gpt100-next-v'; // + a newer build: files for its pages, fetched before that build's worker is in
 // Pages, manifests and icons, saved by their own address.
