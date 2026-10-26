@@ -14,7 +14,7 @@
     `Estimates assume responders walk ${C.walkPace} min/km, stretcher carry ${C.evacPace} min/km` +
     (C.carryFactor && C.carryFactor.hard ? ` (x${C.carryFactor.hard} on Hard track${C.carryFactor.unassessed ? `, x${C.carryFactor.unassessed} where not yet assessed` : ''})` : '') +
     `, ${C.climbPenalty} min per metre of climb. Drive times are the race team's times or checked routes ` +
-    `(older automatic times x ${C.driveFactor}).`;
+    `(older automatic times x ${C.driveFactor}).` + (C.nightFactor > 1 ? ` Between sunset and sunrise the walk and carry times are x ${C.nightFactor}.` : '');
 
   // ---------- Tabs ----------
   function showTab(name) {
@@ -480,7 +480,7 @@
       (r.casW3w ? `Casualty what3words ///${r.casW3w}.\n` : '') +
       `Send ${b.base.name} team. Drive to ${G.cleanName(a)}${a.w3w ? ' ///' + a.w3w : ''}${G.isGated(a) ? ' (gated, take keys)' : ''}, about ${G.fmt(b.drive)}. ` +
       (b.walkKm < 0.05 ? 'The casualty is right by the parking spot.\n' : `Walk in ${one(b.walkKm)} km, about ${G.fmt(b.walk)}.\n`) +
-      `ETA to casualty ${G.fmt(b.total)}.`;
+      `ETA to casualty ${G.fmt(b.total)}.${r.night ? ' Night times.' : ''}`;
     if (r.exAlt) s += ` Fastest carry-out to ${G.cleanName(r.exAlt.a)}${G.isGated(r.exAlt.a) ? ' (gated)' : ''}, ${kmTxt(r.exAlt.joinKm)}, about ${G.fmt(r.exAlt.carry)}.`;
     if (r.remote) s += ` Remote: over ${G.fmt(C.redMin)} to reach, tell the Race Director now and think about a helicopter.`;
     if (r.longJob) s += ` Long job: about ${G.fmt(r.longJob)} with the carry-out, think about a helicopter.`;
@@ -518,7 +518,8 @@
   }
 
   function show(ic, q) {
-    const r = G.assess(ic); r.q = q; last = r;
+    // Times for now (the demo's clock when it's running): night walk and carry times between sunset and sunrise.
+    const r = G.assess(ic, G.now()); r.q = q; last = r;
     if (profile) profile.setHere({ E: G, km: r.km, ele: r.ele });
     r.casW3w = q.words || null;
     r.raceKm = raceKmOf(r.km);
@@ -551,6 +552,7 @@
     } else if (b.total + carry > LONG_MIN) {
       h += `<div class="notice danger">Long job. Reaching this casualty and carrying them out will take about ${G.fmt(b.total + carry)}. Tell the Race Director now and think about a helicopter.</div>`;
     }
+    if (r.night) h += `<div class="notice warn">Night: walk and carry times allow ${Math.round((r.nightFactor - 1) * 100)}% longer.</div>`;
     const gated = G.isGated(a);
     h += `<div class="hero" style="--base:${base.color}">
       <div class="hero-top"><div><span class="eyebrow">Send</span><h2>${esc(base.name)} team</h2></div>

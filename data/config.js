@@ -12,7 +12,8 @@ window.GPT100_CONFIG = {
   evacPace: 30,     // stretcher / carry-out, min per km on Medium or Easy track
   // Carry-out slows on the harder Parks Victoria track grades (data/track-grades.js): multiplier on evacPace by grade.
   carryFactor: { hard: 1.75, unassessed: 1.5 },
-  climbPenalty: 0.10, // min per metre of ascent
+  climbPenalty: 0.10, // min per metre of ascent (10 min per 100 m, Naismith), walking in and carrying out
+  nightFactor: 1.3, // walk-in and carry-out take this much longer between sunset and sunrise (not the drive)
   driveFactor: 1.2, // multiplier on measured drive times for access roads
   // Races on the GPT100 course, for converting a runner's race km to GPT100 km.
   // from/to are aid stations on the GPT100 course (their names in the app).

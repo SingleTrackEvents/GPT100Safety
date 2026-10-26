@@ -12,8 +12,14 @@ Reads two things in tools/helipads/:
 
 Each site gets the nearest GPT100 course km and how far off the course it is (from data/course.js), as the
 Parks Victoria emergency markers do in data/track-grades.js. Re-run after editing either source file.
+
+Heights (ele_m) are the ground at each site's position from a terrain model, not the spreadsheet or the email: the
+spreadsheet's are feet values read as metres (Major Mitchell Plateau 307 against about 1013 m) and a few emailed ones
+are wrong too (Gar 359 against about 707 m). They come from the Open-Meteo elevation API (Copernicus 90 m), or
+OpenTopoData's SRTM 30 m when Open-Meteo is unavailable. With neither, a site keeps the terrain height already in
+data/helipads.js if its position hasn't moved, else it gets none (shown without a height) and is listed.
 """
-import datetime, json, math, os, re, sys
+import datetime, json, math, os, re, sys, urllib.parse, urllib.request
 
 try:
     import openpyxl
@@ -41,6 +47,15 @@ NAMES = {
     'Wimmera Victoria Range Nth Fireline HLS': 'Victoria Range North Fireline',
     'Wimmera - Mt Difficult HLS': 'Mt Difficult (Pines Rd)',
 }
+# Days (Melbourne dates) a site can't take a helicopter: js/helipads.js lists it after the usable sites then.
+CLOSED = {'Bainggug (Piccaninny)': ['2026-11-07', '2026-11-08']}  # its car park is the Bainggug aid station
+# Terrain heights: Open-Meteo first, then OpenTopoData. Each returns one height per position, in order.
+DEMS = [
+    ('Open-Meteo elevation API (Copernicus 90 m)', lambda pts: 'https://api.open-meteo.com/v1/elevation?' + urllib.parse.urlencode(
+        {'latitude': ','.join(str(p[0]) for p in pts), 'longitude': ','.join(str(p[1]) for p in pts)}), lambda j: j['elevation']),
+    ('OpenTopoData SRTM 30 m', lambda pts: 'https://api.opentopodata.org/v1/srtm30m?locations=' + '|'.join(f'{p[0]},{p[1]}' for p in pts),
+     lambda j: [r['elevation'] for r in j['results']]),
+]
 
 
 def metres(a, b):
@@ -49,6 +64,20 @@ def metres(a, b):
     dla, dlo = (b[0] - a[0]) * rad, (b[1] - a[1]) * rad
     x = math.sin(dla / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin(dlo / 2) ** 2
     return 2 * R * math.asin(math.sqrt(x))
+
+
+def dem_heights(pts):
+    """Ground heights (m) for [(lat, lon)], and the source, or (None, None) when no terrain service answers."""
+    for name, url, read in DEMS:
+        try:
+            with urllib.request.urlopen(url(pts), timeout=60) as r:
+                h = read(json.load(r))
+            if len(h) == len(pts) and all(x is not None for x in h):
+                return [round(x) for x in h], name
+            print(name + ': incomplete answer', file=sys.stderr)
+        except Exception as e:
+            print(name + ': ' + str(e), file=sys.stderr)
+    return None, None
 
 
 def short_name(full):
@@ -70,11 +99,6 @@ def coord(v):
         return None
     m = re.search(r'-?\d+(?:\.\d+)?', str(v))
     return float(m.group(0)) if m else None
-
-
-def feet_to_m(v):
-    m = re.search(r'(\d+(?:\.\d+)?)\s*ft', str(v or ''), re.I)
-    return round(float(m.group(1)) * 0.3048) if m else None
 
 
 def size_m(v):
@@ -139,7 +163,7 @@ def main():
         s = {
             'id': slug(short_name(full)), 'name': short_name(full), 'full': full,
             'lat': -abs(lat), 'lon': abs(lon), 'precise': False,
-            'ele_m': feet_to_m(r[C['elevation']]),
+            'ele_m': None,  # filled from the terrain model below
             'park': text(r[C['location']]), 'track': text(r[C['track']]),
             'diam_m': size_m(r[C['diam']]), 'surface': text(r[C['surface']]),
             'vehicle': text(r[C['vehicle']]), 'hazards': HAZARDS.get(full, text(r[C['hazards']])),
@@ -147,7 +171,7 @@ def main():
             'sau': r[C['sau']], 'used': False,
         }
         if u:
-            s.update(lat=u['lat'], lon=u['lon'], precise=True, ele_m=u.get('ele_m', s['ele_m']), used=True)
+            s.update(lat=u['lat'], lon=u['lon'], precise=True, used=True)
             if u.get('note'):
                 s['note'] = u['note']
         sites.append(s)
@@ -157,7 +181,7 @@ def main():
     for u in used:
         if not u.get('sheet'):
             sites.append({'id': slug(u['name']), 'name': u['name'], 'full': u['name'], 'lat': u['lat'], 'lon': u['lon'],
-                          'precise': True, 'ele_m': u.get('ele_m'), 'park': 'Grampians National Park', 'track': '',
+                          'precise': True, 'ele_m': None, 'park': 'Grampians National Park', 'track': '',
                           'diam_m': None, 'surface': '', 'vehicle': '', 'hazards': '', 'inspected': None,
                           'status': 'unlisted', 'status_note': '', 'sau': None, 'used': True,
                           **({'note': u['note']} if u.get('note') else {})})
@@ -170,10 +194,33 @@ def main():
     sites.sort(key=lambda s: s['km'])
     for s in sites:
         s['lat'], s['lon'] = round(s['lat'], 6), round(s['lon'], 6)
+        if s['name'] in CLOSED:
+            s['closed'] = CLOSED[s['name']]
+
+    # Heights from the terrain model, or the ones already written from it when no service answers.
+    heights, ele_src = dem_heights([(s['lat'], s['lon']) for s in sites])
+    if heights:
+        for s, h in zip(sites, heights):
+            s['ele_m'] = h
+    else:
+        old, ele_src = {}, None
+        try:
+            t = open(OUT, encoding='utf-8').read()
+            prev = json.loads(t[t.index('{'):t.rindex('}') + 1])
+            if prev.get('ele_src'):
+                ele_src = prev['ele_src']
+                old = {(p['lat'], p['lon']): p.get('ele_m') for p in prev['sites']}
+        except (OSError, ValueError):
+            pass
+        for s in sites:
+            s['ele_m'] = old.get((s['lat'], s['lon']))
+            if s['ele_m'] is None:
+                print('No terrain height:', s['name'], file=sys.stderr)
 
     data = {
         'source': 'DEECA Wimmera District helipad list and map (6 October 2026), via Parks Victoria 20 October 2026',
         'used_when': 'October 2026',
+        'ele_src': ele_src,
         'sites': sites,
     }
     with open(OUT, 'w', encoding='utf-8') as f:
@@ -181,11 +228,13 @@ def main():
                 '// sent on 20 October 2026 (tools/helipads/), with the sites a Parks Victoria helicopter used in October 2026 marked\n'
                 '// (used: true, precise positions). Positions from the DEECA list alone are to about 100 m (precise: false).\n'
                 '// status: current or expired on the DEECA list, or unlisted (used by Parks Victoria but not on the list). km and off_m:\n'
-                '// the nearest GPT100 course km and how far off the course. Made by tools/import_helipads.py; do not edit by hand.\n')
+                '// the nearest GPT100 course km and how far off the course. ele_m: ground height at the position from the terrain model\n'
+                f'// in ele_src ({ele_src or "none available"}), not the DEECA list or the email. closed: Melbourne dates\n'
+                '// the site can\'t take a helicopter. Made by tools/import_helipads.py; do not edit by hand.\n')
         f.write('window.GPT100_HELIPADS = ' + json.dumps(data, ensure_ascii=False, separators=(',', ':')) + ';\n')
     print(f'{len(sites)} sites written to {os.path.relpath(OUT, ROOT)}')
     for s in sites:
-        print(f"  km {s['km']:6.1f}  {s['off_m']:5d} m off  {s['status']:8s} {'used' if s['used'] else '    '}  {s['name']}")
+        print(f"  km {s['km']:6.1f}  {s['off_m']:5d} m off  {s['ele_m'] or '-':>5} m  {s['status']:8s} {'used' if s['used'] else '    '}  {s['name']}")
 
 
 if __name__ == '__main__':

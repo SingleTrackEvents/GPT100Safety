@@ -25,7 +25,11 @@
   // A site the DEECA list calls unsuitable (Roses Gap: loose stones) is never shown as in good condition.
   const unfit = s => /not suitable/i.test(s.status_note || '');
   const state = s => s.used && !unfit(s) ? 'used' : s.status === 'current' ? 'current' : 'expired';
-  const warn = s => [unfit(s) ? 'DEECA list: ' + s.status_note.charAt(0).toLowerCase() + s.status_note.slice(1).replace(/\.$/, '') + '.' : '', s.note || ''].filter(Boolean).join(' ');
+  // A site closed today (Melbourne date, on the app's clock: the demo's when one is running) goes after the usable ones.
+  const today = () => { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date(window.GPT && GPT.now ? GPT.now() : Date.now())); } catch (e) { return ''; } };
+  const shut = s => !!(s.closed && s.closed.includes(today()));
+  const bad = s => unfit(s) || shut(s);
+  const warn = s => [shut(s) ? 'Closed today.' : '', unfit(s) ? 'DEECA list: ' + s.status_note.charAt(0).toLowerCase() + s.status_note.slice(1).replace(/\.$/, '') + '.' : '', s.note || ''].filter(Boolean).join(' ');
   const title = s => s.name + ' HLS';
 
   // What we know about the site's condition, in one sentence (brief: without the status the popup heads it with).
@@ -88,18 +92,21 @@
     if (p.m < 60) return 'right here';
     return `${dist(p.m)} ${p.km < km ? 'back' : 'ahead'} along the course, km ${one(p.km)}`;
   }
-  // The two nearest within 10 km, unsuitable sites last; the better kept of the two leads only when it's under 1 km further.
+  // The two nearest within 10 km, unsuitable or closed today last; the better kept of the two leads only when it's under 1 km further.
   function pick(lat, lon, km) {
     const rank = p => state(p) === 'used' ? 0 : state(p) === 'current' ? 1 : 2;
-    const out = near(lat, lon, km).filter(p => p.m < 10000).sort((x, y) => (unfit(x) - unfit(y)) || (x.m - y.m)).slice(0, 2);
-    if (out.length > 1 && !unfit(out[1]) && rank(out[1]) < rank(out[0]) && out[1].m - out[0].m < 1000) out.reverse();
+    const out = near(lat, lon, km).filter(p => p.m < 10000).sort((x, y) => (bad(x) - bad(y)) || (x.m - y.m)).slice(0, 2);
+    if (out.length > 1 && !bad(out[1]) && rank(out[1]) < rank(out[0]) && out[1].m - out[0].m < 1000) out.reverse();
+    // A nearer site closed today comes straight after the usable one, with its warning.
+    const x = out.length && !shut(out[0]) && near(lat, lon, km).find(p => shut(p) && p.m < out[0].m);
+    if (x) out[1] = x;
     return out;
   }
   // What the first of those is: the nearest, the nearest usable (an unsuitable nearer one was passed over),
   // or the best kept nearby (a better kept one under 1 km further leads).
   function lead(lat, lon, km, P) {
     const nearer = near(lat, lon, km).filter(p => p.m < P[0].m && p.name !== P[0].name);
-    return !nearer.length ? 'Nearest' : nearer.every(unfit) ? 'Nearest usable' : 'Best nearby';
+    return !nearer.length ? 'Nearest' : nearer.every(bad) ? 'Nearest usable' : 'Best nearby';
   }
 
   // Rows for the Track and carry-out card.
@@ -107,14 +114,16 @@
     const P = pick(r.lat, r.lon, km);
     if (!P.length) return `<div class="row"><span><b>No helicopter landing site within 10 km</b><span class="sub">The nearest are on the map's Helicopter landing sites layer.</span></span></div>`;
     const head = lead(r.lat, r.lon, km, P) + ' helicopter landing site';
-    return P.map((p, i) => `<div class="row"><span><b>${i ? 'Also' : head}: ${esc(title(p))}</b><span class="sub">${esc(where(p, km))}. ${esc(condition(p))}${facts(p) ? ' ' + esc(facts(p).charAt(0).toUpperCase() + facts(p).slice(1)) + '.' : ''}${warn(p) ? ` <b style="color:var(--red)">${esc(warn(p))}</b>` : ''}</span></span><span class="tg-glyph" style="background:${STATE[state(p)].col}">H</span></div>`).join('');
+    // A site closed today leads with its warning.
+    return P.map((p, i) => `<div class="row"><span><b>${i ? 'Also' : head}: ${esc(title(p))}</b><span class="sub">${shut(p) ? `<b style="color:var(--red)">${esc(warn(p))}</b> ` + esc(where(p, km).replace(/^r/, 'R')) : esc(where(p, km))}. ${esc(condition(p))}${facts(p) ? ' ' + esc(facts(p).charAt(0).toUpperCase() + facts(p).slice(1)) + '.' : ''}${warn(p) && !shut(p) ? ` <b style="color:var(--red)">${esc(warn(p))}</b>` : ''}</span></span><span class="tg-glyph" style="background:${STATE[state(p)].col}">H</span></div>`).join('');
   }
   // For the radio script and WhatsApp message: the nearest within 10 km.
   function line(r, km) {
     const P = pick(r.lat, r.lon, km);
     if (!P.length) return '';
-    const p = P[0];
-    return `${lead(r.lat, r.lon, km, P)} HLS ${p.name}, ${where(p, km)}${state(p) === 'used' ? '' : p.status === 'current' ? ' (current, DEECA list)' : ' (expired on the DEECA list)'}${warn(p) ? '. ' + warn(p) : ''}`;
+    const p = P[0], x = near(r.lat, r.lon, km).find(q => q.m < p.m && shut(q));
+    if (shut(p)) return `Closed today: ${p.name} HLS, ${where(p, km)}${p.note ? '. ' + p.note.replace(/\.$/, '') : ''}${P.length > 1 ? '' : '. No other HLS within 10 km'}`;
+    return `${lead(r.lat, r.lon, km, P)} HLS ${p.name}, ${where(p, km)}${state(p) === 'used' ? '' : p.status === 'current' ? ' (current, DEECA list)' : ' (expired on the DEECA list)'}${warn(p) ? '. ' + warn(p) : ''}${x ? `. Not ${x.name}, nearer but closed today` : ''}`;
   }
   // The nearest sites on the result map when the layer is turned off.
   function draw(layer, r, km) {
