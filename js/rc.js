@@ -352,16 +352,32 @@
     if (i.unit && !busy) patchUnit(i.unit, { status: 'tasked', incident: i.id });
     if (busy) openForm(incidents.get(i.id), `Reopened. ${label} is busy, so no unit is assigned. Choose a unit if one is going.`);
   }
+  // A long unit list folds to the busy units (anything not Available or Unavailable), so the Runner watch stays in view
+  // on a laptop. One line under them shows the rest. The choice is kept on this device; until one is made, it folds past 6 units.
+  const LSU = 'gpt100_rc_units';
+  const busy = u => u.st !== 'available' && u.st !== 'unavailable';
+  let foldMem = null; // the choice in this tab, for when storage is blocked
+  const unitsAll = n => { try { const v = localStorage.getItem(LSU); if (v) return v === 'all'; } catch (e) { } return foldMem != null ? foldMem : n <= 6; };
   function renderUnits() {
     if (hold($('rcUnits'))) return;
-    const list = unitList(), groups = {};
-    list.forEach(u => (groups[u.kind] = groups[u.kind] || []).push(u));
-    $('rcUnits').innerHTML = Object.entries(groups).map(([k, us]) => `<h4>${esc(k)}</h4>` + us.map(u => {
+    const list = unitList(), all = unitsAll(list.length), vis = all ? list : list.filter(busy), groups = {};
+    vis.forEach(u => (groups[u.kind] = groups[u.kind] || []).push(u));
+    const nAv = list.filter(u => u.st === 'available').length, nOff = list.filter(u => u.st === 'unavailable').length;
+    const rest = [nAv ? nAv + ' available' : '', nOff ? nOff + ' unavailable' : ''].filter(Boolean).join(', ');
+    const fold = nAv + nOff === 0 ? '' : all ? '<button type="button" class="rc-fold" aria-expanded="true">Show busy units only</button>'
+      : `<button type="button" class="rc-fold" aria-expanded="false">${rest}, show all</button>`;
+    $('rcUnits').innerHTML = (vis.length ? '' : '<p class="rc-empty">No units busy.</p>') + Object.entries(groups).map(([k, us]) => `<h4>${esc(k)}</h4>` + us.map(u => {
       const inc = u.inc && incidents.get(u.inc);
       return `<div class="rc-unit st-${u.st}"><span class="rc-unit-name">${u.color ? `<i style="background:${u.color}"></i>` : ''}${esc(u.label)}${u.where ? `<small>${esc(u.where)}</small>` : ''}</span>
         <select data-unit="${esc(u.id)}" aria-label="${esc(u.label)} status">${Object.entries(UNIT_ST).map(([v, l]) => `<option value="${v}"${v === u.st ? ' selected' : ''}>${l}</option>`).join('')}</select>
         ${inc && inc.status !== 'closed' && u.st !== 'available' ? `<small class="rc-unit-inc">#${inc.num || '…'} km ${inc.km != null ? (+inc.km).toFixed(1) : '?'}</small>` : ''}</div>`;
-    }).join('')).join('');
+    }).join('')).join('') + fold;
+    const fb = $('rcUnits').querySelector('.rc-fold');
+    if (fb) fb.addEventListener('click', () => {
+      try { localStorage.setItem(LSU, all ? 'busy' : 'all'); } catch (e) { }
+      foldMem = !all; renderUnits();
+      const nb = $('rcUnits').querySelector('.rc-fold'); if (nb) nb.focus();
+    });
     $('rcUnits').querySelectorAll('select[data-unit]').forEach(s => s.addEventListener('change', () => {
       s.blur();
       if (!needName()) { renderUnits(); return; }

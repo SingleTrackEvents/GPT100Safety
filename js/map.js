@@ -131,7 +131,7 @@
     const near = TR && TR.ready() ? TR.near(E, r.km, 3, 3) : [];
     tapPop = L.popup({ maxWidth: 280 }).setLatLng([p[0], p[1]]).setContent(
       `<b>${esc(E.name)} km ${one(r.km)}</b>${best.offM > 150 ? ` (${best.offM >= 1000 ? one(best.offM / 1000) + ' km' : Math.round(best.offM) + ' m'} from the tap)` : ''}${between}` +
-      `<br>Send <b>${esc(b.base.name)} team</b> via ${esc(E.cleanName(b.a))}${E.isGated(b.a) ? ' (gated)' : ''}: drive ${E.fmt(b.drive)}, walk ${one(b.walkKm)} km, <b>ETA ${E.fmt(b.total)}</b>${b.total > C.redMin ? ' <span style="color:#c62828;font-weight:700">(over ' + E.fmt(C.redMin) + ')</span>' : ''}` +
+      `<br>Send <b>${esc(b.base.name)} team</b> via ${esc(E.cleanName(b.a))}${E.isGated(b.a) ? ' (gated)' : ''}: drive ${E.fmt(b.drive)}, walk ${one(b.walkKm)} km, <b>ETA ${E.fmt(b.total)}</b>${b.total > C.redMin ? ' <span style="color:var(--red);font-weight:700">(over ' + E.fmt(C.redMin) + ')</span>' : ''}` +
       (near.length ? `<br>Nearby: ${near.map(x => `bib ${esc(x.bib)} (km ${one(TR.cur(x))})`).join(', ')}` : '') +
       `<br><a class="btn small" style="margin-top:6px" href="${esc(findHref(hash))}">Open in Find</a>`).openOn(map);
   });

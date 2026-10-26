@@ -345,7 +345,7 @@
       const posts = (src.st || src.posts).filter(p => p.station === s.name && !/passage/i.test(p.label));
       if (!posts.length) return;
       const now = posts.filter(p => on(p, h));
-      const shifts = posts.map(p => `${esc(p.label)}<br><span style="color:#625c53">${fmtH(p.a)} to ${fmtH(p.z)}</span>`).join('<br>');
+      const shifts = posts.map(p => `${esc(p.label)}<br><span style="color:var(--muted)">${fmtH(p.a)} to ${fmtH(p.z)}</span>`).join('<br>');
       L.marker([s.lat, s.lon], {
         zIndexOffset: 400, opacity: now.length ? 1 : 0.45,
         icon: L.divIcon({ className: '', html: `<div class="so-mark${now.length ? ' on' : ''}">SO</div>`, iconSize: [24, 18], iconAnchor: [12, 9] })
