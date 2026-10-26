@@ -22,11 +22,13 @@
 <body>
 <header class="top">
   <a class="brand" href="./" aria-label="GPT100 Safety home"><img class="brand-logo" src="icons/mark.png" alt="GPT100 Miler" width="53" height="34"><span class="brand-app">Safety</span></a>
-  <nav class="tabs" role="tablist">
+  <nav class="tabs">
+    <div role="tablist" style="display:contents">
     <button class="tab-btn on" data-tab="find" role="tab" aria-selected="true">Find</button>
     <button class="tab-btn" data-tab="wx" role="tab" aria-selected="false">Weather</button>
     <button class="tab-btn" data-tab="med" role="tab" aria-selected="false">Medical</button>
     <button class="tab-btn" data-tab="rc" role="tab" aria-selected="false">Control</button>
+    </div>
     <a class="tab-btn tab-link" id="mapLink" href="map.html">Map</a>
   </nav>
   <span id="net" class="net" hidden>Offline</span>

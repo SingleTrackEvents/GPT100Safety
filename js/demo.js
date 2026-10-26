@@ -38,7 +38,8 @@
     if ((m = /^(\d+(?:\.\d+)?)h$/i.exec(v)) || ((m = /^(\d+(?:\.\d+)?)$/.exec(v)) && +v !== 1)) return (+m[1]) * 3600e3;
     if ((m = /^(thu|fri|sat|sun)\s*(\d{1,2})(?::?(\d{2}))?$/i.exec(v))) {
       const day = { thu: 5, fri: 6, sat: 7, sun: 8 }[m[1].toLowerCase()];
-      return Date.parse(`2026-11-0${day}T${String(+m[2]).padStart(2, '0')}:${m[3] || '00'}:00+11:00`) - MILER0;
+      const t = Date.parse(`2026-11-0${day}T${String(+m[2]).padStart(2, '0')}:${m[3] || '00'}:00+11:00`);
+      if (!isNaN(t)) return t - MILER0;  // an impossible time (sat99:99) falls through to the default
     }
     return 9 * 3600e3;  // the default: 9 hours in, the Miler spread from Halls Gap back to the Mt Difficult ridge
   }
