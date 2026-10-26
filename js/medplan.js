@@ -336,7 +336,7 @@
     if (!T0) T0 = new Date(src.t0);
     if (!soKey) {
       soKey = L.control({ position: 'bottomright' });
-      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers on post<br><span class="so-mark" style="display:inline-block;width:22px;margin-right:5px;opacity:.5">SO</span>Not on post at this time'; return d; };
+      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers on post<br><span class="so-mark" style="display:inline-block;width:22px;margin-right:5px">SO</span>Not on post at this time'; return d; };
       soKey.addTo(fmap);
     }
     const h = curH();
@@ -347,7 +347,7 @@
       const now = posts.filter(p => on(p, h));
       const shifts = posts.map(p => `${esc(p.label)}<br><span style="color:var(--muted)">${fmtH(p.a)} to ${fmtH(p.z)}</span>`).join('<br>');
       L.marker([s.lat, s.lon], {
-        zIndexOffset: 400, opacity: now.length ? 1 : 0.45,
+        zIndexOffset: 400,
         icon: L.divIcon({ className: '', html: `<div class="so-mark${now.length ? ' on' : ''}">SO</div>`, iconSize: [24, 18], iconAnchor: [12, 9] })
       }).bindPopup(`<b>${esc(s.name)}</b> &middot; Safety Officers<br>${now.length ? `<b>On post ${isLive() ? 'now' : 'at ' + fmtH(h)}</b><br>` : `Not on post ${isLive() ? 'now' : 'at ' + fmtH(h)}<br>`}${shifts}`).addTo(findLayer);
     });

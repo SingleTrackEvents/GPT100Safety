@@ -249,6 +249,8 @@ a.w3w:hover { text-decoration: underline; }
 .so-tag { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #7a5a00; }
 .so-mark { background: #fff; color: #111; border: 2px solid #9e9e9e; font: 800 9px var(--body); border-radius: 4px; text-align: center; line-height: 14px; }
 .so-mark.on { background: #ffd21f; border-color: #111; }
+/* Not on post: pale and dashed rather than see-through, so SO stays readable (6.7:1). */
+.so-mark:not(.on) { background: #f1f1f1; color: #555; border-color: #9e9e9e; border-style: dashed; }
 @media (max-width: 420px) { .brand-app { display: none; } .tab-btn { padding: 8px 7px; } }
 @media (max-width: 440px) { .top { gap: 8px; padding-left: 10px; padding-right: 8px; } .brand-logo { height: 30px; } .tabs { gap: 0; } .tab-btn { padding: 8px 5px; font-size: 12.5px; letter-spacing: -.1px; } }
 
@@ -286,14 +288,14 @@ a.w3w:hover { text-decoration: underline; }
 .wx-scope.on { box-shadow: 0 0 0 2px var(--ink) inset; }
 .st-ok { border-color: var(--green); }
 .st-close { border-color: #f0b429; }
-.st-met { border-color: #d64545; }
+.st-met { border-color: #c93a3a; }
 .st-nodata { border-color: #bbb; }
 .wx-scope.st-met { background: var(--red-bg); }
 .wx-scope.st-close { background: var(--amber-bg); }
 .wx-pill { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 2px 8px; border-radius: 20px; background: var(--chip-bg); color: #555; white-space: nowrap; margin: 1px 0; }
 .wx-pill.st-ok { background: var(--green-bg); color: var(--green); }
 .wx-pill.st-close { background: #f0b429; color: #111; }
-.wx-pill.st-met { background: #d64545; color: #fff; }
+.wx-pill.st-met { background: #c93a3a; color: #fff; }
 .wx-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
 .wx-card { text-align: left; font: inherit; color: inherit; background: var(--paper); border: 1px solid var(--line); border-left: 6px solid; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
 .wx-card:not([data-km]) { cursor: default; }
@@ -303,7 +305,7 @@ a.w3w:hover { text-decoration: underline; }
 .wx-card p { margin: 4px 0 0; font-size: 13px; }
 .wx-card .wx-where { font-size: 12px; color: var(--muted); }
 .wx-card .wx-rule { font-size: 11px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 4px; margin-top: 6px; }
-.wx-bom { display: block; text-decoration: none; background: var(--red-bg); border-left: 6px solid #d64545; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+.wx-bom { display: block; text-decoration: none; background: var(--red-bg); border-left: 6px solid #c93a3a; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
 .wx-bom span { display: block; font-size: 11px; color: var(--muted); }
 .wx-fire { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--paper); border-radius: 8px; overflow: hidden; }
 .wx-fire th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; padding: 5px 8px; border-bottom: 2px solid var(--ink); }
@@ -384,7 +386,7 @@ tr.muted td { color: var(--muted); }
 .wx-rm { width: 24px; height: 24px; border-radius: 50%; background: #111; color: #fff; font: 800 12px/20px var(--body); text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
 .wx-rm.slow { background: var(--course); }
 .wx-tm { display: inline-block; white-space: nowrap; font: 700 11px var(--body); padding: 2px 7px; border-radius: 12px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-.wx-tm.st-met { background: #d64545; color: #fff; }
+.wx-tm.st-met { background: #c93a3a; color: #fff; }
 .wx-tm.st-close { background: #f0b429; color: #111; }
 @media (max-width: 400px) { .wx-overall { grid-template-columns: 1fr; } }
 
@@ -414,7 +416,7 @@ tr.muted td { color: var(--muted); }
 .rc-card.closed { opacity: .75; }
 .rc-card-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .rc-card-top > b { font-family: var(--head); font-weight: 400; font-size: 26px; line-height: 1; }
-.rc-sev { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #fff; background: var(--sev); padding: 2px 8px; border-radius: 12px; }
+.rc-sev { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--sev-ink, #fff); background: var(--sev); padding: 2px 8px; border-radius: 12px; }
 .rc-loc { font-weight: 700; font-size: 14px; } .rc-loc span { font-weight: 500; color: var(--muted); font-size: 12px; }
 .rc-timer { margin-left: auto; font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; }
 .rc-timer.late { color: #fff; background: var(--red-fill); padding: 1px 8px; border-radius: 10px; animation: pulse 1.6s infinite; }
@@ -432,7 +434,7 @@ tr.muted td { color: var(--muted); }
 .rc-full { margin-bottom: 8px; }
 .rc-sevs { display: flex; flex-wrap: wrap; gap: 6px; }
 .rc-sevs label { flex-direction: row; align-items: center; gap: 6px; padding: 6px 12px; border: 2px solid var(--c); border-radius: 20px; cursor: pointer; font-size: 13px; }
-.rc-sevs label:has(input:checked) { background: var(--c); color: #fff; }
+.rc-sevs label:has(input:checked) { background: var(--c); color: var(--ci, #fff); }
 .rc-suggest { font-size: 13px; background: var(--soft); border-radius: 6px; padding: 6px 8px; margin: 0 0 8px; }
 .rc-empty { color: var(--muted); font-size: 13px; }
 .rc-closed summary { cursor: pointer; font-weight: 700; margin: 6px 0; }
@@ -533,7 +535,7 @@ tr.muted td { color: var(--muted); }
 /* Helicopter landing sites (js/helipads.js): used by Parks Victoria this year, current or expired on the DEECA list */
 .hls-mk { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.5); background: #333; color: #fff; font: 800 12px/18px var(--body); text-align: center; }
 .hls-mk.used { background: #0b6b3a; }
-.hls-mk.expired { background: #9a9a9a; }
+.hls-mk.expired { background: #6e6e6e; }
 .hls-key { display: inline-block; width: 16px; height: 16px; font-size: 9px; line-height: 12px; margin-right: 5px; vertical-align: -3px; }
 
 /* Live runner tracking (js/tracking.js) */

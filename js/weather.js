@@ -28,7 +28,7 @@
       return stops[stops.length - 1][1];
     };
   }
-  const STATUS_COL = { ok: '#dce8de', close: '#f0b429', met: '#d64545', nodata: '#ececec' };
+  const STATUS_COL = { ok: '#dce8de', close: '#f0b429', met: '#c93a3a', nodata: '#ececec' };
   const VARS = {
     status: { label: 'Trigger status', col: v => STATUS_COL[v] || STATUS_COL.nodata, key: [['Clear', STATUS_COL.ok], ['Getting close', STATUS_COL.close], ['Met', STATUS_COL.met]] },
     at: { label: 'Feels like', unit: '°C', dp: 1, col: ramp([[-5, '#3b4cc0'], [0, '#5a7fd0'], [5, '#8fb8de'], [12, '#bfe0cf'], [20, '#ece5a3'], [28, '#f4a259'], [32, '#e4572e'], [36, '#a4161a']]), key: [['0°C', '#5a7fd0'], ['12°C', '#bfe0cf'], ['20°C', '#ece5a3'], ['32°C', '#e4572e'], ['36°C', '#a4161a']] },
@@ -613,7 +613,7 @@
     let ele = `M${X(s[0].t)},${Ht - 22}` + s.map(x => `L${X(x.t).toFixed(1)},${E(x.km).toFixed(1)}`).join('') + `L${X(s[s.length - 1].t)},${Ht - 22}Z`;
     const line = k => s.map((x, i) => `${i ? 'L' : 'M'}${X(x.t).toFixed(1)},${Y(x.c[k]).toFixed(1)}`).join('');
     const bars = s.filter(x => x.c.p >= 0.1).map(x => `<rect x="${(X(x.t) - 2).toFixed(1)}" y="${(Ht - 22 - 40 * x.c.p / rMax).toFixed(1)}" width="4" height="${(40 * x.c.p / rMax).toFixed(1)}" fill="#2f7fc1"/>`).join('');
-    const storms = s.filter(x => x.c.storm).map(x => `<rect x="${(X(x.t) - 3).toFixed(1)}" y="0" width="6" height="${Ht - 22}" fill="${x.c.storm >= T.storm.met ? '#d64545' : x.c.storm >= T.storm.close ? '#f0b429' : '#f6e7b0'}" opacity=".35"/>`).join('');
+    const storms = s.filter(x => x.c.storm).map(x => `<rect x="${(X(x.t) - 3).toFixed(1)}" y="0" width="6" height="${Ht - 22}" fill="${x.c.storm >= T.storm.met ? '#c93a3a' : x.c.storm >= T.storm.close ? '#f0b429' : '#f6e7b0'}" opacity=".35"/>`).join('');
     let ticks = '';
     for (let t = Math.ceil(t0 / (6 * HOUR)) * 6 * HOUR; t <= t1; t += 6 * HOUR) {
       const p = WX.parts(t);
