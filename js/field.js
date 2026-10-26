@@ -24,7 +24,7 @@
   const rkey = () => race.id + '.' + stage.id;
   // The race's own km name: "Miler", "14k", or the stage ("Stage 2").
   const rname = () => race.stages.length > 1 ? stage.label : race.short;
-  const day = () => new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', dateStyle: 'short' }).format(clock());
+  const dayF = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', dateStyle: 'short' }), day = t => dayF.format(t == null ? clock() : t);
   function setRace(r) {
     race = r; rstore.set('race', r.id);
     // A stage you tapped stays picked for that day; otherwise today's stage (or the next one).
@@ -38,7 +38,10 @@
     $('fdStages').innerHTML = list.map(x => `<button type="button" data-s="${x.id}"${x === S ? ' class="on"' : ''}>${esc(x.label)}</button>`).join('');
     $('fdStages').querySelectorAll('button').forEach(b => b.onclick = () => { rstore.set('stage.' + race.id, { id: b.dataset.s, day: day() }); setStage(RX.R.stages[b.dataset.s]); if (here) render(); });
     $('fdRaceStart').textContent = `${one(fin.km)} km, +${fin.up} m. Starts ${RX.when(P[0].ft)} at ${P[0].name}. Final cut-off ${RX.when(fin.ct)}.`;
-    $('fdKmFor').textContent = rname(); $('fdKm').placeholder = `0 to ${one(fin.km)}`;
+    // An older field.html (still in the phone's cache) has no fdKmFor: name the race in its label instead.
+    const kf = $('fdKmFor'), kl = document.querySelector('label[for="fdKm"]');
+    if (kf) kf.textContent = rname(); else if (kl) kl.textContent = `No GPS? Enter the ${rname()} km`;
+    $('fdKm').placeholder = `0 to ${one(fin.km)}`;
     $('fdTarget').value = rstore.get('target.' + rkey(), '');
     raceDraw();
     const En = RX.engineFor(S);
@@ -74,9 +77,8 @@
   function racePace() {
     const P = stage.points, fin = P[P.length - 1], v = $('fdTarget').value.trim(), m = /^(\d{1,2})(?:[:.h ](\d{1,2}))?$/.exec(v);
     if (m) return { p: (P[0].ft.getTime() + (+m[1] * 60 + +(m[2] || 0)) * 60000 - fin.ft) / (fin.ct - fin.ft), from: 'target' };
-    const rp = racePos(), now = clock();
-    if (rp && now > P[0].ft.getTime() && now < fin.ct.getTime() + 6 * 3600e3) return { p: RX.paceAt(stage, rp.rk, now), from: 'here', rp };
-    return null;
+    const rp = racePos(), now = clock(), L = rp && now < fin.ct.getTime() + 6 * 3600e3 ? RX.livePace(stage, rp.rk, now) : null;
+    return L ? Object.assign(L, { from: 'here', rp }) : null;
   }
   // The point you're at (within 0.3 km, as the Where card says) and the next one after it.
   function nextPt(rp) {
@@ -84,13 +86,17 @@
     return { at, nx: P.find(x => x.km > (at ? at.km : rp.rk) + 0.05) };
   }
   // When a runner here now (at the pace that puts them here at this time) would reach the next point. Not before the
-  // first runner could be here (a post that early has no runner to go by), nor when it gives a time already past.
+  // first runner could be here (a post that early has no runner to go by), nor near the start (too soon to tell),
+  // nor when it gives a time already past. Well behind cut-off pace, no time: just that.
   function etaLine(rp, nx) {
-    const P = stage.points, fin = P[P.length - 1], t = clock();
-    if (t <= P[0].ft.getTime() || t >= fin.ct.getTime() + 6 * 3600e3) return null;
-    const p = RX.paceAt(stage, rp.rk, t), eta = RX.timeAt(stage, nx.km, p);
-    if (p < 0 || eta <= t) return null;
-    const m = nx.noCut || !nx.ct ? null : nx.ct - eta, s = `A runner here now gets there about ${RX.hm.format(new Date(eta))}`;
+    const fin = stage.points[stage.points.length - 1], t = clock();
+    if (t >= fin.ct.getTime() + 6 * 3600e3) return null;
+    const L = RX.liveEta(stage, rp.rk, t, nx);
+    if (!L || L.early) return null;
+    if (L.behind) return { ok: false, s: 'A runner here now is well behind cut-off pace.' };
+    if (L.p < 0 || L.eta <= t) return null;
+    // The day too, when it isn't today.
+    const m = L.margin, s = `A runner here now gets there about ${day(L.eta) === day(t) ? RX.hm.format(new Date(L.eta)) : RX.when(new Date(L.eta))}`;
     return m == null ? { ok: true, s: s + '.' } : m > -60e3 ? { ok: true, s: s + (m < 60e3 ? ', on the cut-off.' : `, ${RX.dur(m)} before the cut-off.`) } : { ok: false, s: s + ', after the cut-off.' };
   }
   function raceLine() {
@@ -109,9 +115,12 @@
     if (!stage) return;
     const S = stage, P = S.points, pc = racePace();
     const p = pc && pc.p;
+    const fromHere = pc && pc.from === 'here' ? `where you are (km ${one(pc.rp.rk)}) at ${RX.hm.format(new Date(clock()))}` : '';
     $('fdTargetMsg').textContent = !pc ? 'Add a target time (hours:minutes), or tap Where am I? during the race, to see expected times.'
-      : pc.from === 'here' ? `Expected times from where you are (km ${one(pc.rp.rk)}) at ${RX.hm.format(new Date(clock()))}.` : p > 1 ? 'Slower than the cut-offs allow.' : '';
-    $('fdTargetMsg').classList.toggle('bad', !!pc && p > 1);
+      : pc.early ? `Too near the start to tell a pace from ${fromHere}: these are the times on cut-off pace.`
+      : pc.behind ? `From ${fromHere}, a runner is well behind cut-off pace: they'd get to each point after the time shown.`
+      : fromHere ? `Expected times from ${fromHere}.` : p > 1 ? 'Slower than the cut-offs allow.' : '';
+    $('fdTargetMsg').classList.toggle('bad', !!pc && (p > 1 || !!pc.behind));
     let last = null;
     $('fdPlan').innerHTML = P.map((x, i) => {
       const eta = p != null && i ? RX.timeAt(S, x.km, p) : null, prev = last; last = x;
@@ -136,7 +145,8 @@
     soLayer.clearLayers();
     const h = (clock() - soT0) / 3600e3, live = h >= 0 && h <= SO.n / 4; // n is in quarter hours
     if (!soKey) {
-      soKey = L.control({ position: 'bottomright' });
+      // Bottom left: on a short map the right side is full (layers, full screen, ◎).
+      soKey = L.control({ position: 'bottomleft' });
       soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on fd-so-key">SO</span>Safety Officers' + (live ? '<br><span class="so-mark fd-so-key" style="opacity:.5">SO</span>Not on post now' : '') + (window.GPTHelipads ? '<br><span class="hls-mk used hls-key">H</span>Helicopter landing site' : ''); return d; };
       soKey.addTo(map);
     }
@@ -167,8 +177,9 @@
     });
     const E = best.E;
     setHere(E, best.s.ic, lat, lon, Object.assign({ offM: best.s.offM, gps }, o));
-    // Where the course passes the same spot twice (Jimmy Creek), the card takes the pass your last fix points to.
-    const rp = racePos(), q = rp && rp.byFix && rp.E === E && rp.ic !== here.r.ic ? E.route[rp.ic] : null;
+    // Where the course passes the same spot twice (Jimmy Creek), the card takes the race's pass (from your last
+    // fix, or the race clock), so the course km and the race km agree.
+    const rp = racePos(), q = rp && rp.E === E && rp.ic !== here.r.ic ? E.route[rp.ic] : null;
     if (q && E.metres([lat, lon], [q[0], q[1]]) <= here.offM + 25) here.r = E.assess(rp.ic);
     shown();
   }
@@ -293,8 +304,8 @@
     }
     if (S.tier === 'long') {
       $('fdWhere').innerHTML = `${poor}
-        <div class="fd-kmrow"><span class="fd-kmbig">${one(here.offM / 1000)} KM</span>${kmTag}</div>
-        <p class="fd-between">${S.at ? `At ${esc(S.at)}, ` : ''}from the course</p>
+        <div class="fd-kmrow"><span class="fd-kmbig">${one(here.offM / 1000)} KM</span></div>
+        <p class="fd-between">${S.at ? `At ${esc(S.at)}, ` : ''}from the ${esc(E.name)} course</p>
         <p class="fd-facts">Nearest course point: <b>km ${one(r.km)}</b>, ${S.dir} of you (${esc(between(r))}). Walking times don't apply from here.</p>
         ${pos}`;
       $('fdOutWay').innerHTML = ''; $('fdGrade').innerHTML = '';
@@ -425,7 +436,7 @@
     const rp = racePos(), ck = `${E.name} km ${one(r.km)}`, rk = rp ? `${rname()} km ${one(rp.rk)}` : '';
     const km = !rk ? ck : rp.E === E && Math.abs(rp.rk - r.km) < 0.05 ? rk : `${rk} (${ck})`, fixT = here.t;
     const where = S.tier === 'on' ? `${km}${between(r) ? ', ' + between(r) : ''}`
-      : `${S.at ? 'at ' + S.at + ', ' : ''}${dist(here.offM)} ${({ north: 'south', 'north-east': 'south-west', east: 'west', 'south-east': 'north-west', south: 'north', 'south-west': 'north-east', west: 'east', 'north-west': 'south-east' })[S.dir]} of the course at ${km}${between(r) ? ' (' + between(r) + ')' : ''}`;
+      : `${S.at ? 'at ' + S.at + ', ' : ''}${dist(here.offM)} ${({ north: 'south', 'north-east': 'south-west', east: 'west', 'south-east': 'north-west', south: 'north', 'south-west': 'north-east', west: 'east', 'north-west': 'south-east' })[S.dir]} of the course at ${km}${between(r) ? ', ' + between(r) : ''}`;
     const lines = [
       urgent ? `URGENT: casualty ${S.tier === 'on' ? 'at ' : ''}${where}.` : `My location: ${where}.`,
       note ? 'Note: ' + note : '',
@@ -629,8 +640,10 @@
   offlineCard();
   // Tabs along the bottom: Home, Map, Where and Race. The last one used is remembered (Home the first time).
   let tab = rstore.get('tab2', 'home');
-  function setTab(t) {
+  // Each tab change is a history step, so the phone's back button goes back a tab rather than out of the app.
+  function setTab(t, pop) {
     if (!document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = 'home';
+    try { if (pop !== true) (history.state && history.state.fdTab && t !== tab ? history.pushState : history.replaceState).call(history, { fdTab: t }, ''); } catch (e) { }
     tab = t; rstore.set('tab2', t);
     if (t === 'home') home();
     document.querySelectorAll('.rn-tab').forEach(el => el.hidden = el.dataset.tab !== t);
@@ -642,7 +655,8 @@
   // Home's Send my location goes straight to Where and finds you.
   document.querySelectorAll('.rn-quick button').forEach(b => b.addEventListener('click', () => { setTab(b.dataset.go); if (b.dataset.go === 'where') locate(); }));
   $('fdChangeRace').onclick = () => setTab('race');
-  window.GPTFieldTab = setTab;
+  addEventListener('popstate', e => { if (e.state && e.state.fdTab) setTab(e.state.fdTab, true); });
+  window.GPTFieldTab = t => setTab(t);
   if (RX) {
     $('fdRace').innerHTML = RX.R.races.map(x => `<option value="${x.id}">${esc(x.label)}</option>`).join('');
     $('fdRace').value = race.id;
@@ -679,8 +693,11 @@
   // away (and with it the Send buttons), so it can't be sent by mistake.
   $('fdKmForm').addEventListener('submit', e => {
     e.preventDefault();
-    const m = /^(?:km\s*)?(\d+(?:[.,]\d+)?)(?:\s*km)?$/i.exec($('fdKm').value.trim()), km = m ? +m[1].replace(',', '.') : NaN;
-    const len = stage ? stage.points[stage.points.length - 1].km : MAIN.totalKm, bad = isNaN(km) ? 'That isn\'t a km. Type a number, like 12.5.' : km > len ? `The ${stage ? rname() : 'course'} is ${one(len)} km. Type a km from 0 to ${one(len)}.` : '';
+    // Nothing typed (Go pressed by mistake, or with gloves): a hint, and the location you have stays.
+    if (!$('fdKm').value.trim()) { msg('Type a km in the box, then Go.'); return; }
+    const m = /^(?:km\s*)?(\d+(?:[.,]\d*)?|[.,]\d+)(?:\s*km)?$/i.exec($('fdKm').value.trim()), km = m ? +m[1].replace(',', '.') : NaN;
+    const len = stage ? stage.points[stage.points.length - 1].km : MAIN.totalKm, what = !stage ? 'The course' : race.stages.length > 1 ? rname() : 'The ' + rname();
+    const bad = isNaN(km) ? 'That isn\'t a km. Type a number, like 12.5.' : km > len ? `${what} is ${one(len)} km. Type a km from 0 to ${one(len)}.` : '';
     if (!bad) { msg(''); fromKm(km); return; }
     $('fdKm').classList.add('rc-flash'); setTimeout(() => $('fdKm').classList.remove('rc-flash'), 2600);
     here = null; mapNow = null; keep(); sendLinks();

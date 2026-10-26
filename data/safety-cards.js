@@ -9,9 +9,10 @@
 // Japanese with Mirai, Russian and Polish unchecked). The app-only sentences (ui, and the card sentences that now name
 // the app's buttons) are new and still need the interpreter check, as is w3wStored (24 October 2026, the saved
 // three words shown with no signal), and w3wNoLive, w3wStoredNoLive and the off-course lines on the map (offBy, offBack,
-// offLine, offFar, dirs; 26 October 2026). Keep this file in step with the documents.
+// offLine, offFar, dirs; 26 October 2026), and the map's position and arrival lines and the far-off Share lines (located
+// to foundFar, also 26 October 2026). Keep this file in step with the documents.
 // Markup in the text: **bold**. 000, 112 and the Medical Team number become tap-to-call links. {km} {acc} {time} {send}
-// {m} {dist} {dir} {race} are filled in by the app.
+// {m} {dist} {dir} {race} {len} {name} {dur} are filled in by the app.
 window.GPT_SAFETY_CARDS = {
   version: '0.5',
   langs: [
@@ -45,6 +46,12 @@ window.GPT_SAFETY_CARDS = {
         offLine: `Straight line to the course: {dist}, {dir} of you. It may not be walkable.`,
         offFar: `You're {dist} from the {race} course. Check the race picked at the top.`,
         dirs: ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'],
+        located: `Found you: accurate to about {acc} m.`, poorGps: `GPS only ±{acc} m: stand in the open and tap ◎ again.`, raceStarts: `Race starts {time}.`,
+        kmOf: `**Km {km}** of {len}`, next: `Next: **{name}** in **{dist}**`, backNext: `Back on the course, next: **{name}** in **{dist}**`, cutoff: `cut-off **{time}**`, atFinish: `At the finish.`,
+        etaAt: `At your pace about **{time}**.`, etaOn: `At your pace about **{time}**, on the cut-off.`, etaBefore: `At your pace about **{time}**, {dur} before the cut-off.`,
+        etaLate: `**At your pace about {time}, after the cut-off.** Talk to the aid station team.`, etaBehind: `**Well behind cut-off pace.** Talk to the aid station team.`,
+        shareFar: `Ready: you're {dist} from the {race} course (GPS ±{acc} m). Check the race picked at the top, then send.`,
+        foundFar: `Found you, {dist} from the {race} course (GPS ±{acc} m). Check the race picked at the top, then tap {send} again to send it.`,
         lostTitle: `Lost or stopping`, openMap: `Open the map`, gearTab: `Mandatory gear is on the Gear tab.`,
         summaryTitle: `In an emergency`, showEnglish: `Show in English`, backTo: `English`,
         note: `Based on the GPT100 Emergency Card v0.5 (October 2026), which is also printed and handed out at registration.`
@@ -145,6 +152,12 @@ window.GPT_SAFETY_CARDS = {
         offLine: `コースまで直線で{dist}、{dir}の方向です。まっすぐには歩けない場合があります。`,
         offFar: `{race}のコースから{dist}離れています。上で選んだレースが正しいか確認してください。`,
         dirs: ['北', '北東', '東', '南東', '南', '南西', '西', '北西'],
+        located: `現在地を確認しました：誤差は約{acc}mです。`, poorGps: `GPS誤差±{acc}m：開けた場所に立ち、もう一度◎をタップしてください。`, raceStarts: `スタートは{time}です。`,
+        kmOf: `**{km}km**（全{len}km）`, next: `次：**{name}**まで**{dist}**`, backNext: `コースに戻ったら次：**{name}**まで**{dist}**`, cutoff: `関門 **{time}**`, atFinish: `ゴール地点です。`,
+        etaAt: `今のペースで到着は**{time}**頃です。`, etaOn: `今のペースで到着は**{time}**頃、関門時刻ちょうどです。`, etaBefore: `今のペースで到着は**{time}**頃、関門の{dur}前です。`,
+        etaLate: `**今のペースで到着は{time}頃、関門時刻を過ぎます。**エイドステーションのスタッフに相談してください。`, etaBehind: `**関門ペースより大幅に遅れています。**エイドステーションのスタッフに相談してください。`,
+        shareFar: `準備完了：{race}のコースから{dist}離れています（GPS誤差±{acc}m）。上で選んだレースを確認してから送信してください。`,
+        foundFar: `現在地を確認しました。{race}のコースから{dist}離れています（GPS誤差±{acc}m）。上で選んだレースを確認してから、もう一度「{send}」をタップして送信してください。`,
         lostTitle: `道に迷ったとき・レースをやめるとき`, openMap: `地図を開く`, gearTab: `必携装備はGearタブにあります。`,
         summaryTitle: `緊急時は`, showEnglish: `Show in English`, backTo: `日本語で表示`,
         note: `GPT100緊急時カード v0.5（2026年10月）に基づいています。同じカードを印刷したものを受付で配布します。`
@@ -245,6 +258,12 @@ window.GPT_SAFETY_CARDS = {
         offLine: `赛道在你的{dir}方向，直线距离{dist}。直线路线可能无法通行。`,
         offFar: `你离{race}赛道有{dist}。请检查顶部选择的比赛是否正确。`,
         dirs: ['北', '东北', '东', '东南', '南', '西南', '西', '西北'],
+        located: `已定位：误差约{acc}米。`, poorGps: `GPS误差±{acc}米：请站到空旷处，再点按◎。`, raceStarts: `比赛于{time}开始。`,
+        kmOf: `**第{km}公里**（全程{len}公里）`, next: `下一站：**{name}**，还有**{dist}**`, backNext: `回到赛道后，下一站：**{name}**，还有**{dist}**`, cutoff: `关门时间 **{time}**`, atFinish: `已到终点。`,
+        etaAt: `按你目前的配速，约**{time}**到达。`, etaOn: `按你目前的配速，约**{time}**到达，正好是关门时间。`, etaBefore: `按你目前的配速，约**{time}**到达，比关门时间早{dur}。`,
+        etaLate: `**按你目前的配速，约{time}到达，会超过关门时间。**请与补给站工作人员沟通。`, etaBehind: `**你已远远落后于关门配速。**请与补给站工作人员沟通。`,
+        shareFar: `已就绪：你离{race}赛道有{dist}（GPS误差±{acc}米）。请先检查顶部选择的比赛，再发送。`,
+        foundFar: `已定位，你离{race}赛道有{dist}（GPS误差±{acc}米）。请先检查顶部选择的比赛，再次点按“{send}”即可发送。`,
         lostTitle: `迷路或退赛`, openMap: `打开地图`, gearTab: `强制装备清单在Gear标签页。`,
         summaryTitle: `紧急情况下`, showEnglish: `Show in English`, backTo: `显示中文`,
         note: `基于GPT100紧急情况卡 v0.5（2026年10月）。同一张卡也会印刷并在报到时发放。`
@@ -345,6 +364,12 @@ window.GPT_SAFETY_CARDS = {
         offLine: `До трассы по прямой: {dist}, направление: {dir}. По прямой пройти может быть нельзя.`,
         offFar: `Вы в {dist} от трассы {race}. Проверьте забег, выбранный вверху.`,
         dirs: ['север', 'северо-восток', 'восток', 'юго-восток', 'юг', 'юго-запад', 'запад', 'северо-запад'],
+        located: `Местоположение найдено: точность около {acc} м.`, poorGps: `Точность GPS только ±{acc} м: выйдите на открытое место и снова нажмите ◎.`, raceStarts: `Старт {time}.`,
+        kmOf: `**Км {km}** из {len}`, next: `Далее: **{name}** через **{dist}**`, backNext: `Вернувшись на трассу, далее: **{name}** через **{dist}**`, cutoff: `лимит **{time}**`, atFinish: `Вы на финише.`,
+        etaAt: `В вашем темпе примерно в **{time}**.`, etaOn: `В вашем темпе примерно в **{time}**, ровно к лимиту.`, etaBefore: `В вашем темпе примерно в **{time}**, за {dur} до лимита.`,
+        etaLate: `**В вашем темпе примерно в {time}, после лимита.** Поговорите с командой пункта питания.`, etaBehind: `**Вы сильно отстаёте от темпа лимитов.** Поговорите с командой пункта питания.`,
+        shareFar: `Готово: вы в {dist} от трассы {race} (GPS ±{acc} м). Проверьте забег, выбранный вверху, затем отправьте.`,
+        foundFar: `Местоположение найдено: вы в {dist} от трассы {race} (GPS ±{acc} м). Проверьте забег, выбранный вверху, затем нажмите «{send}» ещё раз, чтобы отправить.`,
         lostTitle: `Заблудились или сходите с дистанции`, openMap: `Открыть карту`, gearTab: `Обязательное снаряжение: вкладка Gear.`,
         summaryTitle: `В экстренной ситуации`, showEnglish: `Show in English`, backTo: `Показать по-русски`,
         note: `По карточке GPT100 Emergency Card v0.5 (октябрь 2026). Та же карточка печатается и выдаётся при регистрации.`
@@ -445,6 +470,12 @@ window.GPT_SAFETY_CARDS = {
         offLine: `Do trasy w linii prostej: {dist}, kierunek: {dir}. W linii prostej może nie dać się przejść.`,
         offFar: `Jesteś {dist} od trasy {race}. Sprawdź bieg wybrany na górze.`,
         dirs: ['północ', 'północny wschód', 'wschód', 'południowy wschód', 'południe', 'południowy zachód', 'zachód', 'północny zachód'],
+        located: `Znaleziono cię: dokładność około {acc} m.`, poorGps: `GPS tylko ±{acc} m: stań w otwartym miejscu i stuknij ◎ ponownie.`, raceStarts: `Start {time}.`,
+        kmOf: `**Km {km}** z {len}`, next: `Dalej: **{name}** za **{dist}**`, backNext: `Po powrocie na trasę dalej: **{name}** za **{dist}**`, cutoff: `limit czasu **{time}**`, atFinish: `Jesteś na mecie.`,
+        etaAt: `W twoim tempie około **{time}**.`, etaOn: `W twoim tempie około **{time}**, dokładnie na limit czasu.`, etaBefore: `W twoim tempie około **{time}**, {dur} przed limitem czasu.`,
+        etaLate: `**W twoim tempie około {time}, po limicie czasu.** Porozmawiaj z obsługą punktu odżywczego.`, etaBehind: `**Jesteś daleko za tempem limitów czasu.** Porozmawiaj z obsługą punktu odżywczego.`,
+        shareFar: `Gotowe: jesteś {dist} od trasy {race} (GPS ±{acc} m). Sprawdź bieg wybrany na górze, potem wyślij.`,
+        foundFar: `Znaleziono cię {dist} od trasy {race} (GPS ±{acc} m). Sprawdź bieg wybrany na górze, potem stuknij „{send}” jeszcze raz, aby wysłać.`,
         lostTitle: `Zgubiony szlak lub zejście z trasy`, openMap: `Otwórz mapę`, gearTab: `Sprzęt obowiązkowy jest w zakładce Gear.`,
         summaryTitle: `W nagłej sytuacji`, showEnglish: `Show in English`, backTo: `Pokaż po polsku`,
         note: `Na podstawie karty GPT100 Emergency Card v0.5 (październik 2026). Ta sama karta jest drukowana i rozdawana przy rejestracji.`

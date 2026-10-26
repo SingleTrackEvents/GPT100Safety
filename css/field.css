@@ -144,3 +144,16 @@ html.demo-on body.field .demo-bar { bottom: calc(70px + env(safe-area-inset-bott
 html.demo-on body.field .demo-list { bottom: calc(118px + env(safe-area-inset-bottom)); }
 html.demo-on body.field { padding-bottom: 70px; }
 html.demo-on body.field .fd-maptab:not([hidden]) { height: calc(var(--vvh, 100svh) - var(--fd-chrome, 156px) - 66px - env(safe-area-inset-bottom)); min-height: 380px; }
+/* Landscape phones: as in the runner app, the map beside the profile, both between the header and the tabs */
+@media (orientation: landscape) and (max-height: 500px) {
+  body.field .fd-maptab:not([hidden]) { min-height: 0; --fd-chrome: 138px; }
+  body.field .fd-maptab .prof-title { display: none; }
+  body.field .fd-maptab .fd-mapfor { margin-bottom: 4px; }
+  body.field .fd-maptab .fd-mapcard { flex-direction: row; }
+  body.field .fd-maptab #fdMap { min-height: 0; }
+  body.field .fd-maptab .fd-prof { flex: 0 0 42%; min-width: 0; overflow-y: auto; border-top: 0; border-left: 1px solid var(--line); }
+  /* One line of credits, so ◎ stays clear of the full screen button on a short map */
+  body.field .fd-maptab .leaflet-control-attribution { font-size: 9px; }
+  body.field .fd-maptab .prof-legend { display: none; }
+  body.field .fd-maptab .prof-info { font-size: 12px; }
+}

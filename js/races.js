@@ -133,15 +133,39 @@
   // splits aren't a straight line in p).
   const paceAt = (S, rk, t) => {
     if (!S.fit) { const lo = timeAt(S, rk, 0), hi = timeAt(S, rk, 1); return hi > lo ? (t - lo) / (hi - lo) : 0; }
-    let lo = -1, hi = 3;
+    // Past 4 the fitted times stop growing with p (and no one is that slow): 4 means "at least 4".
+    let lo = -1, hi = 4;
     if (timeAt(S, rk, hi) <= timeAt(S, rk, lo)) return 0;
-    while (hi < 48 && timeAt(S, rk, hi) < t) hi *= 2;
+    if (timeAt(S, rk, hi) < t) return hi;
     for (let n = 0; n < 40; n++) { const m = (lo + hi) / 2; if (timeAt(S, rk, m) < t) lo = m; else hi = m; }
     return (lo + hi) / 2;
+  };
+
+  // Your pace from where you are and the time, for a sweep or a runner. Not near the start (a few minutes or km in
+  // tell nothing: early is set, with cut-off pace to go by), and no slower than SLOW (behind is set: well behind
+  // cut-off pace, so a time would be a guess).
+  const SLOW = 1.5, SNAP_KM = 0.1;
+  const livePace = (S, rk, t) => {
+    const P = S.points, start = P[0].ft.getTime(), fin = P[P.length - 1];
+    if (t <= start) return null;
+    const minT = Math.min(30 * 60e3, (fin.ft - start) / 10), p = t - start >= minT ? paceAt(S, rk, t) : null;
+    if (p != null && p > SLOW) return { p: SLOW, behind: true };
+    if (p == null || rk < Math.min(2, fin.km / 10)) return { p: 1, early: true };
+    return { p };
+  };
+  // When you'd reach point k at your live pace, and how far ahead of its cut-off (margin, ms; null without one).
+  // A GPS fix can put you 100 m short, so a time within that of the cut-off counts as on it (margin 0).
+  const liveEta = (S, rk, t, k) => {
+    const L = livePace(S, rk, t);
+    if (!L || L.early || L.behind) return L;
+    L.eta = timeAt(S, k.km, L.p);
+    L.margin = k.ct && !k.noCut ? k.ct - L.eta : null;
+    if (L.margin != null && L.margin <= -60e3 && k.ct - timeAt(S, k.km, paceAt(S, Math.min(k.km, rk + SNAP_KM), t)) > -60e3) L.margin = 0;
+    return L;
   };
 
   const stagesOf = r => r.stages.map(id => prepare(R.stages[id], r.course));
   // A stage race opens on today's stage (or the next one).
   const currentStage = (r, now) => { const list = stagesOf(r); return list.find(s => s.points[s.points.length - 1].ct.getTime() > (now || Date.now())) || list[0]; };
-  window.GPTRaces = { R, mel, fmt, hm, when, dur, words, engineFor, prepare, stagesOf, currentStage, toRace, toCourse, timeAt, interpKm, paceAt };
+  window.GPTRaces = { R, mel, fmt, hm, when, dur, words, engineFor, prepare, stagesOf, currentStage, toRace, toCourse, timeAt, interpKm, paceAt, livePace, liveEta };
 })();
