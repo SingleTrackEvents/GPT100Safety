@@ -192,3 +192,27 @@
 .rn-helptab:not([lang="en"]) #rnCallMed { font-size: 18px; }
 .rn-helptab:not([lang="en"]) #rnCallMed small { font-size: 13px; }
 .rn-helptab[lang="ja"], .rn-helptab[lang="zh-Hans"] { line-height: 1.6; }
+/* Tap targets about 44 px tall for thumbs on the move, without moving the layout */
+.runner .rn-q { width: 44px; height: 44px; }
+.runner .fd-mapfor .fd-linkbtn { min-height: 44px; margin: -12px 0; padding: 0 0 0 10px; }
+#rnHomeSched, #fdSaveHere { min-height: 44px; padding: 0; }
+.runner .leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
+.runner .prof-seg { overflow: visible; }
+.runner .prof-seg button { position: relative; border-radius: 0; }
+.runner .prof-seg button:first-child { border-radius: 6px 0 0 6px; }
+.runner .prof-seg button:last-child { border-radius: 0 6px 6px 0; }
+.runner .prof-seg button::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }
+/* Landscape phones: slimmer tabs, and the map beside the profile so the km and next aid line stay in view */
+@media (orientation: landscape) and (max-height: 500px) {
+  .rn-nav button { min-height: 44px; flex-direction: row; gap: 6px; padding: 0; }
+  .rn-nav svg { width: 22px; height: 22px; }
+  .rn-page { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .runner .fd-maptab:not([hidden]) { min-height: 0; --fd-chrome: 138px; }
+  .runner .fd-maptab .prof-title { display: none; }
+  .runner .fd-maptab .fd-mapfor { margin-bottom: 4px; }
+  .runner .fd-maptab .fd-mapcard { flex-direction: row; }
+  .runner .fd-maptab #fdMap { min-height: 0; }
+  .runner .fd-maptab .fd-prof { flex: 0 0 46%; min-width: 0; overflow-y: auto; border-top: 0; border-left: 1px solid var(--line); }
+  .runner .fd-maptab .prof-legend { display: none; }
+  .runner .fd-maptab .prof-info { font-size: 12px; }
+}

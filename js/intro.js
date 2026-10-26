@@ -1,7 +1,7 @@
 // First-time intro and how-to for the field and safety apps (the runner app has its own, in js/runner.js).
 // Shows once on each phone (and again in an installed iPhone app, which has its own storage); the ? button
 // in the header opens it any time.
-// GPTIntro({ key, steps: [ ({ IOS, STANDALONE }) => ({ title, html, after(body) }) ], done() })
+// GPTIntro({ key, quiet, steps: [ ({ IOS, STANDALONE }) => ({ title, html, after(body) }) ], done() }) (quiet: no first-time open)
 (function () {
   const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -95,7 +95,7 @@
     q.onclick = open;
     const top = document.querySelector('header.top');
     if (top) top.appendChild(q);
-    if (get(o.key) !== '1') open();
+    if (!o.quiet && get(o.key) !== '1') open();
     return { open };
   }
   GPTIntro.installStep = installStep;

@@ -42,7 +42,7 @@
   // Aid stations and water points, named on the map once zoomed in.
   const stops = L.layerGroup().addTo(map);
   courses.forEach(E => E.AID.forEach(a => {
-    L.marker([a.lat, a.lon], { icon: pin('#111', 14), zIndexOffset: 300 })
+    L.marker([a.lat, a.lon], { title: a.name, icon: pin('#111', 14), zIndexOffset: 300 })
       .bindTooltip(a.name, { direction: 'right', offset: [8, 0], permanent: true, className: 'mp-tip' })
       .bindPopup(`<b>${esc(a.name)}</b><br>${stopKind(a)}, ${E.label}, km ${one(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(stops);
   }));
@@ -53,11 +53,11 @@
   courses.forEach(E => E.ACCESS.forEach(a => {
     if (E.main && a.aid) return;
     if (!E.main && G.ACCESS.includes(a)) return;  // shared with the GPT100: drawn once
-    L.marker([a.lat, a.lon], { icon: pin(E.isGated(a) ? '#6d3b8e' : '#888', 10) })
+    L.marker([a.lat, a.lon], { title: E.cleanName(a), icon: pin(E.isGated(a) ? '#6d3b8e' : '#888', 10) })
       .bindPopup(`<b>${esc(E.cleanName(a))}</b><br>Access point, ${E.label} km ${one(a.trail_km)}${E.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m walk to course' : ''}${a.note ? '<br>' + esc(a.note) : ''}<br>${w3wLink(a.w3w)}`).addTo(access);
   }));
   GPTBaseMap.overlay(map, 'Access points', access, true);
-  G.BASES.forEach(b => L.marker([b.lat, b.lon], { icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b><br>${w3wLink(G.data.bases_w3w && G.data.bases_w3w[b.key])}`).addTo(map));
+  G.BASES.forEach(b => L.marker([b.lat, b.lon], { title: b.name + ' base', icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b><br>${w3wLink(G.data.bases_w3w && G.data.bases_w3w[b.key])}`).addTo(map));
   if (window.GPTHelipads) GPTHelipads.overlay(map, true);
   if (window.GPTTrack) {
     GPTBaseMap.overlay(map, 'Emergency markers', GPTTrack.overlay(['emergency']), false);
@@ -74,17 +74,18 @@
   }
   // Safety Officer posts (public: posts and shift times only), lit when on post during the event.
   const SO = window.GPT100_SO, soLayer = L.layerGroup();
-  const soT0 = SO ? new Date(SO.t0).getTime() : 0;
-  const soTime = h => new Date(soT0 + h * 3600e3).toLocaleString('en-AU', { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+  // Shift times are hours from t0 (Melbourne; the race is in daylight saving, UTC+11), as in js/field.js.
+  const soT0 = SO ? new Date(SO.t0 + '+11:00').getTime() : 0;
+  const soTime = h => new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(soT0 + h * 3600e3)).replace(',', '');
   function drawSO() {
     if (!SO) return;
     soLayer.clearLayers();
-    const h = (Date.now() - soT0) / 3600e3, live = h >= 0 && h <= SO.n;
+    const h = (Date.now() - soT0) / 3600e3, live = h >= 0 && h <= SO.n / 4; // n is in quarter hours
     SO.stations.forEach(s => {
       const posts = SO.posts.filter(p => p.station === s.name && !/passage/i.test(p.label));
       if (!posts.length) return;
       const now = posts.filter(p => p.a <= h && p.z > h), lit = !live || now.length;
-      L.marker([s.lat, s.lon], { zIndexOffset: 400, opacity: lit ? 1 : 0.45, icon: L.divIcon({ className: '', html: `<div class="so-mark${lit ? ' on' : ''}">SO</div>`, iconSize: [24, 18], iconAnchor: [12, 9] }) })
+      L.marker([s.lat, s.lon], { title: s.name + ' Safety Officers', zIndexOffset: 400, opacity: lit ? 1 : 0.45, icon: L.divIcon({ className: '', html: `<div class="so-mark${lit ? ' on' : ''}">SO</div>`, iconSize: [24, 18], iconAnchor: [12, 9] }) })
         .bindPopup(`<b>${esc(s.name)}</b> &middot; Safety Officers<br>${live ? (now.length ? '<b>On post now</b><br>' : 'Not on post now<br>') : ''}` + posts.map(p => `${esc(p.label)}: ${soTime(p.a)} to ${soTime(p.z)}`).join('<br>')).addTo(soLayer);
     });
   }
@@ -111,9 +112,9 @@
     return d;
   };
   legend.addTo(map);
-  // Whole course button.
+  // Whole course button (words, not an icon: a target icon reads as "find me").
   const fitCtrl = L.control({ position: 'topleft' });
-  fitCtrl.onAdd = () => { const d = L.DomUtil.create('div', 'leaflet-bar gpt-fs'); d.innerHTML = '<button type="button" class="gpt-fs-btn mp-fit" title="Whole course" aria-label="Whole course"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v4 M12 17v4 M3 12h4 M17 12h4"/></svg></button>'; L.DomEvent.disableClickPropagation(d); d.firstChild.onclick = () => map.fitBounds(bounds.pad(0.04)); return d; };
+  fitCtrl.onAdd = () => { const d = L.DomUtil.create('div', 'leaflet-bar gpt-fs'); d.innerHTML = '<button type="button" class="gpt-fs-btn mp-fit" title="Zoom out to the whole course" style="width:auto;padding:0 8px;font:600 12px var(--body)">Whole course</button>'; L.DomEvent.disableClickPropagation(d); d.firstChild.onclick = () => map.fitBounds(bounds.pad(0.04)); return d; };
   fitCtrl.addTo(map);
   map.fitBounds(bounds.pad(0.04));
   labels();
@@ -139,7 +140,14 @@
   let runnerLayer = null;
   if (TR) {
     runnerLayer = L.layerGroup().addTo(map);
-    TR.onUpdate(() => { runnerLayer.clearLayers(); courses.forEach(E => TR.draw(runnerLayer, E, null, null, { extra: r => `<br><a class="btn small" style="margin-top:6px" href="${esc(findHref('#bib=' + r.bib))}">Open in Find</a>` })); renderPanel(); $('mpStatus').textContent = TR.status(); });
+    TR.onUpdate(() => {
+      // Redrawn on every update: an open runner popup is opened again on the new marker, without panning.
+      let open = null;
+      runnerLayer.eachLayer(l => { if (l.isPopupOpen && l.isPopupOpen()) open = l.options.bib; });
+      runnerLayer.clearLayers(); courses.forEach(E => TR.draw(runnerLayer, E, null, null, { extra: r => `<br><a class="btn small" style="margin-top:6px" href="${esc(findHref('#bib=' + r.bib))}">Open in Find</a>` }));
+      runnerLayer.eachLayer(l => { if (open != null && l.options.bib === open) { const p = l.getPopup(); p.options.autoPan = false; l.openPopup(); p.options.autoPan = true; } });
+      renderPanel(); $('mpStatus').textContent = TR.status();
+    });
   } else $('mpStatus').textContent = 'No live tracking feed is set.';
 
   // Centre on a runner and say where they are.
@@ -204,6 +212,18 @@
   // A bib in the link opens on that runner: map.html#bib=1047.
   const m = /bib=(\d+)/.exec(location.hash);
   if (m && TR) { let done = false; TR.onUpdate(() => { if (!done && TR.ready()) { done = true; show(m[1]); } }); }
+
+  // The ? help (js/intro.js): once on first open on a phone, unless the link opens on a runner. On a big screen
+  // (the race control wall) it only opens from the ? button.
+  if (window.GPTIntro) GPTIntro({
+    key: 'gptIntroMap', quiet: !!m || innerWidth >= 700,
+    steps: [() => ({ title: 'Safety map', html: `<ul class="rn-tablist">
+      <li><b>Tap the course</b> The km, the team to send and the ETA, with Open in Find for the full answer.</li>
+      <li><b>Runners</b> Find a bib, the Runner watch (not moving, off the course, late, tracker quiet) and the field by section. Show centres the map on a runner.</li>
+      <li><b>Layers</b> The button at the top right adds emergency markers, camps, track hazards and track grades. Key, at the bottom left, says what the markers mean.</li>
+      <li><b>Whole course</b> Zooms back out. The button under the layers button is full screen.</li>
+    </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. Planning guide only: in an emergency call 000.</p>` })]
+  });
 
   window.GPTMapPage = { map, show };
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));

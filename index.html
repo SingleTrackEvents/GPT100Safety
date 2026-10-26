@@ -22,11 +22,13 @@
 <body>
 <header class="top">
   <a class="brand" href="./" aria-label="GPT100 Safety home"><img class="brand-logo" src="icons/mark.png" alt="GPT100 Miler" width="53" height="34"><span class="brand-app">Safety</span></a>
-  <nav class="tabs" role="tablist">
+  <nav class="tabs">
+    <div role="tablist" style="display:contents">
     <button class="tab-btn on" data-tab="find" role="tab" aria-selected="true">Find</button>
     <button class="tab-btn" data-tab="wx" role="tab" aria-selected="false">Weather</button>
     <button class="tab-btn" data-tab="med" role="tab" aria-selected="false">Medical</button>
     <button class="tab-btn" data-tab="rc" role="tab" aria-selected="false">Control</button>
+    </div>
     <a class="tab-btn tab-link" id="mapLink" href="map.html">Map</a>
   </nav>
   <span id="net" class="net" hidden>Offline</span>
@@ -36,7 +38,7 @@
   <section id="tab-find" class="tab on" role="tabpanel">
     <div class="find-layout">
       <div class="find-panel">
-        <form id="findForm" class="search" autocomplete="off">
+        <form id="findForm" class="search" autocomplete="off" onsubmit="if(!window.GPT_UI){window.findEarly=1;document.getElementById('qMsg').textContent='Loading. Your search will run as soon as the app is ready.'}return false">
           <label for="q" class="search-label">Where is the casualty?</label>
           <div class="search-row">
             <input id="q" type="text" enterkeyhint="search" placeholder="Km, coordinates, what3words or #bib">
@@ -49,7 +51,7 @@
           <p id="qMsg" class="msg" role="status"></p>
           <div id="w3wSug" class="sug-list" hidden></div>
         </form>
-        <div id="result">
+        <div id="result" aria-live="polite">
           <div class="empty">
             <p><b>Type what you've been told.</b> The app works out which team to send, where to park and how long it will take.</p>
             <ul>

@@ -44,11 +44,14 @@
     <label class="fd-follow"><input id="fdFollow" type="checkbox"> Keep updating</label>
     <p id="fdGpsMsg" class="fd-msg" role="status"></p>
     <p id="fdTrail" class="fd-trail" hidden></p>
-    <form id="fdKmForm" class="fd-km" autocomplete="off"><label for="fdKm">No GPS? Enter the km</label>
-      <div><input id="fdKm" type="text" inputmode="decimal" placeholder="e.g. 87.3"><button class="btn" type="submit">Go</button></div></form>
+    <form id="fdKmForm" class="fd-km" autocomplete="off"><label for="fdKm">No GPS? Enter the <span id="fdKmFor">race</span> km</label>
+      <div><input id="fdKm" type="text" inputmode="decimal" placeholder="e.g. 12.5"><button class="btn" type="submit">Go</button></div></form>
   </section>
 
   <div id="fdOut" hidden>
+    <!-- Urgent first, and it stays in view while you scroll the result -->
+    <section class="fd-urgentbar"><a id="fdUrgent" class="fd-big fd-urgent" href="#" target="_blank" rel="noopener">Urgent: casualty here</a></section>
+
     <section class="fd-card fd-where">
       <div id="fdWhere"></div>
     </section>
@@ -59,9 +62,8 @@
       <textarea id="fdNote" rows="2" placeholder="e.g. Runner 123, rolled ankle, walking slowly"></textarea>
       <div class="fd-sendbtns">
         <a id="fdSend" class="fd-big fd-wa" href="#" target="_blank" rel="noopener">Send my location</a>
-        <a id="fdUrgent" class="fd-big fd-urgent" href="#" target="_blank" rel="noopener">Urgent: casualty here</a>
       </div>
-      <p class="fd-hint">Opens WhatsApp with the message ready. Pick the safety group or race control, then send. With weak signal it sends when it can.</p>
+      <p class="fd-hint">Your note goes in this and the Urgent message. Opens WhatsApp with the message ready. Pick the safety group or race control, then send. With weak signal it sends when it can.</p>
     </section>
 
     <section class="fd-card fd-wayout">

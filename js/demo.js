@@ -38,7 +38,8 @@
     if ((m = /^(\d+(?:\.\d+)?)h$/i.exec(v)) || ((m = /^(\d+(?:\.\d+)?)$/.exec(v)) && +v !== 1)) return (+m[1]) * 3600e3;
     if ((m = /^(thu|fri|sat|sun)\s*(\d{1,2})(?::?(\d{2}))?$/i.exec(v))) {
       const day = { thu: 5, fri: 6, sat: 7, sun: 8 }[m[1].toLowerCase()];
-      return Date.parse(`2026-11-0${day}T${String(+m[2]).padStart(2, '0')}:${m[3] || '00'}:00+11:00`) - MILER0;
+      const t = Date.parse(`2026-11-0${day}T${String(+m[2]).padStart(2, '0')}:${m[3] || '00'}:00+11:00`);
+      if (!isNaN(t)) return t - MILER0;  // an impossible time (sat99:99) falls through to the default
     }
     return 9 * 3600e3;  // the default: 9 hours in, the Miler spread from Halls Gap back to the Mt Difficult ridge
   }
@@ -219,8 +220,10 @@
     for (const d of SEED) {
       if (d.at.call > s) continue;
       num++;
+      // Once the operator closes an incident, the timeline stops stepping it (the operator's actions win).
+      const o = over.inc[d.id], cut = o && o.patch.status === 'closed' ? (o.patch.times && o.patch.times.closed) || o.t : Infinity;
       const times = {}; let updated = 0;
-      STEPS.forEach((k, i) => { if (d.at[k] != null && d.at[k] <= s) { times[k] = realOf(d.at[k]); updated = Math.max(updated, times[k]); } });
+      STEPS.forEach((k, i) => { if (d.at[k] != null && d.at[k] <= s && realOf(d.at[k]) <= cut) { times[k] = realOf(d.at[k]); updated = Math.max(updated, times[k]); } });
       let inc = { id: d.id, num, created: times.call, status: times.closed ? 'closed' : 'open', severity: d.severity, km: d.km ?? null, where: d.where || '', bib: d.bib || '', name: d.name || '', race: d.race || '', reporter: d.reporter || '', desc: d.desc, unit: d.unit || null, times, version: Object.keys(times).length, updated };
       if (times.closed) inc.outcome = d.outcome;
       STEPS.forEach((k, i) => {
@@ -228,11 +231,10 @@
         const text = k === 'call' ? `#${num} Logged: ${d.severity[0].toUpperCase() + d.severity.slice(1)}${d.km != null ? ', km ' + d.km : ''}, ${d.desc.slice(0, 80)}` : k === 'closed' ? `#${num} Closed: ${d.outcome}` : `#${num} ${STEP_TEXT[k]}${d.unit ? ' (' + unitLabel(d.unit) + ')' : ''}`;
         log.push({ id: Math.round(times[k]) * 10 + i, t: times[k], updated: times[k], incident: d.id, kind: 'incident', text, who: 'Race control' });
       });
-      if (d.unit && !times.closed && times.dispatched) {
-        const st = times.leaving ? 'returning' : times.onScene ? 'onscene' : 'tasked';
-        units[d.unit] = { id: d.unit, status: st, incident: d.id, updated, custom: !!CUSTOM[d.unit], label: CUSTOM[d.unit] };
+      if (d.unit && times.dispatched && cut === Infinity) {
+        const st = times.closed ? 'available' : times.leaving ? 'returning' : times.onScene ? 'onscene' : 'tasked';
+        units[d.unit] = { id: d.unit, status: st, incident: times.closed ? null : d.id, updated, custom: !!CUSTOM[d.unit], label: CUSTOM[d.unit] };
       }
-      const o = over.inc[d.id];
       if (o) { inc = merge(inc, o.patch); inc.updated = Math.max(inc.updated, o.t); inc.version += o.n; }
       incidents.push(inc);
     }

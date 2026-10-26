@@ -200,6 +200,18 @@
       return best;
     }
 
+    // Fastest stretcher carry-out from course index ic to any access point a vehicle can reach (not just the team's parking).
+    const EXITS = ACCESS.filter(a => BASES.some(b => driveMin(a, b.key) != null));
+    function exitFor(ic) {
+      const km = route[ic][2];
+      let best = null;
+      for (const a of EXITS) for (const jn of a.joins) {
+        const carry = carryMin(route[jn.idx][2], km, jn.conn_m / 1000, climb(ic, jn.idx));
+        if (!best || carry < best.carry) best = { a, idx: jn.idx, joinKm: route[jn.idx][2], carry };
+      }
+      return best;
+    }
+
     function aidAround(ic) {
       const km = route[ic][2];
       let prev = null, next = null;
@@ -223,7 +235,7 @@
         course: def.id, ic, km: route[ic][2], lat: route[ic][0], lon: route[ic][1], ele: route[ic][3],
         alsoKm: revisits(ic).map(i => route[i][2]),
         climbSoFar: cumAsc[ic], results, best, backup: results[1] || null,
-        aid: aidAround(ic), rating: rating(best.total)
+        aid: aidAround(ic), exit: exitFor(ic), rating: rating(best.total)
       };
     }
 
@@ -268,7 +280,7 @@
     return {
       id: def.id, name: def.name, label: def.label, note: def.note || '', main: !!def.main,
       data: D, config: C, route, ACCESS, AID: STOPS, BASES, crossings: def.main ? D.crossings : [],
-      idxAtKm, snap, storedW3w, nearW3w, metres, climb, carryMin, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName,
+      idxAtKm, snap, storedW3w, nearW3w, metres, climb, carryMin, exitFor, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName,
       totalKm: def.total_km
     };
   }

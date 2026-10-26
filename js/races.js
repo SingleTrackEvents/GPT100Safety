@@ -113,11 +113,17 @@
   // between the first runner's and the final cut-off; with fitted splits (stage.fit) the time at each point is that
   // finish time times the point's share of it, plus the time for any new km on the course before the point.
   // Without them it's the same blend of the first runner's time and the cut-off at every point.
+  // The fit is last year's finishers, and the early cut-offs are far more generous than any of them needed: it
+  // can't put anyone on those cut-offs at all. So from pace FIT_TO the times move over to the blend, reaching it at
+  // 1: a runner (or a sweep) on cut-off pace is due at each cut-off. The finish time is the same either way.
+  const FIT_TO = 0.75;
   const pointTime = (S, k, p) => {
-    if (!S.fit) return k.ft.getTime() + p * (k.ct - k.ft);
+    const blend = k.ft.getTime() + p * (k.ct - k.ft);
+    if (!S.fit) return blend;
     const P = S.points, start = P[0].ft.getTime(), fin = P[P.length - 1], T = fin.ft.getTime() + p * (fin.ct - fin.ft) - start, hours = T / 3600e3;
     const kmMs = S.fit.minPerKm * 60000 * (hours / S.fit.leaderHours);
-    return start + (k.sh.a + k.sh.b * hours) * (T - S.fit.newKm * kmMs) + k.nk * kmMs;
+    const fit = start + (k.sh.a + k.sh.b * hours) * (T - S.fit.newKm * kmMs) + k.nk * kmMs, w = Math.max(0, Math.min(1, (p - FIT_TO) / (1 - FIT_TO)));
+    return fit + w * (blend - fit);
   };
   // Expected time of day at a race km for a pace p, in proportion between the points either side.
   const timeAt = (S, rk, p) => { const P = S.points; let i = 1; while (i < P.length - 1 && P[i].km < rk) i++; const a = P[i - 1], b = P[i], f = (rk - a.km) / ((b.km - a.km) || 1); const ta = pointTime(S, a, p), tb = pointTime(S, b, p); return ta + (tb - ta) * Math.max(0, Math.min(1, f)); };
@@ -127,14 +133,39 @@
   // splits aren't a straight line in p).
   const paceAt = (S, rk, t) => {
     if (!S.fit) { const lo = timeAt(S, rk, 0), hi = timeAt(S, rk, 1); return hi > lo ? (t - lo) / (hi - lo) : 0; }
-    let lo = -1, hi = 3;
+    // Past 4 the fitted times stop growing with p (and no one is that slow): 4 means "at least 4".
+    let lo = -1, hi = 4;
     if (timeAt(S, rk, hi) <= timeAt(S, rk, lo)) return 0;
+    if (timeAt(S, rk, hi) < t) return hi;
     for (let n = 0; n < 40; n++) { const m = (lo + hi) / 2; if (timeAt(S, rk, m) < t) lo = m; else hi = m; }
     return (lo + hi) / 2;
+  };
+
+  // Your pace from where you are and the time, for a sweep or a runner. Not near the start (a few minutes or km in
+  // tell nothing: early is set, with cut-off pace to go by), and no slower than SLOW (behind is set: well behind
+  // cut-off pace, so a time would be a guess).
+  const SLOW = 1.5, SNAP_KM = 0.1;
+  const livePace = (S, rk, t) => {
+    const P = S.points, start = P[0].ft.getTime(), fin = P[P.length - 1];
+    if (t <= start) return null;
+    const minT = Math.min(30 * 60e3, (fin.ft - start) / 10), p = t - start >= minT ? paceAt(S, rk, t) : null;
+    if (p != null && p > SLOW) return { p: SLOW, behind: true };
+    if (p == null || rk < Math.min(2, fin.km / 10)) return { p: 1, early: true };
+    return { p };
+  };
+  // When you'd reach point k at your live pace, and how far ahead of its cut-off (margin, ms; null without one).
+  // A GPS fix can put you 100 m short, so a time within that of the cut-off counts as on it (margin 0).
+  const liveEta = (S, rk, t, k) => {
+    const L = livePace(S, rk, t);
+    if (!L || L.early || L.behind) return L;
+    L.eta = timeAt(S, k.km, L.p);
+    L.margin = k.ct && !k.noCut ? k.ct - L.eta : null;
+    if (L.margin != null && L.margin <= -60e3 && k.ct - timeAt(S, k.km, paceAt(S, Math.min(k.km, rk + SNAP_KM), t)) > -60e3) L.margin = 0;
+    return L;
   };
 
   const stagesOf = r => r.stages.map(id => prepare(R.stages[id], r.course));
   // A stage race opens on today's stage (or the next one).
   const currentStage = (r, now) => { const list = stagesOf(r); return list.find(s => s.points[s.points.length - 1].ct.getTime() > (now || Date.now())) || list[0]; };
-  window.GPTRaces = { R, mel, fmt, hm, when, dur, words, engineFor, prepare, stagesOf, currentStage, toRace, toCourse, timeAt, interpKm, paceAt };
+  window.GPTRaces = { R, mel, fmt, hm, when, dur, words, engineFor, prepare, stagesOf, currentStage, toRace, toCourse, timeAt, interpKm, paceAt, livePace, liveEta };
 })();

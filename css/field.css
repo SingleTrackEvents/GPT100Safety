@@ -118,3 +118,42 @@ body.field { background: #f4f3ef; font-size: 16px; }
 .trk-mk.est.stale { color: #777; border-color: #777; }
 .trk-mk.late { background: #fff3d6; color: #8a5a00; border-color: #b87700; }
 .trk-mk.overdue { background: #b84a00; color: #fff; border-color: #fff; }
+
+/* Urgent: casualty here sits at the top of the result and stays in view under the header while you scroll it */
+.fd-urgentbar { position: sticky; top: calc(44px + max(10px, env(safe-area-inset-top))); z-index: 900; margin-top: 12px; }
+.fd-urgentbar .fd-big { box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+.fd-big[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+/* Big enough for gloves: at least 44 px to touch (the small ones grow their touch area, not their look) */
+.fd-follow { min-height: 44px; margin: 4px 0 0; }
+.fd-follow input { width: 24px; height: 24px; }
+.fd-linkbtn { padding: 13px 0 13px 6px; margin: -13px 0; }
+.fd-seemap { padding: 12px 0; margin-top: -4px; }
+.fd-facts a, .fd-way a { padding: 13px 0; }
+body.field .rn-stages button { min-height: 44px; }
+body.field .rn-q { position: relative; }
+body.field .rn-q::after { content: ''; position: absolute; inset: -7px; }
+body.field .fd-maptab .prof-seg { overflow: visible; }
+body.field .fd-maptab .prof-seg button { position: relative; border-radius: 6px 0 0 6px; }
+body.field .fd-maptab .prof-seg button + button { border-radius: 0 6px 6px 0; }
+body.field .fd-maptab .prof-seg button::after { content: ''; position: absolute; inset: -8px 0; }
+.fd-mapfor .fd-linkbtn { position: relative; z-index: 1001; padding: 4px 0 26px 6px; margin: -4px 0 -26px; }
+body.field .leaflet-touch .leaflet-bar a, body.field .leaflet-touch .leaflet-control-layers-toggle { width: 44px; height: 44px; line-height: 44px; }
+body.field .gpt-fs-btn, body.field .rn-locbtn { width: 44px; height: 44px; }
+/* The demo bar sits above the tabs, not over them */
+html.demo-on body.field .demo-bar { bottom: calc(70px + env(safe-area-inset-bottom)); }
+html.demo-on body.field .demo-list { bottom: calc(118px + env(safe-area-inset-bottom)); }
+html.demo-on body.field { padding-bottom: 70px; }
+html.demo-on body.field .fd-maptab:not([hidden]) { height: calc(var(--vvh, 100svh) - var(--fd-chrome, 156px) - 66px - env(safe-area-inset-bottom)); min-height: 380px; }
+/* Landscape phones: as in the runner app, the map beside the profile, both between the header and the tabs */
+@media (orientation: landscape) and (max-height: 500px) {
+  body.field .fd-maptab:not([hidden]) { min-height: 0; --fd-chrome: 138px; }
+  body.field .fd-maptab .prof-title { display: none; }
+  body.field .fd-maptab .fd-mapfor { margin-bottom: 4px; }
+  body.field .fd-maptab .fd-mapcard { flex-direction: row; }
+  body.field .fd-maptab #fdMap { min-height: 0; }
+  body.field .fd-maptab .fd-prof { flex: 0 0 42%; min-width: 0; overflow-y: auto; border-top: 0; border-left: 1px solid var(--line); }
+  /* One line of credits, so ◎ stays clear of the full screen button on a short map */
+  body.field .fd-maptab .leaflet-control-attribution { font-size: 9px; }
+  body.field .fd-maptab .prof-legend { display: none; }
+  body.field .fd-maptab .prof-info { font-size: 12px; }
+}

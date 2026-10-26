@@ -22,12 +22,18 @@
     current: { label: 'Current on the DEECA list', col: '#333' },
     expired: { label: 'Expired on the DEECA list', col: '#9a9a9a' }
   };
-  const state = s => s.used ? 'used' : s.status === 'current' ? 'current' : 'expired';
+  // A site the DEECA list calls unsuitable (Roses Gap: loose stones) is never shown as in good condition.
+  const unfit = s => /not suitable/i.test(s.status_note || '');
+  const state = s => s.used && !unfit(s) ? 'used' : s.status === 'current' ? 'current' : 'expired';
+  const warn = s => [unfit(s) ? 'DEECA list: ' + s.status_note.charAt(0).toLowerCase() + s.status_note.slice(1).replace(/\.$/, '') + '.' : '', s.note || ''].filter(Boolean).join(' ');
   const title = s => s.name + ' HLS';
 
-  // What we know about the site's condition, in one sentence.
-  function condition(s) {
+  // What we know about the site's condition, in one sentence (brief: without the status the popup heads it with).
+  function condition(s, brief) {
     const insp = s.inspected ? ', last inspected ' + month(s.inspected) : '';
+    if (unfit(s) && brief) return (s.used ? `A Parks Victoria helicopter used it in ${H.used_when}. ` : '') + (s.inspected ? `Last inspected ${month(s.inspected)}. ` : '') + 'Check it before relying on it.';
+    if (unfit(s)) return `${s.used ? `A Parks Victoria helicopter used it in ${H.used_when}, but the` : 'The'} DEECA list has it ${s.status === 'current' ? 'current' : 'expired'}${insp}. Check it before relying on it.`;
+    if (brief) return (s.inspected ? `Last inspected ${month(s.inspected)}. ` : '') + (s.status === 'current' ? 'Some sites may need vegetation cleared.' : (s.status_note ? s.status_note.replace(/\.$/, '') + '. ' : '') + 'Check it before relying on it.');
     if (s.used) return `A Parks Victoria helicopter used it in ${H.used_when}, so it's in good condition${s.status === 'expired' ? ' (the DEECA list has it expired' + insp + ')' : s.status === 'unlisted' ? ' (not on the DEECA list)' : ''}.`;
     if (s.status === 'current') return `Current on the DEECA list${insp}. Some sites may need vegetation cleared.`;
     return `Expired on the DEECA list${insp}${s.status_note ? '. ' + s.status_note : ''}. Check it before relying on it.`;
@@ -45,8 +51,8 @@
   function popup(s) {
     const st = state(s);
     let h = `<b>${esc(title(s))}</b><br><span style="color:${STATE[st].col};font-weight:700">${esc(STATE[st].label)}</span>`;
-    if (s.note) h += `<br><b style="color:#c00">${esc(s.note)}</b>`;
-    h += `<br>${esc(condition(s))}`;
+    if (warn(s)) h += `<br><b style="color:#c00">${esc(warn(s))}</b>`;
+    const c = condition(s, !s.used || unfit(s)); if (c) h += `<br>${esc(c)}`;
     const f = facts(s); if (f) h += `<br>${esc(f.charAt(0).toUpperCase() + f.slice(1))}.`;
     h += `<br>Course km ${one(s.km)}${s.off_m > 60 ? ', ' + dist(s.off_m) + ' off the course' : ''}`;
     h += `<br><span style="color:#625c53">${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}${s.precise ? '' : ' (DEECA list position, to about 100 m)'}</span>`;
@@ -82,26 +88,33 @@
     if (p.m < 60) return 'right here';
     return `${dist(p.m)} ${p.km < km ? 'back' : 'ahead'} along the course, km ${one(p.km)}`;
   }
-  // The two nearest within 10 km, best condition first when they're close together.
+  // The two nearest within 10 km, unsuitable sites last; the better kept of the two leads only when it's under 1 km further.
   function pick(lat, lon, km) {
-    const N = near(lat, lon, km).filter(p => p.m < 10000);
     const rank = p => state(p) === 'used' ? 0 : state(p) === 'current' ? 1 : 2;
-    const out = N.slice(0, 3).sort((x, y) => (rank(x) - rank(y)) || (x.m - y.m));
-    return out.slice(0, 2);
+    const out = near(lat, lon, km).filter(p => p.m < 10000).sort((x, y) => (unfit(x) - unfit(y)) || (x.m - y.m)).slice(0, 2);
+    if (out.length > 1 && !unfit(out[1]) && rank(out[1]) < rank(out[0]) && out[1].m - out[0].m < 1000) out.reverse();
+    return out;
+  }
+  // What the first of those is: the nearest, the nearest usable (an unsuitable nearer one was passed over),
+  // or the best kept nearby (a better kept one under 1 km further leads).
+  function lead(lat, lon, km, P) {
+    const nearer = near(lat, lon, km).filter(p => p.m < P[0].m && p.name !== P[0].name);
+    return !nearer.length ? 'Nearest' : nearer.every(unfit) ? 'Nearest usable' : 'Best nearby';
   }
 
   // Rows for the Track and carry-out card.
   function rows(r, km) {
     const P = pick(r.lat, r.lon, km);
     if (!P.length) return `<div class="row"><span><b>No helicopter landing site within 10 km</b><span class="sub">The nearest are on the map's Helicopter landing sites layer.</span></span></div>`;
-    return P.map((p, i) => `<div class="row"><span><b>${i ? 'Also' : 'Nearest helicopter landing site'}: ${esc(title(p))}</b><span class="sub">${esc(where(p, km))}. ${esc(condition(p))}${facts(p) ? ' ' + esc(facts(p).charAt(0).toUpperCase() + facts(p).slice(1)) + '.' : ''}${p.note ? ` <b style="color:var(--red)">${esc(p.note)}</b>` : ''}</span></span><span class="tg-glyph" style="background:${STATE[state(p)].col}">H</span></div>`).join('');
+    const head = lead(r.lat, r.lon, km, P) + ' helicopter landing site';
+    return P.map((p, i) => `<div class="row"><span><b>${i ? 'Also' : head}: ${esc(title(p))}</b><span class="sub">${esc(where(p, km))}. ${esc(condition(p))}${facts(p) ? ' ' + esc(facts(p).charAt(0).toUpperCase() + facts(p).slice(1)) + '.' : ''}${warn(p) ? ` <b style="color:var(--red)">${esc(warn(p))}</b>` : ''}</span></span><span class="tg-glyph" style="background:${STATE[state(p)].col}">H</span></div>`).join('');
   }
-  // For the radio script and WhatsApp message.
+  // For the radio script and WhatsApp message: the nearest within 10 km.
   function line(r, km) {
     const P = pick(r.lat, r.lon, km);
-    if (!P.length || P[0].m >= 6000) return '';
+    if (!P.length) return '';
     const p = P[0];
-    return `Nearest HLS ${p.name}, ${where(p, km)}${p.used ? '' : p.status === 'current' ? ' (current, DEECA list)' : ' (expired on the DEECA list)'}${p.note ? '. ' + p.note : ''}`;
+    return `${lead(r.lat, r.lon, km, P)} HLS ${p.name}, ${where(p, km)}${state(p) === 'used' ? '' : p.status === 'current' ? ' (current, DEECA list)' : ' (expired on the DEECA list)'}${warn(p) ? '. ' + warn(p) : ''}`;
   }
   // The nearest sites on the result map when the layer is turned off.
   function draw(layer, r, km) {

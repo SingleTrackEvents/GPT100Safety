@@ -7,18 +7,21 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const one = x => (Math.round(x * 10) / 10).toFixed(1);
-  const store = { get(k, d) { try { const v = localStorage.getItem('rn.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('rn.' + k, JSON.stringify(v)); } catch (e) { } } };
+  // A stored null, or the wrong type (a corrupt or hand-edited value), gives the default.
+  const store = { get(k, d) { try { const v = localStorage.getItem('rn.' + k), p = v == null ? null : JSON.parse(v); return p == null || (d && typeof d === 'object' && typeof p !== 'object') ? d : p; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('rn.' + k, JSON.stringify(v)); } catch (e) { } } };
 
   // Races, cut-offs and expected times (js/races.js, shared with the field app).
-  const { mel, fmt, hm, when, dur, engineFor, prepare, toRace, toCourse, timeAt, interpKm, paceAt } = window.GPTRaces;
+  const { mel, fmt, hm, when, dur, engineFor, prepare, toRace, toCourse, timeAt, interpKm, paceAt, liveEta } = window.GPTRaces;
 
   // ---------- what's picked ----------
   let mode = store.get('mode', 'runner'), race = R.races.find(r => r.id === store.get('race')) || R.races[0], stage = null;
   const { stagesOf, currentStage } = window.GPTRaces;
+  // A stage the runner tapped stays picked for that day (Melbourne time), as in the field app; otherwise today's
+  // stage (or the next one). (An older phone stored just the id: that counts as not tapped today.)
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' });
   function pickStage() {
-    const list = stagesOf(race), saved = store.get('stage.' + race.id);
-    if (saved && list.find(s => s.id === saved)) return list.find(s => s.id === saved);
-    return currentStage(race);
+    const list = stagesOf(race), saved = store.get('stage.' + race.id, {}), hit = saved.day === ymd.format(new Date()) && list.find(s => s.id === saved.id);
+    return hit || currentStage(race);
   }
   const E = () => engineFor(stage);
   const KEY = () => race.id + '.' + stage.id;
@@ -30,9 +33,11 @@
   document.querySelectorAll('.rn-mode button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.m)));
   // ---------- tabs (along the bottom, for thumbs) ----------
   let tab = store.get('tab', 'course');
-  function setTab(t) {
+  // Each tab change is a history step, so the phone's back button goes back a tab rather than out of the app.
+  function setTab(t, pop) {
     // Older phones remember 'course' or 'where'.
     if (t === 'course' || t === 'where' || !document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = 'home';
+    try { if (pop !== true) (history.state && history.state.rnTab && t !== tab ? history.pushState : history.replaceState).call(history, { rnTab: t }, ''); } catch (e) { }
     tab = t; store.set('tab', t);
     document.querySelectorAll('.rn-tab').forEach(el => el.hidden = el.dataset.tab !== t);
     document.querySelectorAll('.rn-nav button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
@@ -45,6 +50,7 @@
     scrollTo(0, 0);
   }
   document.querySelectorAll('.rn-nav button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  addEventListener('popstate', e => { if (e.state && e.state.rnTab) setTab(e.state.rnTab, true); });
 
   function setMode(m) {
     mode = m; store.set('mode', m);
@@ -54,14 +60,16 @@
     $('rnAppName').textContent = m === 'crew' ? 'Crew' : 'Runner';
     $('rnPlanTitle').textContent = m === 'crew' ? 'Crew points' : 'Aid stations and cut-offs';
     $('rnQuickAid').innerHTML = m === 'crew' ? 'Crew points<br>and times' : 'Aid stations<br>and cut-offs';
+    if (profOpts) profOpts.empty = m === 'crew' ? 'Tap ◎ on the map to see where you are. Drag along the profile to see any point on your runner\'s course.' : RUN_HINT;
+    if (profile) profile.redraw();
     drawCourse(); plan(); schedule(); home();
   }
   function setStage(S) {
-    stage = S; store.set('stage.' + race.id, S.id);
+    stage = S;
     const list = stagesOf(race);
     $('rnStages').hidden = list.length < 2;
     $('rnStages').innerHTML = list.map(s => `<button type="button" data-s="${s.id}"${s === S ? ' class="on"' : ''}>${esc(s.label)}</button>`).join('');
-    $('rnStages').querySelectorAll('button').forEach(b => b.onclick = () => { here = null; setStage(R.stages[b.dataset.s]); });
+    $('rnStages').querySelectorAll('button').forEach(b => b.onclick = () => { here = null; store.set('stage.' + race.id, { id: b.dataset.s, day: ymd.format(new Date()) }); setStage(R.stages[b.dataset.s]); });
     const P = S.points, fin = P[P.length - 1];
     $('rnStart').textContent = `${one(fin.km)} km, +${fin.up} m. Starts ${when(P[0].ft)} at ${P[0].name}. Final cut-off ${when(fin.ct)}.`;
     $('rnMapFor').textContent = `${race.label}${race.stages.length > 1 ? ', ' + S.label : ''}: ${one(fin.km)} km`;
@@ -112,27 +120,42 @@
     // A hidden map can't size itself: fit when the Course tab opens.
     if (fit) { if ($('fdMap').offsetWidth) map.fitBounds(line.getBounds().pad(0.08)); else needFit = true; }
   }
-  let profile = null;
+  let profile = null, profOpts = null;
 
   // ---------- where am I ----------
   let here = null;
-  // Short messages float over the map (Finding you…, GPS errors).
+  // Short messages float over the map (Finding you…, GPS errors). stay: until the next one.
   let toastT = null;
-  function msg(t, bad) {
+  function msg(t, bad, stay) {
     const m = $('rnToast'); if (!m) return;
     clearTimeout(toastT); m.textContent = t; m.hidden = !t; m.classList.toggle('bad', !!bad);
-    if (t && !/Finding/.test(t)) toastT = setTimeout(() => { m.hidden = true; }, bad ? 7000 : 3500);
+    if (t && !stay) toastT = setTimeout(() => { m.hidden = true; }, bad ? 7000 : 3500);
   }
+  // The safety lines on the map (finding you, GPS errors, off the course) in the runner's Help language.
+  const UL = k => { const u = (CARDS.cards[cardLang()] || {}).ui || {}; return u[k] != null ? u[k] : ((CARDS.cards.en || {}).ui || {})[k] || DEF[k] || ''; };
+  // English for the newest lines, in case the phone still has an older data/safety-cards.js cached.
+  const DEF = { located: 'Found you: accurate to about {acc} m.', poorGps: 'GPS only ±{acc} m: stand in the open and tap ◎ again.', raceStarts: 'Race starts {time}.',
+    kmOf: '**Km {km}** of {len}', next: 'Next: **{name}** in **{dist}**', backNext: 'Back on the course, next: **{name}** in **{dist}**', cutoff: 'cut-off **{time}**', atFinish: 'At the finish.',
+    etaAt: 'At your pace about **{time}**.', etaOn: 'At your pace about **{time}**, on the cut-off.', etaBefore: 'At your pace about **{time}**, {dur} before the cut-off.',
+    etaLate: '**At your pace about {time}, after the cut-off.** Talk to the aid station team.', etaBehind: '**Well behind cut-off pace.** Talk to the aid station team.',
+    shareFar: 'Ready: you\'re {dist} from the {race} course (GPS ±{acc} m). Check the race picked at the top, then send.',
+    foundFar: 'Found you, {dist} from the {race} course (GPS ±{acc} m). Check the race picked at the top, then tap {send} again to send it.' };
+  // A line with **bold** in it, as HTML (cls: the bold's class).
+  const bold = (s, cls) => esc(s).replace(/\*\*(.+?)\*\*/g, `<b${cls ? ` class="${cls}"` : ''}>$1</b>`);
+  // The race as the off-course lines name it: "33k", "Stage race Stage 2".
+  const rlab = () => race.short + (race.stages.length > 1 ? ' ' + stage.label : '');
   const locBtn = () => document.querySelector('.rn-locbtn');
   // GPS fix; then() runs once you're placed (the Help tab's Share uses it too).
   function locate(then) {
     if (!E()) { msg('Where am I? needs this race\'s map, which isn\'t in the app yet.', true); return; }
     if (!navigator.geolocation) { msg('This phone can\'t share its location with the app.', true); return; }
-    msg('Finding you… (stand in the open for the best fix)');
+    msg(UL('finding'), false, true);
     const b = locBtn(); if (b) b.classList.add('busy');
-    navigator.geolocation.getCurrentPosition(p => { if (b) { b.classList.remove('busy'); b.classList.add('on'); } msg(`Found you: accurate to about ${Math.round(p.coords.accuracy)} m.`); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
-      e => { if (b) b.classList.remove('busy'); const t = e.code === 1 ? 'Location is blocked for this site. Allow location in the phone settings.' : 'No GPS fix yet. Try again in the open.'; msg(t, true); $('rnShareMsg').textContent = t; $('rnW3wMsg').textContent = t; },
-      { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
+    // Some phones never answer at all: give up after 30 s (a late fix still places you).
+    const fail = e => { clearTimeout(wait); if (b) b.classList.remove('busy'); msg(UL(e.code === 1 ? 'gpsBlocked' : 'gpsNone'), true); $('rnShareMsg').textContent = T()[e.code === 1 ? 'gpsBlocked' : 'gpsNone']; $('rnW3wMsg').textContent = $('rnShareMsg').textContent; };
+    const wait = setTimeout(() => fail({ code: 3 }), 30000);
+    navigator.geolocation.getCurrentPosition(p => { clearTimeout(wait); if (b) { b.classList.remove('busy'); b.classList.add('on'); } msg(fill(UL('located'), { acc: Math.round(p.coords.accuracy) })); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
+      fail, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
   }
   const DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
   function compass(a, b) {
@@ -164,14 +187,16 @@
   async function lookupW3w(lat, lon) {
     showW3w();
     const mine = () => here && here.lat === lat && here.lon === lon;
+    // Why there are no live words: no signal (offline, or the request never got through), or the service said no.
+    let why = navigator.onLine ? 'service' : 'signal';
     if (navigator.onLine && C.what3wordsKey) {
       try {
         const qs = new URLSearchParams({ key: C.what3wordsKey, coordinates: lat.toFixed(5) + ',' + lon.toFixed(5) });
         const j = await (await fetch('https://api.what3words.com/v3/convert-to-3wa?' + qs)).json();
         if (j.words && mine()) { here.w3w = j.words; here.w3wDone = true; showW3w(); return; }
-      } catch (e) { /* no signal or no key: the stored words or the numbers will do */ }
+      } catch (e) { if (e instanceof TypeError) why = 'signal'; /* the stored words or the numbers will do */ }
     }
-    if (mine()) { here.w3wDone = true; showW3w(); }
+    if (mine()) { here.w3wDone = true; here.w3wWhy = why; showW3w(); }
   }
   const w3wLink = w => `<a href="https://w3w.co/${esc(w)}" target="_blank" rel="noopener">///${esc(w)}</a>`;
   function showW3w() {
@@ -186,10 +211,10 @@
       // No live words: the stored words of the course point nearest you.
       w.innerHTML = w3wLink(here.near.words);
       n.textContent = `${U.nums}: ${nums}`;
-      m.textContent = fill(U.w3wStored, { m: Math.max(3, here.near.m) });
+      m.textContent = fill(here.w3wWhy === 'service' ? U.w3wStoredNoLive : U.w3wStored, { m: Math.max(3, here.near.m) });
     } else if (ok) {
       w.textContent = nums; n.textContent = '';
-      m.textContent = here.w3wDone ? U.w3wNoSignal : U.w3wGetting;
+      m.textContent = here.w3wDone ? here.w3wWhy === 'service' ? U.w3wNoLive : U.w3wNoSignal : U.w3wGetting;
     } else {
       w.textContent = ''; n.textContent = '';
       m.textContent = U.w3wIntro;
@@ -202,34 +227,41 @@
   function render() {
     if (!here) return;
     const S = stage, P = S.points, En = E(), fin = P[P.length - 1];
-    const me = [here.lat, here.lon], dir = compass(me, here.cp);
-    const poor = here.acc > 100 ? `<span class="rn-warn">GPS only ±${Math.round(here.acc)} m: stand in the open and tap ◎ again.</span><br>` : '';
+    const me = [here.lat, here.lon], dirs = UL('dirs'), k = DIRS.indexOf(compass(me, here.cp)), dir = (Array.isArray(dirs) && dirs[k]) || DIRS[k];
+    const poor = here.acc > 100 ? `<span class="rn-warn">${esc(fill(UL('poorGps'), { acc: Math.round(here.acc) }))}</span><br>` : '';
+    // Off the course: back the way you came first (as the Help card says); the straight line only as a guide.
+    const back = `<b class="rn-warn">${esc(UL('offBack'))}</b>`, line = `<span class="rn-dim">${esc(fill(UL('offLine'), { dist: dist(here.offM), dir }))}</span>`;
     drawMe();
     if (here.offM > 2000) {
-      whereNow = `${poor}<b>You're ${one(here.offM / 1000)} km from the ${esc(race.short)}${race.stages.length > 1 ? ' ' + esc(S.label) : ''} course.</b> The nearest point is km ${one(here.rk)}, ${dir} of you.`;
+      whereNow = `${poor}<b class="rn-warn">${esc(fill(UL('offFar'), { dist: dist(here.offM), race: rlab() }))}</b><br>${back}<br>${line}`;
       profile.setHere(null); textLink(); home(); return;
     }
-    const nx = P.find(p => p.km > here.rk + 0.05);
-    const off = here.offM <= 50 ? '' : here.offM <= 300 ? ` · <span class="rn-warn">${dist(here.offM)} off the course: it's ${dir} of you</span>`
-      : ` · <span class="rn-warn">${dist(here.offM)} off the course: it's ${dir} of you (may not be walkable)</span>`;
-    let h = `${poor}<b class="rn-km-now">Km ${one(here.rk)}</b> of ${one(fin.km)}${off}`;
+    const nx = P.find(p => p.km > here.rk + 0.05), isOff = here.offM > 50;
+    let h = poor + bold(fill(UL('kmOf'), { km: one(here.rk), len: one(fin.km) }), 'rn-km-now');
+    if (isOff) h += ` · <span class="rn-warn">${esc(fill(UL('offBy'), { dist: dist(here.offM) }))}</span><br>${back}<br>${line}`;
     if (nx) {
+      // Off the course, the next aid line is for once you're back on it, with no pace or arrival time.
       const j = En.idxAtKm(nx.gk), up = En.climb(here.ic, j), down = En.climb(j, here.ic);
-      h += `<br>Next: <b>${esc(nx.name)}</b> in <b>${one(nx.km - here.rk)} km</b>, +${Math.round(up)} / −${Math.round(down)} m${nx.ct && !nx.noCut ? `, cut-off <b>${when(nx.ct)}</b>` : ''}${pace(nx)}`;
-    } else h += '<br>At the finish.';
+      h += `<br>${bold(fill(UL(isOff ? 'backNext' : 'next'), { name: nx.name, dist: one(nx.km - here.rk) + ' km' }))}, +${Math.round(up)} / −${Math.round(down)} m${nx.ct && !nx.noCut ? ', ' + bold(fill(UL('cutoff'), { time: when(nx.ct) })) : ''}${isOff ? '' : pace(nx)}`;
+    } else h += '<br>' + esc(UL('atFinish'));
     whereNow = h;
     profile.setHere({ E: En, km: here.gk, ele: here.ele });
     textLink(); home();
   }
-  // At your pace (from where you are now and the time), when you'd reach the next point.
+  // At your pace (from where you are now and the time), when you'd reach the next point. Not in the first few
+  // minutes or km (too soon to tell), and no time when well behind cut-off pace (js/races.js liveEta).
   function pace(nx) {
     const S = stage, now = Date.now(), start = S.points[0].ft.getTime();
-    if (now < start) return `<br><span class="rn-dim">Race starts ${when(S.points[0].ft)}.</span>`;
+    if (now < start) return `<br><span class="rn-dim">${esc(fill(UL('raceStarts'), { time: when(S.points[0].ft) }))}</span>`;
     if (now > S.points[S.points.length - 1].ct.getTime() + 6 * 3600e3) return '';
-    const p = paceAt(S, here.rk, now), eta = timeAt(S, nx.km, p), margin = nx.ct - eta;
-    if (nx.noCut) return `<br><span class="rn-good">At your pace about <b>${hm.format(new Date(eta))}</b>.</span>`;
-    if (margin >= 0) return `<br><span class="rn-good">At your pace about <b>${hm.format(new Date(eta))}</b>, ${dur(margin)} before the cut-off.</span>`;
-    return `<br><span class="rn-warn"><b>At your pace about ${hm.format(new Date(eta))}, after the cut-off.</b> Talk to the aid station team.</span>`;
+    const L = liveEta(S, here.rk, now, nx);
+    if (!L || L.early) return '';
+    if (L.behind) return `<br><span class="rn-warn">${bold(UL('etaBehind'))}</span>`;
+    // The day too, when it isn't today.
+    const at = ymd.format(new Date(L.eta)) === ymd.format(new Date(now)) ? hm.format(new Date(L.eta)) : when(new Date(L.eta)), m = L.margin;
+    if (m == null) return `<br><span class="rn-good">${bold(fill(UL('etaAt'), { time: at }))}</span>`;
+    if (m > -60e3) return `<br><span class="rn-good">${bold(fill(UL(m < 60e3 ? 'etaOn' : 'etaBefore'), { time: at, dur: dur(m) }))}</span>`;  // a minute either way is on it
+    return `<br><span class="rn-warn">${bold(fill(UL('etaLate'), { time: at }))}</span>`;
   }
   function tags(p) {
     const t = [{ start: 'Start', finish: 'Finish', turn: 'Turnaround', aid: 'Aid station', water: 'Water point', emergency: 'Emergency aid', checkpoint: 'Checkpoint' }[p.kind] || 'Aid station'];
@@ -248,13 +280,18 @@
   }
   // Share my location: the race, km and position, by text or WhatsApp (the phone's share sheet).
   function locationText() {
-    return `GPT100 runner location: ${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}${here.w3w ? ` what3words ///${here.w3w}` : here.near ? ` what3words ///${here.near.words} (the course, ${Math.max(3, here.near.m)} m from me)` : ''}`;
+    // Far from the picked course, the race km means little: say so rather than give one.
+    const rl = `${race.label}${race.stages.length > 1 ? ' ' + stage.label : ''}`;
+    return `GPT100 runner location: ${here.offM > 2000 ? `${dist(here.offM)} from the ${rl} course (check which race)` : `${rl}, km ${one(here.rk)}${here.offM > 50 ? ` (${dist(here.offM)} off the course)` : ''}`}. ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)} (GPS ±${Math.round(here.acc)} m). https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}${here.w3w ? ` what3words ///${here.w3w}` : here.near ? ` what3words ///${here.near.words} (the course, ${Math.max(3, here.near.m)} m from me)` : ''}`;
   }
   const fresh = () => here && Date.now() - here.t < 5 * 60e3;
-  function textLink() { $('rnShareMsg').textContent = fresh() ? fill(T().shareReady, { km: one(here.rk), acc: Math.round(here.acc) }) : T().shareHint; }
+  // Far from the picked course the race km means little: say how far, as the shared text does.
+  const farFill = () => ({ dist: dist(here.offM), race: rlab(), acc: Math.round(here.acc), send: T().send });
+  const TF = k => T()[k] || DEF[k];
+  function textLink() { $('rnShareMsg').textContent = !fresh() ? T().shareHint : here.offM > 2000 ? fill(TF('shareFar'), farFill()) : fill(T().shareReady, { km: one(here.rk), acc: Math.round(here.acc) }); }
   $('rnShare').addEventListener('click', async () => {
     // The phone only opens the share sheet straight from a tap, so a new fix needs a second tap.
-    if (!fresh()) { $('rnShareMsg').textContent = T().finding; locate(() => { $('rnShareMsg').textContent = fill(T().found, { km: one(here.rk), acc: Math.round(here.acc), send: T().send }); $('rnShare').textContent = T().send; }); return; }
+    if (!fresh()) { $('rnShareMsg').textContent = T().finding; locate(() => { $('rnShareMsg').textContent = here.offM > 2000 ? fill(TF('foundFar'), farFill()) : fill(T().found, { km: one(here.rk), acc: Math.round(here.acc), send: T().send }); $('rnShare').textContent = T().send; }); return; }
     $('rnShare').textContent = T().share;
     const text = locationText();
     if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
@@ -276,7 +313,7 @@
     let extra = '';
     if (mode === 'runner' && tp != null && tgt) extra = `<p>Your target <b>${esc(tgt)}</b>: finish about <b>${when(new Date(timeAt(S, fin.km, tp)))}</b>.</p>`;
     else if (mode === 'runner') extra = '<p class="fd-hint">Add a target time on the Aid tab to see your splits.</p>';
-    else { const sp = seenPace(); extra = sp ? `<p>Last seen at <b>${esc(P[sp.i].name)}</b> ${when(new Date(sp.at))}. Expected at the finish about <b>${when(new Date(timeAt(S, fin.km, sp.p)))}</b>.</p>` : `<p class="fd-hint">${P.filter(x => x.crew !== 'no').length} crew points. Add where your runner was last seen on the Crew tab.</p>`; }
+    else { const sp = seenPace(); extra = sp ? `<p>Last seen at <b>${esc(P[sp.i].name)}</b> ${when(new Date(sp.at))}. Expected at the finish about <b>${when(new Date(timeAt(S, fin.km, sp.p)))}</b>.</p>${stale(sp) ? `<p class="rn-warn">${stale(sp)}</p>` : ''}` : `<p class="fd-hint">${P.filter(x => x.crew !== 'no').length} crew points. Add where your runner was last seen on the Crew tab.</p>`; }
     if (mode === 'runner' && whereNow && here && Date.now() - here.t < 30 * 60e3) extra += `<p class="rn-hero-now"><span class="rn-dim">Where you were at ${hm.format(new Date(here.t))}:</span><br>${whereNow}</p>`;
     $('rnHero').innerHTML = `<p class="rn-hero-race">${esc(race.label)}${race.stages.length > 1 ? ' · ' + esc(S.label) : ''}</p>
       <p class="rn-hero-count">${count}</p>
@@ -345,10 +382,15 @@
   // year's field where the race has them).
   function targetPace() {
     const S = stage, P = S.points, v = $('rnTarget').value.trim(), m = /^(\d{1,2})(?:[:.h ](\d{1,2}))?$/.exec(v);
-    if (!m) return null;
-    const ms = (+m[1] * 60 + +(m[2] || 0)) * 60000, fin = P[P.length - 1];
+    if (!m || +(m[2] || 0) > 59) return null;
+    const ms = (+m[1] * 60 + +(m[2] || 0)) * 60000, fin = P[P.length - 1], [lo, hi] = targetRange();
+    if (ms < lo || ms > hi) return null;
     return (P[0].ft.getTime() + ms - fin.ft) / (fin.ct - fin.ft);
   }
+  // A sensible target: from half the first runner's time to half as long again as the cut-off allows.
+  function targetRange() { const P = stage.points, fin = P[P.length - 1], t0 = P[0].ft.getTime(); return [Math.max(60e3, (fin.ft - t0) / 2), (fin.ct - t0) * 1.5]; }
+  const hmm = ms => { const m = Math.round(ms / 60000); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
+  const targetHint = () => { const [lo, hi] = targetRange(); return `Type a time between ${hmm(Math.ceil(lo / 60000) * 60000)} and ${hmm(Math.floor(hi / 60000) * 60000)} (hours:minutes).`; };
   function seenPace() {
     const S = stage, P = S.points, i = +$('rnSeenAt').value, t = $('rnSeenTime').value;
     if (!i || !t) return null;
@@ -363,16 +405,18 @@
     }
     return { p: paceAt(S, p.km, best.at), i, at: best.at };
   }
+  // A last seen more than 6 hours ago makes a shaky estimate: say so.
+  const stale = sp => { const ago = Date.now() - sp.at; return ago > 6 * 3600e3 && sp.at < stage.points[stage.points.length - 1].ct.getTime() ? `That was ${dur(ago)} ago, so this estimate may be well out. Update where they were last seen.` : ''; };
   function plan() {
     if (!stage) return;
     const S = stage, P = S.points, crew = mode === 'crew';
-    let p = targetPace(), note = '';
-    const seen = crew ? seenPace() : null;
-    if (seen) { p = seen.p; $('rnSeenMsg').textContent = `Expected times below are from ${P[seen.i].name} at ${when(new Date(seen.at))}.`; }
-    else $('rnSeenMsg').textContent = '';
-    if (p != null) note = p < -0.05 ? 'Faster than our first-runner estimate.' : p > 1 ? 'Slower than the cut-offs allow.' : '';
-    $('rnTargetMsg').textContent = p == null ? 'Add a time (hours:minutes) to see when you\'d reach each one.' : note;
-    $('rnTargetMsg').classList.toggle('bad', p != null && p > 1);
+    const tp = targetPace(), tv = $('rnTarget').value.trim(), seen = crew ? seenPace() : null, p = seen ? seen.p : tp;
+    const note = p == null ? '' : p < -0.05 ? 'Faster than our first-runner estimate.' : p > 1 ? 'Slower than the cut-offs allow.' : '';
+    // For crews going by where the runner was last seen, the note goes there, not by the target time box.
+    $('rnSeenMsg').textContent = seen ? `Expected times below are from ${P[seen.i].name} at ${when(new Date(seen.at))}. ${note} ${stale(seen)}`.trim() : '';
+    $('rnSeenMsg').classList.toggle('rn-warn', !!seen && (p > 1 || !!stale(seen)));
+    $('rnTargetMsg').textContent = seen ? '' : tv && tp == null ? targetHint() : p == null ? 'Add a time (hours:minutes) to see when you\'d reach each one.' : note;
+    $('rnTargetMsg').classList.toggle('bad', !seen && (!!tv && tp == null || p > 1));
     let last = null;
     const rows = P.map((x, i) => {
       if (crew && x.crew === 'no' && i && i < P.length - 1) return '';
@@ -504,6 +548,8 @@
     const el = $('fdOffline');
     if (!OM || !OM.available()) { el.hidden = true; return; }
     const st = await OM.status(), mb = Math.round(OM.bytes / 1e6);
+    // During the race the race status comes first: the card goes below the quick buttons.
+    const on = raceOn(); if (on !== (el.previousElementSibling === document.querySelector('.rn-quick'))) on ? document.querySelector('.rn-quick').after(el) : $('rnHero').before(el);
     el.hidden = false;
     if (saving) return;
     if (st.saved) { el.className = 'fd-offline ok'; el.innerHTML = '<span class="fd-tick">✓</span> Map saved for use without signal.'; return; }
@@ -520,6 +566,9 @@
       <button id="fdSaveMap" class="fd-big" type="button">Save map for offline</button><div class="fd-bar" hidden><i></i></div><p class="fd-hint" id="fdSaveMsg"></p>`;
     $('fdSaveMap').onclick = () => saveMap($('fdSaveMap'), el.querySelector('.fd-bar'), $('fdSaveMsg'));
   }
+
+  // Race weekend, from the first start to the last cut-off of any race.
+  const raceOn = () => { const now = Date.now(); return R.races.some(r => stagesOf(r).some(S => now > S.points[0].ft.getTime() && now < S.points[S.points.length - 1].ct.getTime())); };
 
   // ---------- intro (first time, and from the ? button) ----------
   let introStep = -1;
@@ -568,17 +617,20 @@
     if ($('rnInstall')) $('rnInstall').onclick = async () => { installPrompt.prompt(); const c = await installPrompt.userChoice.catch(() => null); installPrompt = null; $('rnInstallMsg') && ($('rnInstallMsg').textContent = c && c.outcome === 'accepted' ? 'Installed. You can open it from your home screen.' : ''); };
     if ($('rnIntroSave')) $('rnIntroSave').onclick = () => saveMap($('rnIntroSave'), body.querySelector('.fd-bar'), $('rnIntroSaveMsg'));
   }
-  $('rnIntroNext').onclick = () => { if (introStep >= STEPS - 1) introClose(); else { introStep++; introDraw(); } };
-  $('rnIntroBack').onclick = () => { if (introStep > 0) { introStep--; introDraw(); } };
+  // A quick double tap shouldn't skip a step.
+  let introT = 0; const slow = () => { const n = Date.now(), ok = n - introT > 450; if (ok) introT = n; return ok; };
+  $('rnIntroNext').onclick = () => { if (!slow()) return; if (introStep >= STEPS - 1) introClose(); else { introStep++; introDraw(); } };
+  $('rnIntroBack').onclick = () => { if (introStep > 0 && slow()) { introStep--; introDraw(); } };
   $('rnIntroSkip').onclick = introClose;
   $('rnHelpIntro').onclick = introOpen;
 
   // ---------- start ----------
+  const RUN_HINT = 'Tap ◎ on the map to see where you are and how far to the next aid station. Drag along the profile to see any point.';
   initMap();
   $('rnChangeRace').onclick = () => { setTab('home'); $('rnRace').focus(); };
-  profile = GPTProfile({ height: 118, summary: () => whereNow,
+  profile = GPTProfile(profOpts = { height: 118, summary: () => whereNow,
     el: $('rnProf'), course: engineFor(R.stages[race.stages[0]]) || MAIN, map: () => map, who: 'you',
-    empty: 'Tap ◎ on the map to see where you are and how far to the next aid station. Drag along the profile to see any point.',
+    empty: RUN_HINT,
     window: En => stage && En === E() ? { k0: stage.points[0].gk, k1: stage.points[stage.points.length - 1].gk } : null,
     km: { toRace: k => stage ? toRace(stage, k) : k, toCourse: k => stage ? toCourse(stage, k) : k },
     title: () => !stage ? '' : `${race.short}${race.stages.length > 1 ? ' ' + stage.label : ''}: ${one(stage.points[stage.points.length - 1].km)} km`
@@ -592,7 +644,8 @@
   setMode(mode);
   setTab(tab);
   offlineCard();
-  if (!store.get('introDone', false)) introOpen();
+  // Opened for the first time mid-race (a crew sent the link): straight to the race, the intro is on the ? button.
+  if (!store.get('introDone', false) && !raceOn()) introOpen();
   let rz = null; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (map) map.invalidateSize(); }, 200); });
   function netStatus() { $('net').hidden = navigator.onLine; }
   addEventListener('online', netStatus); addEventListener('offline', netStatus); netStatus();
