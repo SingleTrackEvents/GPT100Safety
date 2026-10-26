@@ -113,11 +113,17 @@
   // between the first runner's and the final cut-off; with fitted splits (stage.fit) the time at each point is that
   // finish time times the point's share of it, plus the time for any new km on the course before the point.
   // Without them it's the same blend of the first runner's time and the cut-off at every point.
+  // The fit is last year's finishers, and the early cut-offs are far more generous than any of them needed: it
+  // can't put anyone on those cut-offs at all. So from pace FIT_TO the times move over to the blend, reaching it at
+  // 1: a runner (or a sweep) on cut-off pace is due at each cut-off. The finish time is the same either way.
+  const FIT_TO = 0.75;
   const pointTime = (S, k, p) => {
-    if (!S.fit) return k.ft.getTime() + p * (k.ct - k.ft);
+    const blend = k.ft.getTime() + p * (k.ct - k.ft);
+    if (!S.fit) return blend;
     const P = S.points, start = P[0].ft.getTime(), fin = P[P.length - 1], T = fin.ft.getTime() + p * (fin.ct - fin.ft) - start, hours = T / 3600e3;
     const kmMs = S.fit.minPerKm * 60000 * (hours / S.fit.leaderHours);
-    return start + (k.sh.a + k.sh.b * hours) * (T - S.fit.newKm * kmMs) + k.nk * kmMs;
+    const fit = start + (k.sh.a + k.sh.b * hours) * (T - S.fit.newKm * kmMs) + k.nk * kmMs, w = Math.max(0, Math.min(1, (p - FIT_TO) / (1 - FIT_TO)));
+    return fit + w * (blend - fit);
   };
   // Expected time of day at a race km for a pace p, in proportion between the points either side.
   const timeAt = (S, rk, p) => { const P = S.points; let i = 1; while (i < P.length - 1 && P[i].km < rk) i++; const a = P[i - 1], b = P[i], f = (rk - a.km) / ((b.km - a.km) || 1); const ta = pointTime(S, a, p), tb = pointTime(S, b, p); return ta + (tb - ta) * Math.max(0, Math.min(1, f)); };
@@ -129,6 +135,7 @@
     if (!S.fit) { const lo = timeAt(S, rk, 0), hi = timeAt(S, rk, 1); return hi > lo ? (t - lo) / (hi - lo) : 0; }
     let lo = -1, hi = 3;
     if (timeAt(S, rk, hi) <= timeAt(S, rk, lo)) return 0;
+    while (hi < 48 && timeAt(S, rk, hi) < t) hi *= 2;
     for (let n = 0; n < 40; n++) { const m = (lo + hi) / 2; if (timeAt(S, rk, m) < t) lo = m; else hi = m; }
     return (lo + hi) / 2;
   };
