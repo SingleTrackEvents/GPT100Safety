@@ -167,7 +167,7 @@
   // ---------- where am I ----------
   // Snap to whichever course is nearest (the GPT100, or the 14k when it's clearly closer).
   // near: the stored words of the nearest course point (data/course-w3w.js), for when there's no signal.
-  const setHere = (E, ic, lat, lon, o) => { here = Object.assign({ lat, lon, E, r: E.assess(ic), offM: 0, gps: null, t: Date.now(), w3w: null, near: E.nearW3w(lat, lon), w3wDone: false }, o); };
+  const setHere = (E, ic, lat, lon, o) => { here = Object.assign({ lat, lon, E, r: E.assess(ic, clock()), offM: 0, gps: null, t: Date.now(), w3w: null, near: E.nearW3w(lat, lon), w3wDone: false }, o); };
   function shown() { render(); keep(); lookupW3w(here.lat, here.lon); }
   function place(lat, lon, gps, o) {
     let best = null;
@@ -180,7 +180,7 @@
     // Where the course passes the same spot twice (Jimmy Creek), the card takes the race's pass (from your last
     // fix, or the race clock), so the course km and the race km agree.
     const rp = racePos(), q = rp && rp.E === E && rp.ic !== here.r.ic ? E.route[rp.ic] : null;
-    if (q && E.metres([lat, lon], [q[0], q[1]]) <= here.offM + 25) here.r = E.assess(rp.ic);
+    if (q && E.metres([lat, lon], [q[0], q[1]]) <= here.offM + 25) here.r = E.assess(rp.ic, clock());
     shown();
   }
   // A typed km is the picked race's km (race km, as on the Race tab), put on that race's course.
@@ -339,7 +339,7 @@
       if (!x) return;
       h += `<div class="fd-way"><b>${l}: ${esc(x.a.name)}</b><span>${one(x.distKm)} km, about ${E.fmt(x.walk)} on foot${x.a.w3w ? ` · <a href="https://w3w.co/${esc(x.a.w3w)}" target="_blank" rel="noopener">///${esc(x.a.w3w)}</a>` : ''}</span></div>`;
     });
-    h += `<p class="fd-hint">The team that would come to you: <b>${esc(r.best.base.name)}</b>, about ${E.fmt(r.best.total)}.</p>`;
+    h += `<p class="fd-hint">The team that would come to you: <b>${esc(r.best.base.name)}</b>, about ${E.fmt(r.best.total)}${r.night ? ' (night times)' : ''}.</p>`;
     if (S.tier === 'off') h = `<p class="notice warn">You're ${dist(here.offM)} off the course. These times assume you get back onto the course at km ${one(r.km)} first.</p>` + h;
     $('fdOutWay').innerHTML = h;
     // Track grade here, what a carry-out crosses, the nearest emergency marker and helipad (Parks Victoria access maps).
@@ -445,7 +445,7 @@
       here.w3w ? `what3words ///${here.w3w}` : here.near ? `what3words ///${here.near.words} (${savedNote()})` : '',
       `Map: https://maps.google.com/?q=${here.lat.toFixed(5)},${here.lon.toFixed(5)}`,
       w ? `Nearest vehicle access: ${E.cleanName(w.a)}${E.isGated(w.a) ? ' (gated)' : ''}, ${one(w.walkKm)} km walk.` : '',
-      urgent && !long ? `Fastest team: ${r.best.base.name}, about ${E.fmt(r.best.total)}.` : '',
+      urgent && !long ? `Fastest team: ${r.best.base.name}, about ${E.fmt(r.best.total)}${r.night ? ', night times' : ''}.` : '',
       !long && window.GPTTrack ? GPTTrack.line(r, E, { vehicle: w }) : '',
       `Sent ${tf.format(new Date())} from GPT100 Field.`
     ];
