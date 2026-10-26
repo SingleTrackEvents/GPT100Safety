@@ -38,7 +38,7 @@
   <section id="tab-find" class="tab on" role="tabpanel">
     <div class="find-layout">
       <div class="find-panel">
-        <form id="findForm" class="search" autocomplete="off" onsubmit="return false">
+        <form id="findForm" class="search" autocomplete="off" onsubmit="if(!window.GPT_UI){window.findEarly=1;document.getElementById('qMsg').textContent='Loading. Your search will run as soon as the app is ready.'}return false">
           <label for="q" class="search-label">Where is the casualty?</label>
           <div class="search-row">
             <input id="q" type="text" enterkeyhint="search" placeholder="Km, coordinates, what3words or #bib">
@@ -51,7 +51,7 @@
           <p id="qMsg" class="msg" role="status"></p>
           <div id="w3wSug" class="sug-list" hidden></div>
         </form>
-        <div id="result">
+        <div id="result" aria-live="polite">
           <div class="empty">
             <p><b>Type what you've been told.</b> The app works out which team to send, where to park and how long it will take.</p>
             <ul>

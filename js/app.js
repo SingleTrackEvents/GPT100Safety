@@ -18,7 +18,7 @@
 
   // ---------- Tabs ----------
   function showTab(name) {
-    document.querySelectorAll('.tab-btn').forEach(b => {
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(b => {
       const on = b.dataset.tab === name; b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
     });
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
@@ -67,7 +67,7 @@
   // Layers from the layers button: helicopter landing sites on by default, the Parks Victoria markers off until wanted.
   if (window.GPTHelipads) GPTHelipads.overlay(map, true);
   if (window.GPTTrack) { GPTBaseMap.overlay(map, 'Emergency markers', GPTTrack.overlay(['emergency']), false); GPTBaseMap.overlay(map, 'Camps and assembly areas', GPTTrack.overlay(['camp', 'assembly']), false); }
-  G.BASES.forEach(b => L.marker([b.lat, b.lon], { icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b><br>${w3wLink(G.data.bases_w3w && G.data.bases_w3w[b.key])}`).addTo(map));
+  G.BASES.forEach(b => L.marker([b.lat, b.lon], { icon: pin(b.color, 22), zIndexOffset: 500, title: b.name + ' base' }).bindPopup(`<b>${esc(b.name)} base</b><br>${w3wLink(G.data.bases_w3w && G.data.bases_w3w[b.key])}`).addTo(map));
 
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = () => {
@@ -113,11 +113,11 @@
     const line = L.polyline(courseLL, { color: '#d9531e', weight: 4, opacity: .95 }).addTo(courseLayer);
     G.ACCESS.forEach(a => {
       if (G.main && a.aid) return;
-      L.marker([a.lat, a.lon], { icon: pin(G.isGated(a) ? '#6d3b8e' : '#888', 10) })
+      L.marker([a.lat, a.lon], { icon: pin(G.isGated(a) ? '#6d3b8e' : '#888', 10), title: G.cleanName(a) + (G.isGated(a) ? ' (gated)' : '') })
         .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m walk to course' : ''}${a.note ? '<br>' + esc(a.note) : ''}<br>${w3wLink(a.w3w)}`)
         .addTo(courseLayer);
     });
-    G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14) }).bindPopup(`<b>${esc(a.name)}</b><br>${stopKind(a)}, ${kmTxt(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(courseLayer));
+    G.AID.forEach(a => L.marker([a.lat, a.lon], { icon: pin('#111', 14), title: a.name }).bindPopup(`<b>${esc(a.name)}</b><br>${stopKind(a)}, ${kmTxt(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(courseLayer));
     if (fit) map.fitBounds(line.getBounds().pad(0.05));
   }
   function stopKind(a) {
@@ -197,7 +197,8 @@
   // Coordinates as decimal degrees, degrees and minutes, or degrees, minutes and seconds, with or without
   // N/S/E/W ("-37.294, 142.601", "-37° 17.640', 142° 36.060'", "37 17 38.4 S 142 36 3.6 E"). Null if it isn't that shape.
   function parseLL(v) {
-    const t = v.toUpperCase().replace(/[°º'′"″]/g, ' ').trim();
+    // A trailing altitude from a GPS app ("-37.294, 142.601, 820") is dropped.
+    const t = v.toUpperCase().replace(/[°º'′"″]/g, ' ').trim().replace(/^([+-]?\d+\.\d+\s*,\s*[+-]?\d+\.\d+)\s*,\s*[+-]?\d+(?:\.\d+)?\s*M?$/, '$1');
     if (!/^[\d\s.,;+\-NSEW]+$/.test(t)) return null;
     const toks = t.match(/[NSEW]|[+-]?\d+(?:\.\d+)?|[,;]|\s+|./g);
     if (toks.some(x => x === '.' || /^[+-]$/.test(x))) return null;
@@ -241,7 +242,8 @@
   }
 
   function parseQuery(raw) {
-    const v = raw.normalize('NFKC').trim();
+    // Paste junk: Unicode minus, zero-width and non-breaking spaces.
+    const v = raw.normalize('NFKC').replace(/[\u2212\u2010\u2011\uFE63\uFF0D]/g, '-').replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, '').replace(/[\u00A0\u2007\u202F]/g, ' ').trim();
     if (!v) return null;
     const w = v.replace(/^what3words:\/\//i, '').replace(/^\/+/, '');
     if (/^[\p{L}]+\.[\p{L}]+\.[\p{L}]+$/u.test(w)) return { type: 'w3w', words: w.toLowerCase() };
@@ -252,6 +254,7 @@
       if (r && (tagged || +bm[1] > G.totalKm + TOL)) return r.pos ? { type: 'bib', r } : { type: 'error', msg: `Bib ${bm[1]} (${r.name}) has no position yet from the tracker or the timing chips` };
       if (tagged) return { type: 'error', msg: GPTTracking.ready() ? `No bib ${bm[1]} in the tracking feed` : 'Tracking is still loading, try again in a moment' };
     }
+    if (bm && /^(#|bib|runner)/i.test(v) && !window.GPTTracking) return { type: 'error', msg: 'Live tracking isn\'t available here, so bibs can\'t be looked up. Ask for the km or coordinates.' };
     // Coordinates count only when they land within 20 km of the course; anything further is a misread.
     let far = null;
     const ll = parseLL(v);
@@ -268,9 +271,10 @@
         far = off;
       } else far = Infinity;
     }
-    // A km: "87.3", "km 87.3", "87.3km", or a decimal comma ("87,3" or "87, 3").
-    let m = v.match(/^(?:km\s*)?(-?\d+(?:[.,]\d+)?)\s*(?:km)?$/i) || v.match(/^(\d+)\s*,\s*(\d+)$/);
-    if (m) return kmQuery(+(m[2] != null ? m[1] + '.' + m[2] : m[1].replace(',', '.')), race);
+    // A km: "87.3", "km 87.3", "87.3km", ".5", "87." or a decimal comma with no space and 1 or 2 digits ("87,3").
+    // Anything else with a comma ("37, 142") went through the coordinates above.
+    const m = v.match(/^(?:km\s*)?(-?(?:\d+(?:\.\d*|,\d{1,2})?|\.\d+))\s*(?:km)?$/i);
+    if (m) return kmQuery(+m[1].replace(',', '.'), race);
     if (/^(?:km\s*)?\d+(?:[.,]\d+)?\s*(?:-|\u2013|to)\s*\d+(?:[.,]\d+)?\s*(?:km)?$/i.test(v)) return { type: 'error', msg: 'Give one km, not a range' };
     if (far != null) return { type: 'error', msg: isFinite(far) ? `That reads as coordinates ${Math.round(far / 1000).toLocaleString()} km from the course. Check them with the caller, or type one km (e.g. 87.3).` : 'Those coordinates don\'t look right' };
     // Free text: a stage ("stage 2 km 10") picks that race, and a km is taken only when exactly one number is marked as km.
@@ -282,19 +286,24 @@
       if (!r) return { type: 'error', msg: 'Pick the runner\'s race above, then type their km' };
       txt = v.replace(st[0], ' ');
     }
-    const kms = [...new Set([...txt.matchAll(/\bkm\s*(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s*km\b/gi)].map(x => +(x[1] || x[2]).replace(',', '.')))];
-    if (kms.length === 1) {
-      const q = kmQuery(kms[0], r);
-      if (q.type === 'km') { q.note = `Read as ${isSub(r) ? r.label + ' ' : ''}km ${kms[0]}`; if (r !== race) q.race = r.id; }
+    // More than one number anywhere ("runner 3 km 20", "km 1e2") is refused, not guessed.
+    // "km 20" counts; "20 km" only at the end or before punctuation, since "2 km past Halls Gap" is a distance from a place.
+    const nums = txt.match(/\d+(?:\.\d+|,\d{1,2}(?!\d))?|\.\d+/g) || [];
+    if (nums.length > 1) return { type: 'error', msg: 'That has more than one number in it. Type just the one km (e.g. 87.3).' };
+    const n1 = nums[0], km = n1 && (txt.match(/\bkm\s*(\d+(?:\.\d+|,\d{1,2})?|\.\d+)/i) || txt.match(/(\d+(?:\.\d+|,\d{1,2})?|\.\d+)\s*km\s*(?:$|[,.;:!?)])/i));
+    if (km) {
+      const q = kmQuery(+km[1].replace(',', '.'), r);
+      if (q.type === 'km') { q.note = `Read as ${isSub(r) ? r.label + ' ' : ''}km ${km[1]}`; if (r !== race) { q.race = r.id; q.note += `, for this search only. The race picker stays on ${race.label}.`; } }
       return q;
     }
-    if (kms.length > 1) return { type: 'error', msg: 'That has more than one km in it. Type just the one km.' };
+    if (n1 && /km/i.test(txt)) return { type: 'error', msg: `That reads as a distance from somewhere, not a course km. Ask for the course km, coordinates or what3words.` };
     if (st) return { type: 'error', msg: 'Pick the runner\'s race above, then type their km' };
-    return { type: 'error', msg: 'Enter a km, coordinates (lat, lon), ///word.word.word or a bib (#1047)' };
+    return { type: 'error', msg: ENTER() };
   }
+  const ENTER = () => 'Enter a km, coordinates (lat, lon) or ///word.word.word' + (window.GPTTracking ? ', or a bib (#1047)' : '');
   // A km in race r (or on the course being viewed), as GPT100 km, clamped to the course.
   function kmQuery(km, r) {
-    if (!isFinite(km)) return { type: 'error', msg: 'Enter a km, coordinates (lat, lon), ///word.word.word or a bib (#1047)' };
+    if (!isFinite(km)) return { type: 'error', msg: ENTER() };
     if (isSub(r)) {
       const len = r.end - r.start;
       if (km < 0 || km > len + TOL) return { type: 'error', msg: `${r.label} km must be between 0 and ${len.toFixed(1)} (the finish)` };
@@ -317,8 +326,9 @@
     if (!q) { fail('Type a km, coordinates or what3words first'); return; }
     if (q.type === 'error') { fail(q.msg); return; }
     setMsg(q.note || '', !!q.note);
-    if (q.race) setRace(q.race, false);
-    if (q.type === 'km') findKm(q.km);
+    // A typed stage applies to this search only: the picker keeps the runner's race.
+    if (q.race) { const keep = race; race = RACES.find(x => x.id === q.race); try { findKm(q.km); } finally { race = keep; } }
+    else if (q.type === 'km') findKm(q.km);
     else if (q.type === 'll') findLL(q.lat, q.lon, 'coordinates');
     else if (q.type === 'bib') findBib(q.r);
     else lookupW3W(q.words);
@@ -465,12 +475,14 @@
       ? `between ${r.aid.prev.a.name} and ${r.aid.next.a.name}` : '';
     const pos = r.q.lat != null ? `${r.q.lat.toFixed(5)}, ${r.q.lon.toFixed(5)}` : `${r.lat.toFixed(5)}, ${r.lon.toFixed(5)}`;
     const also = r.alsoKm.length ? ` (course passes here again at ${r.alsoKm.map(kmTxt).join(', ')})` : '';
-    const at = r.raceKm != null ? `${race.label} km ${one(r.raceKm)} (${G.name} ${kmTxt(r.km)})` : kmTxt(r.km);
+    const at = r.raceKm != null ? `${r.race} km ${one(r.raceKm)} (${G.name} ${kmTxt(r.km)})` : kmTxt(r.km);
     let s = `${G.name} medical. Casualty at ${at}${also}${where ? ', ' + where : ''}.\n` +
       (r.casW3w ? `Casualty what3words ///${r.casW3w}.\n` : '') +
       `Send ${b.base.name} team. Drive to ${G.cleanName(a)}${a.w3w ? ' ///' + a.w3w : ''}${G.isGated(a) ? ' (gated, take keys)' : ''}, about ${G.fmt(b.drive)}. ` +
       (b.walkKm < 0.05 ? 'The casualty is right by the parking spot.\n' : `Walk in ${one(b.walkKm)} km, about ${G.fmt(b.walk)}.\n`) +
       `ETA to casualty ${G.fmt(b.total)}.`;
+    if (r.exAlt) s += ` Fastest carry-out to ${G.cleanName(r.exAlt.a)}${G.isGated(r.exAlt.a) ? ' (gated)' : ''}, ${kmTxt(r.exAlt.joinKm)}, about ${G.fmt(r.exAlt.carry)}.`;
+    if (r.longJob) s += ` Long job: about ${G.fmt(r.longJob)} with the carry-out, think about a helicopter.`;
     if (r.backup) s += ` Backup ${r.backup.base.name} team, ${G.fmt(r.backup.total)}.`;
     const so = window.MedPlan && window.MedPlan.soLine ? window.MedPlan.soLine(r) : '';
     if (so) s += '\n' + so;
@@ -513,6 +525,7 @@
     const b = r.best, a = b.a, base = b.base;
     // The fastest carry-out, to another exit when that's at least 5 min quicker than back to the team's vehicle.
     const ex = r.exit && r.exit.a !== a && r.exit.carry < b.carry - 5 ? r.exit : null, carry = ex ? ex.carry : b.carry;
+    r.exAlt = ex; r.longJob = b.total <= C.redMin && b.total + carry > LONG_MIN ? b.total + carry : 0;
     let h = '';
     if (isSub()) {
       h += r.raceKm != null
@@ -651,7 +664,7 @@
     // The walk to the course: this course's mapped walking route, else the access point's own track.
     const walk = (b.connGeom || (a.conn_geom && a.conn_geom.length > 1 ? a.conn_geom : [accLL])).concat(along);
     L.polyline(walk, { color: '#1666c9', weight: 6, opacity: .95, dashArray: '1,8', lineCap: 'round' }).addTo(resultLayer);
-    L.marker(accLL, { icon: pin(b.base.color, 16), zIndexOffset: 800 }).bindPopup(`<b>Park here</b><br>${esc(G.cleanName(a))}<br>${w3wLink(a.w3w)}`).addTo(resultLayer);
+    L.marker(accLL, { icon: pin(b.base.color, 16), zIndexOffset: 800, title: 'Park here: ' + G.cleanName(a) }).bindPopup(`<b>Park here</b><br>${esc(G.cleanName(a))}<br>${w3wLink(a.w3w)}`).addTo(resultLayer);
     if (r.q.lat != null && r.q.offM > 60) L.polyline([[r.q.lat, r.q.lon], ll], { color: '#111', weight: 1.5, dashArray: '3,4' }).addTo(resultLayer);
     casMarker = L.circleMarker(ll, { radius: 10, color: '#111', weight: 3, fillColor: '#ffd21f', fillOpacity: 1 })
       .bindPopup(`<b>Casualty</b><br>${kmTxt(r.km)}${r.casW3w ? '<br>' + w3wLink(r.casW3w) : ''}`).addTo(resultLayer);
@@ -684,8 +697,18 @@
     setCourse(cm ? cm[1] : window.GPT.id);
     if (RACES.length) setRace(rm ? rm[1] : RACES[0].id, false);
     let m;
-    if ((m = h.match(/^km=([\d.]+)/))) { $('q').value = m[1]; if (+m[1] <= G.totalKm + TOL) findKm(+m[1]); else fail(`Km must be between 0 and ${G.totalKm}`); }
-    else if ((m = h.match(/^ll=(-?[\d.]+),(-?[\d.]+)/))) { $('q').value = m[1] + ', ' + m[2]; findLL(+m[1], +m[2], 'shared link'); }
+    if (/^km=/.test(h)) {
+      m = h.match(/^km=(\d+(?:\.\d+)?)(?=&|$)/); $('q').value = m ? m[1] : '';
+      if (m && +m[1] <= G.totalKm + TOL) findKm(+m[1]); else fail(`That link's km isn't valid. Km must be between 0 and ${G.totalKm}.`);
+    }
+    else if (/^ll=/.test(h)) {
+      // A shared spot gets the same 20 km rule as a typed one.
+      m = h.match(/^ll=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?=&|$)/);
+      const off = m && Math.abs(m[1]) <= 90 && Math.abs(m[2]) <= 180 ? G.snap(+m[1], +m[2]).offM : Infinity;
+      if (m) $('q').value = m[1] + ', ' + m[2];
+      if (off <= 20000) findLL(+m[1], +m[2], 'shared link');
+      else fail(isFinite(off) ? `That link's spot is ${Math.round(off / 1000).toLocaleString()} km from the ${G.name} course. Check it with whoever sent it.` : 'That link\'s coordinates don\'t look right');
+    }
     // A runner's bib, from the map page or a shared link: opens once the tracking feed has their position.
     else if ((m = h.match(/^bib=(\d+)/)) && window.GPTTracking) {
       $('q').value = '#' + m[1];
@@ -700,6 +723,8 @@
   }
   fromHash();
   addEventListener('hashchange', fromHash);
+  // Find pressed before the scripts had loaded (index.html sets the flag): run it now.
+  if (window.findEarly) { window.findEarly = 0; if ($('q').value.trim()) $('findForm').requestSubmit(); else setMsg(''); }
 
   // ---------- First-time intro and how-to (js/intro.js; the ? button reopens it) ----------
   if (window.GPTIntro) GPTIntro({
