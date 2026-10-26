@@ -51,7 +51,11 @@ self.addEventListener('install', e => {
       // A stale copy of a page (an old CDN copy mid-deploy) would ask for another build's files: try again later instead.
       for (const u of PAGES.filter(u => /(\/|\.html)$/.test(u))) {
         const r = await c.match(u), b = r && buildOf(await r.text());
-        if (b && b !== BUILD) { await caches.delete(VERSION); throw new Error('page ' + u + ' is build ' + b); }
+        if (b && b !== BUILD) {
+          // Marked, so the worker in charge keeps to its own saved files meanwhile (the server already has this build's).
+          await caches.delete(VERSION); await pre.put(STALE, new Response(String(Date.now())));
+          throw new Error('page ' + u + ' is build ' + b);
+        }
       }
     }),
     caches.open(LIB).then(c => Promise.all(LIBS.map(u => caches.match(u).then(hit => hit ? c.put(u, hit) : c.add(u)).catch(() => { }))))
@@ -93,6 +97,10 @@ const remember = (s, id, v) => { s instanceof Map ? s.set(id, v) : s.add(id); if
 // Once the server has a newer build, its answers for this build's addresses are the newer files, so this
 // build's files then come from the cache only. (Found again from the caches when the worker restarts.)
 let newer = caches.keys().then(ks => ks.some(ahead));
+// Also true as soon as a newer build's worker starts installing (it opens its cache first), even before a page of it is seen.
+const isNewer = () => newer.then(n => n || caches.keys().then(ks => ks.some(ahead)));
+// When a newer build's install last found stale pages (see install).
+const STALE = '/__stale', staleSince = () => caches.keys().then(ks => Promise.all(ks.filter(ahead).map(k => caches.open(k).then(c => c.match(STALE)).then(r => r ? r.text() : 0)))).then(v => Math.max(0, ...v.map(Number)));
 const buildOf = html => (html.match(/\?v=(\d+)"/) || [])[1];
 
 // Network first, but answer from the cache when the network hasn't answered in `wait` ms. With nothing saved,
@@ -146,7 +154,8 @@ async function page(e, req, url) {
   const b = buildOf(html) || BUILD;
   if (b === BUILD) {
     // The server is on this build (a newer one was taken back): files fetched ahead for that one go.
-    if (await newer) { newer = Promise.resolve(false); await caches.keys().then(ks => Promise.all(ks.filter(ahead).map(k => caches.delete(k)))); }
+    // Not while a newer build's worker is still waiting on stale pages (a half-finished deploy), for up to an hour.
+    if (await newer && !(await staleSince() > Date.now() - 3600e3)) { newer = Promise.resolve(false); await caches.keys().then(ks => Promise.all(ks.filter(ahead).map(k => caches.delete(k)))); }
     await c.put(key, res.clone());
     return res;
   }
@@ -189,12 +198,12 @@ async function file(e, req, url) {
     } catch (err) { return none(); }
   }
   const hit = await look(VERSION);
-  if (hit && (fromCache.has(e.clientId) || await newer)) return hit;
+  if (hit && (fromCache.has(e.clientId) || await isNewer())) return hit;
   // This build's file: the network if it answers quickly (an update without a new build lands straight away), else
   // the saved copy, which a late answer still updates. With nothing saved, the network after all.
   const net = timed(req, { cache: 'no-cache' }), got = net.then(res => {
     down = false; heard = Date.now();
-    if (res.ok) { const copy = res.clone(); e.waitUntil(newer.then(n => n || caches.open(VERSION).then(c => c.put(req, copy)))); }
+    if (res.ok) { const copy = res.clone(); e.waitUntil(isNewer().then(n => n || caches.open(VERSION).then(c => c.put(req, copy)))); }
     return res;
   });
   e.waitUntil(got.catch(() => { }));
