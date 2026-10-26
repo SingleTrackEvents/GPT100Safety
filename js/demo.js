@@ -136,27 +136,41 @@
   }
 
   // ---------- the timing list (RaceResult shape) ----------
-  const tod = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
-  const stamp = ms => { const p = {}; tod.formatToParts(new Date(ms)).forEach(x => { p[x.type] = x.value; }); return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`; };
+  // As the timing team's list sends it: a plain array of rows, the contest by name, Status and Place (DNF in both),
+  // one column per timing reader (In and Out at the aid stations; no reader at the Ridgeline or Stockyard Track) as a
+  // time of day, D:HH:MM:SS once past midnight of the start day, then Time (elapsed) and Diff. The demo's start day is
+  // today's, so it sets tracking.chipDay to anchor them (on race day the start days come from data/races.js).
+  const COLS = [['Start'], ['CopperMineTrack', 'Copper Mine'], ['GARIN', 'GAR'], ['GAROUT', 'GAR', 1], ['MTDifficultRd', 'Mt Difficult Rd'], ['HallsGapIn', 'Halls Gap'], ['HallsGapOut', 'Halls Gap', 1],
+    ['RoseaCP', 'Mt Rosea'], ['BoroughHutsIn', 'Borough Huts'], ['BoroughHutsOut', 'Borough Huts', 1], ['MtWilliamIn', 'Mt William'], ['MtWilliamOut', 'Mt William', 1], ['JimmyCreekIn', 'Jimmy Creek Camp'],
+    ['JimmyCreekOut', 'Jimmy Creek Camp', 1], ['YarramGap', 'Yarram Gap'], ['GriffinFirelineIN', 'Griffin'], ['GriffinFirelineOut', 'Griffin', 1], ['CassidysGap', 'Cassidys'], ['BainggugCPIN', 'Bainggug'],
+    ['BainggugCPOut', 'Bainggug', 1], ['Finish']];
+  const FEED_NAME = { 'GPT100 Miler': 'GPT100 Solo/Pairs' };
+  const mel = ms => ms + 11 * 3600e3, two = n => String(n).padStart(2, '0');
+  const hms = ms => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 3600)}:${two(Math.floor(s / 60) % 60)}:${two(s % 60)}`; };
   function timing() {
-    const now = simNow();
-    const cols = PTS.map((p, i) => i === 0 ? 'Start' : i === PTS.length - 1 ? 'Finish' : p.name);
-    const data = {};
-    RUN.forEach(r => {
-      const km = kmAt(r, now);
-      let status = '';
-      if (r.kase === 'dnf' && now >= r.tCase) status = 'DNF';
-      else if (now >= r.tFinish) status = 'Finished';
-      const times = PTS.map(p => {
-        if (km == null || p.km < r.k0 - 0.05 || p.km > r.k1 + 0.05 || p.km > km + 1e-6) return '';
-        if (r.kase === 'missed' && Math.abs(p.km - r.caseKm) < 0.05) return '';
-        const c = r.T0 + timeTo(r.k0, p.km, r.f);
-        return c <= now ? stamp(realOf(c)) : '';
-      });
-      const key = `#${Object.keys(R.contests).indexOf(r.contest) + 1}_${r.contest}`;
-      (data[key] = data[key] || []).push([r.bib, r.name, r.contest, status].concat(times));
+    const now = simNow(), day0 = Math.min(...RUN.map(r => Math.floor(mel(realOf(r.T0)) / 86400e3))) * 86400e3;
+    T.chipDay = new Date(day0).toISOString().slice(0, 10);
+    // A time of day, with the days past the start day in front once past midnight.
+    const tod = ms => { const m = mel(ms) - day0, d = Math.floor(m / 86400e3), s = Math.floor(m % 86400e3 / 1000); return (d ? d + ':' : '') + `${two(Math.floor(s / 3600))}:${two(Math.floor(s / 60) % 60)}:${two(s % 60)}`; };
+    const kmOf = name => PTS.find(p => p.name === name).km;
+    const fin = {}, rows = RUN.map(r => {
+      const km = kmAt(r, now), dnf = r.kase === 'dnf' && now >= r.tCase;
+      const miss = r.kase === 'missed' ? COLS.map(c => c[1] && kmOf(c[1])).find(k => k != null && k >= r.caseKm - 0.05) : null;
+      const row = { Place: dnf ? 'DNF' : '', Status: dnf ? 'DNF' : '', Bib: r.bib, Name: r.name.replace(/^(.*) (\S+)$/, '$2, $1'), Contest: FEED_NAME[r.contest] || 'GPT ' + r.contest, Gender: '' };
+      let last = 0;
+      for (const [col, name, out] of COLS) {
+        const k = col === 'Start' ? r.k0 : col === 'Finish' ? r.k1 : kmOf(name);
+        let c = r.T0 + timeTo(r.k0, k, r.f) + (out ? 60e3 : 0);
+        const ok = km != null && (col === 'Start' || col === 'Finish' || (k > r.k0 + 0.05 && k < r.k1 - 0.05)) && k <= km + 1e-6 && c <= now && k !== miss;
+        row[col] = ok ? tod(realOf(c)) : '';
+        if (ok) last = c;
+      }
+      if (row.Finish) (fin[r.contest] = fin[r.contest] || []).push([last, row]);
+      row.Time = last ? hms(last - r.T0) : ''; row.Diff = '';
+      return row;
     });
-    return { list: { ListName: 'GPT100 Safety demo timing list', Fields: ['Bib', 'Name', 'Contest', 'Status'].concat(cols).map(l => ({ Label: l })) }, data };
+    Object.values(fin).forEach(l => l.sort((a, b) => a[0] - b[0]).forEach(([, row], i) => { row.Place = i + 1 + '.'; row.Diff = i ? '' : '--'; }));
+    return rows;
   }
 
   // ---------- answering the apps' feed requests ----------
