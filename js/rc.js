@@ -24,13 +24,15 @@
   let log = [], since = 0, lastOk = 0, lastErr = '', built = false, shown = false, timer = null, map = null, layer = null, editing = null, draft = null, orig = null, held = false;
   const closing = new Map(); // incident id: outcome picked in its open Close box
   // The queue is shared by every tab on the device, so it's read fresh from storage before each change. Bad or blocked storage falls back to memory.
-  let mem = [];
+  // Once a write fails (storage full or blocked) the queue stays in memory, so an older copy in storage can't replace it, and the board says so.
+  let mem = [], memOnly = false;
   const readQ = () => {
+    if (memOnly) return mem;
     try { const v = JSON.parse(localStorage.getItem(LSQ) || '[]'); mem = Array.isArray(v) ? v.filter(x => x && x.path) : []; } catch (e) { return mem; }
     if (mem.some(x => !x.qid)) { mem.forEach(x => { x.qid = x.qid || newId(); }); saveQ(mem); }
     return mem;
   };
-  const saveQ = q => { mem = q; try { localStorage.setItem(LSQ, JSON.stringify(q)); } catch (e) { } };
+  const saveQ = q => { mem = q; try { localStorage.setItem(LSQ, JSON.stringify(q)); memOnly = false; } catch (e) { memOnly = true; } const w = $('rcStoreWarn'); if (w) w.hidden = !memOnly; };
   const who = () => { try { return localStorage.getItem(LSN) || ''; } catch (e) { return ''; } };
   const now = () => Date.now();
 
@@ -83,12 +85,13 @@
       await flush();
       const j = await api('/rc/state?since=' + since);
       if (!Array.isArray(j.incidents)) throw new Error('Race Control isn\'t set up on the Worker yet (paste the latest Worker code into Cloudflare)');
-      j.incidents.forEach(i => { const cur = incidents.get(i.id); if (!cur || (cur.version || 0) <= i.version) incidents.set(i.id, i); });
+      j.incidents.forEach(i => { const cur = incidents.get(i.id); if (!cur || (cur.version || 0) <= i.version) incidents.set(i.id, i); if (i.status === 'closed') closing.delete(i.id); });
       j.units.forEach(u => units.set(u.id, u));
       if (j.log.length) { const ids = new Set(log.map(l => l.id)); log = j.log.filter(l => !ids.has(l.id)).concat(log).sort((a, b) => b.id - a.id).slice(0, 500); }
       if (!readQ().length) log = log.filter(l => !l.pending);
       since = j.now - 3000; lastOk = now(); lastErr = '';
       if (j.incidents.length || j.units.length || j.log.length) render(); else { tick(); status(); }
+      reconcile(j.now);
     } catch (e) { lastErr = e.message; status(); if (e.status === 401 || e.status === 503) render(); }
   }
   const ready = () => BASE && (DEMO || (window.MedPlan && window.MedPlan.unlocked() && window.MedPlan.pw()));
@@ -130,6 +133,29 @@
   }
   // The unit is free, or on this incident (not busy on another open one).
   const freeFor = (uid, id) => { const u = units.get(uid), o = u && u.incident && incidents.get(u.incident); return !u || !u.incident || u.incident === id || !o || o.status === 'closed'; };
+  // Where a unit goes once it's off incident id: on to the latest other open incident that still has it, else Available.
+  function freed(uid, id) {
+    const o = [...incidents.values()].filter(i => i.id !== id && i.status !== 'closed' && i.unit === uid).sort((a, b) => b.created - a.created)[0];
+    if (!o) return { status: 'available', incident: null };
+    const t = o.times || {};
+    return { status: t.leaving ? 'returning' : t.onScene ? 'onscene' : 'tasked', incident: o.id };
+  }
+  // Every unit still pointing at incident id, other than its unit now (keep), is released.
+  function release(id, keep) { units.forEach(u => { if (u.incident === id && u.id !== keep) patchUnit(u.id, freed(u.id, id)); }); }
+  // On each refresh: a unit left on an incident that's closed or has another unit (two operators changing it at once) is
+  // put right. Only once nothing is waiting to send and both have been still for 15 s, so a change still on its way isn't
+  // undone, and only once per unit change, so two boards don't keep writing over each other.
+  const fixed = new Map();
+  function reconcile(at) {
+    if (readQ().length || !at) return;
+    units.forEach(u => {
+      const i = u.incident && incidents.get(u.incident);
+      if (!i || i.local || u.status === 'available' || u.status === 'unavailable' || (i.status !== 'closed' && i.unit === u.id)) return;
+      if (!(u.updated < at - 15000 && i.updated < at - 15000) || fixed.get(u.id) === u.updated) return;
+      fixed.set(u.id, u.updated);
+      patchUnit(u.id, freed(u.id, i.id));
+    });
+  }
 
   // ---------- units ----------
   function unitList() {
@@ -154,7 +180,7 @@
           ${C.tracking && C.tracking.url ? `<a class="btn small" href="${esc(C.tracking.url)}" target="_blank" rel="noopener" title="${C.tracking.credit && C.tracking.credit.name ? 'Timing and tracking by ' + esc(C.tracking.credit.name) : ''}">${esc(C.tracking.label || 'Live tracking')}</a>` : ''}
           <button id="rcExport" class="btn small" type="button">Export</button></div>
       </div>
-      <div class="rc-col rc-incs"><div id="rcForm"></div><div id="rcOpen"></div><details class="rc-closed"><summary id="rcClosedSum">Closed</summary><div id="rcClosed"></div></details></div>
+      <div class="rc-col rc-incs"><p id="rcStoreWarn" class="notice warn"${memOnly ? '' : ' hidden'}>This device won't save Race Control entries, so the ones waiting to send are only kept in this tab. Keep this tab open until they've sent.</p><div id="rcForm"></div><div id="rcOpen"></div><details class="rc-closed"><summary id="rcClosedSum">Closed</summary><div id="rcClosed"></div></details></div>
       <div class="rc-col rc-mid"><div class="rc-mapbox"><div id="rcMap"></div></div>
         <div class="rc-logbox"><h3>Radio log</h3><form id="rcLogForm" class="rc-logform"><input id="rcLogText" type="text" maxlength="500" placeholder="Add a log entry (Enter to save)"><button class="btn small" type="submit">Log</button></form><ol id="rcLog" class="rc-log"></ol></div></div>
       <div class="rc-col rc-units"><h3>Units</h3><div id="rcUnits"></div>
@@ -295,7 +321,7 @@
         if (a === 'close' && needName()) { closing.set(id, closing.get(id) || OUTCOMES[0]); render(); }
         if (a === 'keep') { closing.delete(id); render(); }
         if (a === 'closeit') closeIncident(i, sel.value);
-        if (a === 'reopen' && needName()) patchIncident(id, { status: 'open', outcome: null, times: { closed: null } }, 'Reopened');
+        if (a === 'reopen' && needName()) reopen(i);
         if (a === 'find' && window.GPT_UI) window.GPT_UI.openKm(+i.km);
       }));
       el.addEventListener('mouseenter', () => focusMarker(id));
@@ -309,12 +335,22 @@
     patchIncident(i.id, patch, `${label}${i.unit ? ' (' + unitLabel(i.unit) + ')' : ''}`);
     if (i.unit && freeFor(i.unit, i.id)) patchUnit(i.unit, { status: k === 'onScene' ? 'onscene' : k === 'leaving' ? 'returning' : 'tasked', incident: i.id });
   }
-  // Frees the unit only if it's still on this incident.
+  // Releases any unit still on this incident (one on another open incident too goes on to that one).
   function closeIncident(i, outcome) {
     if (!needName()) return;
     closing.delete(i.id);
     patchIncident(i.id, { status: 'closed', outcome, times: { closed: now() } }, 'Closed: ' + outcome);
-    if (i.unit && (units.get(i.unit) || {}).incident === i.id) patchUnit(i.unit, { status: 'available', incident: null });
+    release(i.id, null);
+  }
+  // Re-tasks the incident's unit if it's free; if it's busy, the incident is left without a unit and the form says so.
+  function reopen(i) {
+    closing.delete(i.id);
+    const u = i.unit && units.get(i.unit), label = i.unit && unitLabel(i.unit);
+    const free = !u || u.status === 'available' || (u.status !== 'unavailable' && u.incident && freeFor(i.unit, i.id));
+    const busy = i.unit && !free;
+    patchIncident(i.id, Object.assign({ status: 'open', outcome: null, times: { closed: null } }, busy ? { unit: null } : {}), 'Reopened' + (busy ? ', ' + label + ' is busy so no unit is assigned' : i.unit ? ', ' + label + ' tasked' : ''));
+    if (i.unit && !busy) patchUnit(i.unit, { status: 'tasked', incident: i.id });
+    if (busy) openForm(incidents.get(i.id), `Reopened. ${label} is busy, so no unit is assigned. Choose a unit if one is going.`);
   }
   function renderUnits() {
     if (hold($('rcUnits'))) return;
@@ -384,10 +420,11 @@
   // ---------- new and edit form ----------
   function openForm(inc, note) { editing = inc && inc.id ? inc.id : null; orig = Object.assign({}, inc); draft = Object.assign({}, inc); draft.note = note || ''; renderForm(true); }
   // Km as typed ("87.3", "87,3" or "87.3 km"), checked against the course. NaN if it isn't a km on the course.
+  // Race distances run up to 0.5 km past the course line's finish (Miler 163 against 162.6), as in Find, so those are taken as the finish.
   function kmOf(v, d) {
     v = String(v).trim().replace(/\s*km$/i, '').replace(',', '.');
-    const km = /^(\d+\.?\d*|\.\d+)$/.test(v) ? +v : NaN;
-    return km >= 0 && km <= courseOf(d).totalKm + 0.05 ? km : NaN;
+    const km = /^(\d+\.?\d*|\.\d+)$/.test(v) ? +v : NaN, total = courseOf(d).totalKm;
+    return km >= 0 && km <= total + 0.5 ? Math.min(km, total) : NaN;
   }
   function badKm(f) {
     let p = f.querySelector('.rc-kmmsg');
@@ -399,7 +436,7 @@
     const box = $('rcForm'); if (!box) return;
     if (!draft) { box.innerHTML = ''; return; }
     if (box.querySelector('form') && !scroll) return; // don't wipe a form being typed in
-    const d = draft, r = assess(d), best = r && r.results[0];
+    const d = draft;
     const races = (C.races || []).map(x => x.label);
     box.innerHTML = `<form class="rc-form" autocomplete="off"><h3>${editing ? 'Edit #' + (d.num || '…') : 'New incident'}</h3>
       ${d.note ? `<p class="notice warn">${esc(d.note)}</p>` : ''}
@@ -414,14 +451,31 @@
       </div>
       <label class="rc-full"><span>What happened <em class="rc-req">*</em></span><textarea name="desc" rows="2" placeholder="Injury or illness, condition, what they need">${esc(d.desc || '')}</textarea></label>
       <label class="rc-full">Unit sent<select name="unit"><option value="">Not sent yet</option>${unitList().map(u => `<option value="${esc(u.id)}"${u.id === d.unit ? ' selected' : ''}>${esc(u.label)}${u.st !== 'available' ? ' (' + UNIT_ST[u.st].toLowerCase() + ')' : ''}</option>`).join('')}</select></label>
-      ${best ? `<p class="rc-suggest">Suggested: <b>${esc(best.base.name)} team</b>, ETA ${G.fmt(best.total)} via ${esc(G.cleanName(best.a))}${r.results[1] ? `; backup ${esc(r.results[1].base.name)}, ${G.fmt(r.results[1].total)}` : ''}.</p>` : ''}
+      <p class="rc-suggest"${suggest(d) ? '' : ' hidden'}>${suggest(d)}</p>
       <p class="rc-reqnote"><em class="rc-req">*</em> Required: a km or where, and what happened.</p>
       <div class="rc-actions"><button class="btn primary small" type="submit">${editing ? 'Save' : 'Log incident'}</button><button class="btn small" type="button" data-cancel>Cancel</button></div></form>`;
     const f = box.querySelector('form');
-    f.km.addEventListener('change', () => { const v = kmOf(f.km.value, draft); if (f.km.value.trim() && isNaN(v)) return badKm(f); draft.km = isNaN(v) ? null : v; keep(f); renderForm(true); });
+    // A new km only updates the suggestion, and not until a press in progress ends: leaving the box by clicking
+    // Log incident used to rebuild or move the form under the click, so the click was lost.
+    f.km.addEventListener('change', () => {
+      const v = kmOf(f.km.value, draft); if (f.km.value.trim() && isNaN(v)) return badKm(f);
+      draft.km = isNaN(v) ? null : v;
+      if (draft.km != null) f.km.value = (Math.round(draft.km * 10) / 10).toFixed(1);
+      const upd = () => {
+        if (!draft) return;
+        const m = f.querySelector('.rc-kmmsg'); if (m) m.remove();
+        const sg = f.querySelector('.rc-suggest'); sg.innerHTML = suggest(draft); sg.hidden = !sg.innerHTML;
+      };
+      if (pressing) addEventListener('pointerup', () => setTimeout(upd, 0), { once: true }); else upd();
+    });
     f.querySelector('[data-cancel]').addEventListener('click', () => { draft = null; editing = null; orig = null; renderForm(); });
     f.addEventListener('submit', e => { e.preventDefault(); save(f); });
     if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  // The fastest team to the km, and a backup.
+  function suggest(d) {
+    const r = assess(d), best = r && r.results[0];
+    return best ? `Suggested: <b>${esc(best.base.name)} team</b>, ETA ${G.fmt(best.total)} via ${esc(G.cleanName(best.a))}${r.results[1] ? `; backup ${esc(r.results[1].base.name)}, ${G.fmt(r.results[1].total)}` : ''}.` : '';
   }
   function keep(f) { ['where', 'bib', 'name', 'race', 'reporter', 'desc', 'unit'].forEach(k => { draft[k] = f[k].value; }); draft.severity = f.sev.value; }
   function save(f) {
@@ -445,7 +499,7 @@
       const sent = 'unit' in patch && p.unit !== old.unit;
       if (sent && p.unit && !(old.times || {}).dispatched) patch.times = { dispatched: now() };
       if (Object.keys(patch).length) patchIncident(editing, patch, 'Updated' + (sent && p.unit ? ': ' + unitLabel(p.unit) + ' sent' : ''));
-      if (sent && old.unit && (units.get(old.unit) || {}).incident === editing) patchUnit(old.unit, { status: 'available', incident: null });
+      if (sent) release(editing, p.unit);
       if (sent && p.unit) patchUnit(p.unit, { status: 'tasked', incident: editing });
     } else {
       const id = newId();
