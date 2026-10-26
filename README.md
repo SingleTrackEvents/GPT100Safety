@@ -248,7 +248,7 @@ The GPX waypoints (aid stations, water points, checkpoints) become the course's 
 MEDPLAN_PASSWORD='new password' node tools/encrypt_medplan.mjs path/to/GPT100_MedicalPlan_Interactive.html
 ```
 
-This replaces `data/medplan.enc.js` and `data/safety-officers.js` (the public Safety Officer posts, no names). To put a place's Safety Officers somewhere other than where the plan has them, add it to `soPlaces` in `data/config.js` by the plan's place name (the Jimmy Creek posts are at Jimmy Creek Camp this way); only the Safety Officers move, and it carries over when the plan is replaced. Commit those two files only, never the plan itself (`.gitignore` blocks it). Changing the password asks every device for the new one.
+This replaces `data/medplan.enc.js` and `data/safety-officers.js` (the public Safety Officer posts, no names). When the plan pins a place somewhere other than where it really is, add it to `planPlaces` in `data/config.js` by the plan's place name (Jimmy Creek is at Jimmy Creek Camp, not the road crossing, this way). Everyone at the place moves, on every map and in every time, and it carries over when the plan is replaced. Commit those two files only, never the plan itself (`.gitignore` blocks it). Changing the password asks every device for the new one.
 
 ## Weather watch
 

@@ -2,7 +2,7 @@
 // unlocked on each device with the password. Shows who is on duty, runner numbers and vehicles,
 // live during the event or at any chosen time, and tells Find which medics are nearest.
 (function () {
-  const G = window.GPT, ENC = window.GPT100_MEDPLAN_ENC, SO = window.GPT100_SO;
+  const G = window.GPT, ENC = window.GPT100_MEDPLAN_ENC, SO = G.planPlaces ? G.planPlaces(window.GPT100_SO) : window.GPT100_SO;
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const one = x => (Math.round(x * 10) / 10).toFixed(1);
@@ -27,10 +27,12 @@
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(ENC.iv) }, key, b64d(ENC.ct));
     return JSON.parse(new TextDecoder().decode(pt));
   }
+  // Places the plan pins somewhere else (config.planPlaces) where they really are.
+  const place = d => G.planPlaces ? G.planPlaces(d) : d;
   // The device remembers the password (not a key), so a plan update with the same password stays unlocked,
   // while a new password asks everyone again.
   async function unlock(pw) {
-    P = await decrypt(await keyFromPassword(pw)); // throws on a wrong password
+    P = place(await decrypt(await keyFromPassword(pw))); // throws on a wrong password
     try { localStorage.setItem(LS, pw); } catch (e) { }
     lockNote = ''; init();
   }
@@ -38,7 +40,7 @@
     let pw = null;
     try { pw = localStorage.getItem(LS); } catch (e) { }
     if (!pw || !ENC || !window.crypto || !crypto.subtle) return false;
-    try { P = await decrypt(await keyFromPassword(pw)); init(); return true; }
+    try { P = place(await decrypt(await keyFromPassword(pw))); init(); return true; }
     catch (e) { try { localStorage.removeItem(LS); } catch (x) { } return false; } // password changed: ask again
   }
 
@@ -329,7 +331,7 @@
     if (!fmap || !window.L) return;
     if (findLayer) { findLayer.remove(); findLayer = null; }
     // Safety Officer posts are public (data/safety-officers.js); the unlocked plan has the same posts.
-    const src = G.soPlaces ? G.soPlaces(P || SO) : P || SO;
+    const src = P || SO;
     if (!src) { if (soKey) { soKey.remove(); soKey = null; } return; }
     if (!T0) T0 = new Date(src.t0);
     if (!soKey) {
@@ -357,7 +359,7 @@
   // plus climb; on another course (the 14k) by distance on the ground, allowing 40% for the track.
   const soKm = {};
   function soNear(r) {
-    const src = G.soPlaces ? G.soPlaces(P || SO) : P || SO;
+    const src = P || SO;
     if (!src) return null;
     if (!T0) T0 = new Date(src.t0);
     const h = curH(), C = window.GPT100_CONFIG, main = !r.course || r.course === G.id;
@@ -449,7 +451,7 @@
     return VEH().map(v => { const s = vehicle(v, h); return { id: v, label: P.veh[v], where: s.moving ? 'to ' + s.moving.b : s.at }; });
   }
   function soOnPost() {
-    const src = G.soPlaces ? G.soPlaces(P || SO) : P || SO;
+    const src = P || SO;
     if (!src) return [];
     if (!T0) T0 = new Date(src.t0);
     const h = curH();

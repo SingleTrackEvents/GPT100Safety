@@ -136,7 +136,7 @@
   // ---------- Safety Officer posts (data/safety-officers.js: public, no names) ----------
   // Shift times are hours from t0 (Melbourne; the race is in daylight saving, UTC+11). During the event,
   // posts not staffed right now are faded; before it, every post shows with its shifts.
-  const SO = window.GPT && GPT.soPlaces ? GPT.soPlaces(window.GPT100_SO) : window.GPT100_SO;
+  const SO = window.GPT && GPT.planPlaces ? GPT.planPlaces(window.GPT100_SO) : window.GPT100_SO;
   let soLayer = null, soKey = null;
   const soT0 = SO ? new Date(SO.t0 + '+11:00').getTime() : 0;
   const soTime = h => new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(soT0 + h * 3600e3)).replace(',', '');

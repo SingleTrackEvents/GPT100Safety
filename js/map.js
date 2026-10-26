@@ -73,7 +73,7 @@
     GPTBaseMap.overlay(map, 'Track grades', grades, false);
   }
   // Safety Officer posts (public: posts and shift times only), lit when on post during the event.
-  const SO = G.soPlaces ? G.soPlaces(window.GPT100_SO) : window.GPT100_SO, soLayer = L.layerGroup();
+  const SO = G.planPlaces ? G.planPlaces(window.GPT100_SO) : window.GPT100_SO, soLayer = L.layerGroup();
   // Shift times are hours from t0 (Melbourne; the race is in daylight saving, UTC+11), as in js/field.js.
   const soT0 = SO ? new Date(SO.t0 + '+11:00').getTime() : 0;
   const soTime = h => new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(soT0 + h * 3600e3)).replace(',', '');

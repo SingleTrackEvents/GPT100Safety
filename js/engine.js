@@ -316,21 +316,17 @@
   const courses = [main].concat(EXTRA.map(c => makeCourse(c)));
   // window.GPT is the main course engine; every course engine is in GPT.courses.
   courses.forEach(c => { c.courses = courses; c.course = id => courses.find(x => x.id === id) || main; });
-  // Safety Officer posts with config.soPlaces applied: a copy of the plan's (or the public) posts, with the posts
-  // of a moved place pointed at its new place. Passage rows (runners passing) stay where they are.
+  // The medical plan (or the public Safety Officer posts) with config.planPlaces applied: a copy with those places
+  // where they really are. Names stay, so every shift stays with its place.
   const placed = new WeakMap();
-  main.soPlaces = src => {
+  main.planPlaces = src => {
     if (!src) return src;
-    if (placed.has(src)) return placed.get(src);
-    const M = C.soPlaces || {}, key = src.st ? 'st' : 'posts', stations = src.stations.slice();
-    const rows = (src[key] || []).map(p => { const to = M[p.station]; return to && !/passage/i.test(p.label) ? Object.assign({}, p, { station: to.name }) : p; });
-    Object.values(M).forEach(to => { if (!stations.some(s => s.name === to.name)) stations.push({ name: to.name, lat: to.lat, lon: to.lon }); });
-    const out = Object.assign({}, src, { stations, [key]: rows });
-    placed.set(src, out);
-    return out;
+    if (!placed.has(src)) {
+      const M = C.planPlaces || {};
+      placed.set(src, Object.assign({}, src, { stations: src.stations.map(s => M[s.name] ? Object.assign({}, s, { lat: M[s.name].lat, lon: M[s.name].lon }) : s) }));
+    }
+    return placed.get(src);
   };
-  // A map key that folds away behind a button, so it doesn't cover the map on a phone. One setting for every key
-  // (the map page's too): folding one folds them all, and the device remembers it. Open to start with on a big screen.
   main.foldKey = (d, html, label) => {
     let open = innerWidth >= 1000;
     try { const v = localStorage.getItem('gptMapKey'); if (v != null) open = v === '1'; } catch (e) { }
