@@ -248,7 +248,7 @@ function accStyle(a){
 function rebuildAccessMarkers(){
   [...accMarkers,...aidMarkers].forEach(m=>map.removeLayer(m));accMarkers=[];aidMarkers=[];
   ACCESS.forEach(a=>{const s=accStyle(a);
-    const m=L.marker([a.lat,a.lon],{icon:mk(s.col,s.r)});
+    const m=L.marker([a.lat,a.lon],{icon:mk(s.col,s.r),title:a.name});
     m.bindPopup(`<b>${a.name}</b><br>${s.label} &bull; trail ${a.trail_km} km${a.conn_geom?(' &bull; track '+a.conn_m+' m'):''}${a.w3w?'<br><a href="https://w3w.co/'+a.w3w+'" target="_blank" style="color:#e11f26;font-weight:700">///'+a.w3w+'</a>':''}`);
     m.on('click',()=>{if(editState.mode==='delete'){deleteAccess(a);}else if(editState.mode==='edit-select'){startEdit(a);}else{m.openPopup();}});
     m.addTo(map);(a.aid?aidMarkers:accMarkers).push(m);
@@ -261,10 +261,10 @@ function deleteAccess(a){
   buildACCESS();rebuildAccessMarkers();computeDanger();if(last)render();
 }
 CROSS.forEach(c=>{const col=c.type==='road'?'#e67e22':'#3a86c8';
-  const m=L.marker([c.lat,c.lon],{icon:mk(col,7)}).addTo(map).bindPopup(`<b>${c.name||(c.type==='road'?'Road crossing':'Trail junction')}</b><br>${c.type} &bull; ${c.km} km on course`);crossMarkers.push(m);});
-L.marker([BASE.hg[1],BASE.hg[0]],{icon:mk('#c0392b',20)}).addTo(map).bindPopup('<b>Halls Gap base</b>');
-L.marker([BASE.dk[1],BASE.dk[0]],{icon:mk('#1f6f4a',20)}).addTo(map).bindPopup('<b>Dunkeld base</b>');
-L.marker([BASE.jc[1],BASE.jc[0]],{icon:mk('#1b6ca8',20)}).addTo(map).bindPopup('<b>Jimmy Creek base / aid station</b>');
+  const m=L.marker([c.lat,c.lon],{icon:mk(col,7),title:c.name||(c.type==='road'?'Road crossing':'Trail junction')}).addTo(map).bindPopup(`<b>${c.name||(c.type==='road'?'Road crossing':'Trail junction')}</b><br>${c.type} &bull; ${c.km} km on course`);crossMarkers.push(m);});
+L.marker([BASE.hg[1],BASE.hg[0]],{icon:mk('#c0392b',20),title:'Halls Gap base'}).addTo(map).bindPopup('<b>Halls Gap base</b>');
+L.marker([BASE.dk[1],BASE.dk[0]],{icon:mk('#1f6f4a',20),title:'Dunkeld base'}).addTo(map).bindPopup('<b>Dunkeld base</b>');
+L.marker([BASE.jc[1],BASE.jc[0]],{icon:mk('#1b6ca8',20),title:'Jimmy Creek base / aid station'}).addTo(map).bindPopup('<b>Jimmy Creek base / aid station</b>');
 let showAcc=true,showCross=true;
 rebuildAccessMarkers();
 computeDanger();
@@ -331,7 +331,7 @@ function drawBase(key,w,solid){
   else add(L.polyline([[BASE[key][1],BASE[key][0]],w.access],{color:col,weight:solid?4:2,opacity:solid?.5:.2,dashArray:'2,6'}));
   if(solid){
     if(w.walkDraw&&w.walkDraw.length)add(L.polyline(w.walkDraw,{color:'#1666c9',weight:5,opacity:.95,dashArray:'1,7',lineCap:'round'}));
-    add(L.marker(w.access,{icon:mk('#111',12)}).bindPopup('Access: '+w.via));
+    add(L.marker(w.access,{icon:mk('#111',12),title:'Access: '+w.via}).bindPopup('Access: '+w.via));
   }
 }
 function render(){
@@ -392,13 +392,13 @@ function startEdit(a){cleanupTemp();
   editState={mode:'add-form',editing:a,pending:{lat:a.lat,lon:a.lon,geom:a.conn_geom?a.conn_geom.map(p=>p.slice()):[[a.lat,a.lon]],drive:a.drive_geom?a.drive_geom.map(p=>p.slice()):[],geomSteps:[],driveSteps:[],_last:null}};
   _e('addForm').style.display='block';_e('naName').value=a.name;_e('naGated').checked=!!a.gated;
   _e('naHG').value=Math.round(a.drive_hg_s/60);_e('naDK').value=Math.round(a.drive_dk_s/60);_e('naJC').value=a.drive_jc_s!=null?Math.round(a.drive_jc_s/60):'';
-  tempMarker=L.marker([a.lat,a.lon],{icon:mk('#8e44ad',12)}).addTo(map);
+  tempMarker=L.marker([a.lat,a.lon],{icon:mk('#8e44ad',12),title:'Access point'}).addTo(map);
   if(a.conn_geom)drawTempWalk();if(a.drive_geom)drawTempDrive();
   estatus('editing "'+a.name+'" - change fields, redraw/clear tracks, then Save');}
 _e('btnClrWalk').addEventListener('click',()=>{const p=editState.pending;if(!p)return;p.geom=[[p.lat,p.lon]];p.geomSteps=[];drawTempWalk();estatus('walk track cleared');});
 _e('btnClrDrive').addEventListener('click',()=>{const p=editState.pending;if(!p)return;p.drive=[];p.driveSteps=[];if(tempDriveLine){map.removeLayer(tempDriveLine);tempDriveLine=null;}estatus('drive route cleared');});
 function placeNew(ll){editState.pending={lat:ll.lat,lon:ll.lng,geom:[[ll.lat,ll.lng]],drive:[],geomSteps:[],driveSteps:[],_last:null};if(tempMarker)map.removeLayer(tempMarker);
-  tempMarker=L.marker([ll.lat,ll.lng],{icon:mk('#8e44ad',12)}).addTo(map);editState.mode='add-form';
+  tempMarker=L.marker([ll.lat,ll.lng],{icon:mk('#8e44ad',12),title:'Access point'}).addTo(map);editState.mode='add-form';
   _e('addForm').style.display='block';_e('naName').value='';_e('naGated').checked=true;_e('naHG').value='';_e('naDK').value='';_e('naJC').value='';
   estatus('name it, set drive times, optionally draw the track, then Save');}
 _e('btnDraw').addEventListener('click',function(){if(!editState.pending)return;

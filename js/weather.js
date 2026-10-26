@@ -6,8 +6,12 @@
   if (!W || !WX || !$('wxBody')) return;
   function $(id) { return document.getElementById(id); }
   const HOUR = 3600, T = W.triggers, TOTAL = G.route[G.route.length - 1][2];
-  const DATA = new URLSearchParams(location.search).get('wxdata') || W.dataUrl;
-  W.refreshUrl = new URLSearchParams(location.search).get('wxrefresh') || W.refreshUrl; // testing override
+  // Testing overrides (?wxdata=, ?wxrefresh=) may only point at this computer, so a link can't swap in other
+  // weather or send "Refresh now" elsewhere (as js/rc.js does for ?rcapi=).
+  const Q = new URLSearchParams(location.search);
+  const local = u => { try { return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(new URL(u, location.href).hostname); } catch (e) { return false; } };
+  const DATA = Q.get('wxdata') && local(Q.get('wxdata')) ? Q.get('wxdata') : W.dataUrl;
+  if (Q.get('wxrefresh') && local(Q.get('wxrefresh'))) W.refreshUrl = Q.get('wxrefresh');
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nowS = () => Math.floor(Date.now() / 1000);
 
@@ -53,25 +57,36 @@
   let mdVar = 't', mdRange = 'week', mdPoint = null, mdHidden = {}, mdT = null;
   let map = null, segs = [], runMarks = {}, trigLayer = null, selMark = null, fitted = false;
 
+  // A changing ?t= gets past GitHub's 5 minute cache, so new data shows as soon as it's published.
+  const src = name => DATA + name + (DATA.startsWith('http') ? '?t=' + Math.floor(Date.now() / 30000) : '');
   async function getJSON(name) {
-    // A changing ?t= gets past GitHub's 5 minute cache, so new data shows as soon as it's published.
-    const r = await fetch(DATA + name + (DATA.startsWith('http') ? '?t=' + Math.floor(Date.now() / 30000) : ''), { cache: 'no-cache' });
+    const r = await fetch(src(name), { cache: 'no-cache' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   }
   async function load() {
     try {
-      latest = await getJSON('latest.json');
+      const L = await getJSON('latest.json');
+      // An empty or half-written file is an error, not a blank tab.
+      if (!L || typeof L !== 'object' || typeof L.updated !== 'number' || !L.triggers || typeof L.triggers !== 'object' || !Object.keys(L.triggers).length) throw new Error('the weather file is empty or incomplete');
+      // A trigger missing from the file shows as "No data".
+      for (const sc of Object.values(L.triggers)) {
+        sc.triggers = sc.triggers || {};
+        WX.ORDER.forEach(k => { if (!sc.triggers[k]) sc.triggers[k] = { status: 'nodata', label: WX.LABELS[k] || k, rule: '', note: 'Not in the weather file.' }; });
+      }
+      latest = L;
       loadErr = null;
-      getJSON('history.json').then(h => { history = h; if (view === 'triggers') renderView(); }).catch(() => { });
+      getJSON('history.json').then(h => { history = Array.isArray(h) ? h : []; if (view === 'triggers') renderView(); }).catch(() => { });
       getJSON('obs.json').then(o => { obs = o; drawLive(); if (view === 'triggers') renderView(); }).catch(() => { });
       drawLive();
-      getJSON('replay/index.json').then(y => { replayYears = y; }).catch(() => { });
+      getJSON('replay/index.json').then(y => { if (Array.isArray(y)) replayYears = y; }).catch(() => { });
     } catch (e) { loadErr = e.message; }
   }
   async function loadGrid() {
     if (grid && grid.modelsRun === (latest && latest.modelsRun)) return grid;
-    grid = await getJSON('grid.json');
+    const g = await getJSON('grid.json');
+    if (!g || !Array.isArray(g.points) || !g.points.length || !g.cons) throw new Error('the forecast file is empty or incomplete');
+    grid = g;
     return grid;
   }
 
@@ -187,7 +202,7 @@
     }
     const age = (nowS() - latest.updated) / HOUR;
     $('wxUpd').innerHTML = `Updated ${WX.fmtTime(latest.updated)} (${age < 1 ? Math.round(age * 60) + ' min' : age.toFixed(1) + ' h'} ago). ` +
-      (latest.modelsRun ? `Models fetched ${WX.fmtTime(latest.modelsRun, false)}: ${latest.models.length} models.` : '');
+      (latest.modelsRun ? `Models fetched ${WX.fmtTime(latest.modelsRun, false)}: ${(latest.models || []).length} models.` : '');
     const warn = [];
     if (age > W.staleHours) warn.push(`<p class="notice danger">This weather is ${age.toFixed(1)} hours old. The hourly watch may have stopped: check the Weather watch in GitHub Actions. ${navigator.onLine ? '' : 'You\'re offline.'}</p>`);
     const bad = Object.entries(latest.sources || {}).filter(([k, s]) => !s.ok && k !== 'bom_access_global');
@@ -245,7 +260,7 @@
     h += incidentsHTML() + obsHTML() + precisHTML();
 
     for (const [sk, s] of Object.entries(tr)) {
-      h += `<h2 class="wx-h" id="wxs-${sk}">${esc(s.label)} <span class="wx-when">${WX.fmtTime(s.from)} to ${WX.fmtTime(s.to)}</span></h2>`;
+      h += `<h2 class="wx-h" id="wxs-${sk}">${esc(s.label)} ${s.from && s.to ? `<span class="wx-when">${WX.fmtTime(s.from)} to ${WX.fmtTime(s.to)}</span>` : ''}</h2>`;
       if (s.note) h += `<p class="wx-note">${esc(s.note)}</p>`;
       h += '<div class="wx-cards">' + WX.ORDER.map(k => {
         const r = s.triggers[k], w = r.worst;
@@ -889,6 +904,7 @@
     trigLayer.clearLayers();
     if (mapKey) { mapKey.remove(); mapKey = null; }
     const s = latest.triggers[trigScope];
+    if (!s) return;
     WX.ORDER.forEach(k => {
       const r = s.triggers[k];
       if (!(r.status === 'met' || r.status === 'close') || !r.worst || r.worst.km == null) return;
@@ -1002,6 +1018,21 @@
       ${age > W.staleHours ? `<br><span class="muted">Weather data is ${age.toFixed(0)} hours old.</span>` : ''}
       <a class="lnk" href="index.html#weather">Weather tab</a></div>`;
   }
+  // Once the page has loaded with signal, fetch the latest weather (and the forecast grid, when this phone
+  // hasn't saved the newest one), so the service worker keeps a copy for the Weather tab and Find offline.
+  addEventListener('load', () => setTimeout(async () => {
+    if (!navigator.onLine || latest) return;
+    try {
+      const L = await getJSON('latest.json');
+      let mark = null; try { mark = localStorage.getItem('gptWxGrid'); } catch (e) { }
+      const have = window.caches ? await caches.match(DATA + 'grid.json', { ignoreSearch: true }).catch(() => null) : null;
+      if (L && L.modelsRun && (!have || mark !== String(L.modelsRun))) {
+        const r = await fetch(src('grid.json'), { cache: 'no-cache' });
+        if (r.ok) { await r.arrayBuffer(); try { localStorage.setItem('gptWxGrid', String(L.modelsRun)); } catch (e) { } }
+      }
+    } catch (e) { }
+  }, 3000));
+
   // For the Race Control board: the latest triggers, loading them if this tab hasn't yet.
   async function peek() { if (!latest || nowS() - latest.updated > 15 * 60) await load(); return latest; }
   window.WeatherTab = { onShow, onHide, nearHTML, peek, valueAt: (km, t) => grid && conditions(grid, km, t || nowS()), loadGrid: () => load().then(loadGrid) };

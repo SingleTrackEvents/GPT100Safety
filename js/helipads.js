@@ -95,19 +95,26 @@
     if (out.length > 1 && !unfit(out[1]) && rank(out[1]) < rank(out[0]) && out[1].m - out[0].m < 1000) out.reverse();
     return out;
   }
+  // What the first of those is: the nearest, the nearest usable (an unsuitable nearer one was passed over),
+  // or the best kept nearby (a better kept one under 1 km further leads).
+  function lead(lat, lon, km, P) {
+    const nearer = near(lat, lon, km).filter(p => p.m < P[0].m && p.name !== P[0].name);
+    return !nearer.length ? 'Nearest' : nearer.every(unfit) ? 'Nearest usable' : 'Best nearby';
+  }
 
   // Rows for the Track and carry-out card.
   function rows(r, km) {
     const P = pick(r.lat, r.lon, km);
     if (!P.length) return `<div class="row"><span><b>No helicopter landing site within 10 km</b><span class="sub">The nearest are on the map's Helicopter landing sites layer.</span></span></div>`;
-    return P.map((p, i) => `<div class="row"><span><b>${i ? 'Also' : 'Nearest helicopter landing site'}: ${esc(title(p))}</b><span class="sub">${esc(where(p, km))}. ${esc(condition(p))}${facts(p) ? ' ' + esc(facts(p).charAt(0).toUpperCase() + facts(p).slice(1)) + '.' : ''}${warn(p) ? ` <b style="color:var(--red)">${esc(warn(p))}</b>` : ''}</span></span><span class="tg-glyph" style="background:${STATE[state(p)].col}">H</span></div>`).join('');
+    const head = lead(r.lat, r.lon, km, P) + ' helicopter landing site';
+    return P.map((p, i) => `<div class="row"><span><b>${i ? 'Also' : head}: ${esc(title(p))}</b><span class="sub">${esc(where(p, km))}. ${esc(condition(p))}${facts(p) ? ' ' + esc(facts(p).charAt(0).toUpperCase() + facts(p).slice(1)) + '.' : ''}${warn(p) ? ` <b style="color:var(--red)">${esc(warn(p))}</b>` : ''}</span></span><span class="tg-glyph" style="background:${STATE[state(p)].col}">H</span></div>`).join('');
   }
   // For the radio script and WhatsApp message: the nearest within 10 km.
   function line(r, km) {
     const P = pick(r.lat, r.lon, km);
     if (!P.length) return '';
     const p = P[0];
-    return `Nearest HLS ${p.name}, ${where(p, km)}${state(p) === 'used' ? '' : p.status === 'current' ? ' (current, DEECA list)' : ' (expired on the DEECA list)'}${warn(p) ? '. ' + warn(p) : ''}`;
+    return `${lead(r.lat, r.lon, km, P)} HLS ${p.name}, ${where(p, km)}${state(p) === 'used' ? '' : p.status === 'current' ? ' (current, DEECA list)' : ' (expired on the DEECA list)'}${warn(p) ? '. ' + warn(p) : ''}`;
   }
   // The nearest sites on the result map when the layer is turned off.
   function draw(layer, r, km) {

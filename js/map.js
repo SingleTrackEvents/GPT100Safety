@@ -213,9 +213,10 @@
   const m = /bib=(\d+)/.exec(location.hash);
   if (m && TR) { let done = false; TR.onUpdate(() => { if (!done && TR.ready()) { done = true; show(m[1]); } }); }
 
-  // The ? help (js/intro.js): once on first open, unless the link opens on a runner.
+  // The ? help (js/intro.js): once on first open on a phone, unless the link opens on a runner. On a big screen
+  // (the race control wall) it only opens from the ? button.
   if (window.GPTIntro) GPTIntro({
-    key: 'gptIntroMap', quiet: !!m,
+    key: 'gptIntroMap', quiet: !!m || innerWidth >= 700,
     steps: [() => ({ title: 'Safety map', html: `<ul class="rn-tablist">
       <li><b>Tap the course</b> The km, the team to send and the ETA, with Open in Find for the full answer.</li>
       <li><b>Runners</b> Find a bib, the Runner watch (not moving, off the course, late, tracker quiet) and the field by section. Show centres the map on a runner.</li>
