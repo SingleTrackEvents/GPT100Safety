@@ -246,7 +246,7 @@
     // The day too, when it isn't today.
     const at = ymd.format(new Date(eta)) === ymd.format(new Date(now)) ? hm.format(new Date(eta)) : when(new Date(eta));
     if (nx.noCut) return `<br><span class="rn-good">At your pace about <b>${at}</b>.</span>`;
-    if (margin >= 0) return `<br><span class="rn-good">At your pace about <b>${at}</b>, ${dur(margin)} before the cut-off.</span>`;
+    if (margin > -60e3) return `<br><span class="rn-good">At your pace about <b>${at}</b>, ${margin < 60e3 ? 'on the cut-off' : dur(margin) + ' before the cut-off'}.</span>`;  // a minute either way is on it
     return `<br><span class="rn-warn"><b>At your pace about ${at}, after the cut-off.</b> Talk to the aid station team.</span>`;
   }
   function tags(p) {
