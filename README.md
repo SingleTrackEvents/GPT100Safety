@@ -10,6 +10,8 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 
 **Dark mode:** every app follows the phone or computer's light or dark setting, with dark screens for night on the course. The topo map keeps its colours, and the red Urgent and Call 000 buttons stay red.
 
+**Map keys:** every map's key folds away behind its **Key** button, so it doesn't cover the map on a phone. Folding one folds them all, and the device remembers it. Keys start folded on a phone and open on a big screen.
+
 **Intro:** each app (staff, field and runner) shows a short intro and how-to the first time it's opened on a phone, with a **?** button in the header to see it again (`js/intro.js` for the staff and field apps).
 
 **Map** (`map.html`, the Map link at the top of the staff app)
@@ -120,7 +122,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - **Intro the first time** (and from **?**): what it's for, install it, save the map (iPhone users install first, as in the runner app), and how to use it.
 - **Map tab:** fills the screen, with the elevation profile pinned at the bottom (no scrolling) and a small round locate button (like Google Maps). After a fix, the line under the profile gives your race km, the next aid station with distance, climb, cut-off and your pace, and the nearest way out; a big map kept to the picked race (its course in orange, its aid stations with cut-offs, the other courses faint), with Safety Officer posts, you and the way out, and the race's profile. The race stays picked until it's changed.
 - **Race tab** (handy for sweeps): pick the race (and stage), as in the runner app. Every aid station with its cut-off; after Where am I? during the race, the expected time at each one comes from your position and the clock (or from a target time), and Where am I? adds your race km and the next cut-off. Shares `js/races.js` with the runner app.
-- **Safety Officer posts** on the map (yellow SO, from the public `data/safety-officers.js`, no names): tap one for its shifts. During the event, posts not staffed right now are faded (refreshed every 5 minutes).
+- **Safety Officer posts** on the map (yellow SO, from the public `data/safety-officers.js`, no names): tap one for its shifts. During the event, posts not staffed right now show pale and dashed (refreshed every 5 minutes).
 - **Your trail:** every GPS fix (with Keep updating on, as you move) is kept on the phone for 24 hours and drawn on the map as a dotted purple line, with the distance covered. Clear it any time.
 - **Where am I?** One tap uses the phone's GPS: km on the course (the GPT100, or the 14k when that's nearer), between which aid stations, how far off the course, height, GPS accuracy, coordinates and what3words (with no signal, the stored words of the nearest course point within 30 m, marked as saved). No GPS? Type the km of the race picked on the Race tab (for example Stage 2 km 10): the app turns it into the course km, and the message gives both.
 - **Off the course,** the answer depends on how far: up to 50 m is on the course; 50 to 300 m says "Just off the course. The course is 120 m south-west of you"; 300 m to 2 km names the access point or aid station you're at, gives the direction back, and notes that the walk-out times assume you get back onto the course first; 2 to 10 km gives the distance and nearest course point (and the base, if you're at one) with no walking times; over 10 km gives no course answers at all. The map draws a dashed line back to the course. A GPS fix worse than ±100 m says to stand in the open and try again.
@@ -246,7 +248,7 @@ The GPX waypoints (aid stations, water points, checkpoints) become the course's 
 MEDPLAN_PASSWORD='new password' node tools/encrypt_medplan.mjs path/to/GPT100_MedicalPlan_Interactive.html
 ```
 
-This replaces `data/medplan.enc.js` and `data/safety-officers.js` (the public Safety Officer posts, no names). Commit those two files only, never the plan itself (`.gitignore` blocks it). Changing the password asks every device for the new one.
+This replaces `data/medplan.enc.js` and `data/safety-officers.js` (the public Safety Officer posts, no names). When the plan pins a place somewhere other than where it really is, add it to `planPlaces` in `data/config.js` by the plan's place name (Jimmy Creek is at Jimmy Creek Camp, not the road crossing, this way). Everyone at the place moves, on every map and in every time, and it carries over when the plan is replaced. Commit those two files only, never the plan itself (`.gitignore` blocks it). Changing the password asks every device for the new one.
 
 ## Weather watch
 

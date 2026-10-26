@@ -72,13 +72,12 @@
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = () => {
     const d = L.DomUtil.create('div', 'map-legend');
-    d.innerHTML = G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)}`).join('<br>') +
+    return G.foldKey(d, G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)}`).join('<br>') +
       '<br><i style="background:#111"></i>Aid station or water point<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
       `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach` +
       (window.GPTHelipads ? '<br><span class="legend-head">Helicopter landing sites</span><br>' + GPTHelipads.legendHTML() : '') +
       (window.GPTTrack ? '<br><span class="legend-head">Track grade after a find</span><br>' + GPTTrack.legendHTML() : '') +
-      (window.GPTTracking ? '<br><span class="trk-mk" style="display:inline-block;vertical-align:middle">1047</span> Tracked runner (grey: quiet, red: not moving)' + (GPTTracking.chip() ? '<br><span class="trk-mk est" style="display:inline-block;vertical-align:middle">1047</span> Estimated from the timing chips (amber: late at the next checkpoint)' : '') : '');
-    return d;
+      (window.GPTTracking ? '<br><span class="trk-mk" style="display:inline-block;vertical-align:middle">1047</span> Tracked runner (grey: quiet, red: not moving)' + (GPTTracking.chip() ? '<br><span class="trk-mk est" style="display:inline-block;vertical-align:middle">1047</span> Estimated from the timing chips (amber: late at the next checkpoint)' : '') : ''));
   };
   legend.addTo(map);
   resultLayer = L.layerGroup().addTo(map);

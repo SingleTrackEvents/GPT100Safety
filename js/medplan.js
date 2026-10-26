@@ -2,7 +2,7 @@
 // unlocked on each device with the password. Shows who is on duty, runner numbers and vehicles,
 // live during the event or at any chosen time, and tells Find which medics are nearest.
 (function () {
-  const G = window.GPT, ENC = window.GPT100_MEDPLAN_ENC, SO = window.GPT100_SO;
+  const G = window.GPT, ENC = window.GPT100_MEDPLAN_ENC, SO = G.planPlaces ? G.planPlaces(window.GPT100_SO) : window.GPT100_SO;
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const one = x => (Math.round(x * 10) / 10).toFixed(1);
@@ -27,10 +27,12 @@
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(ENC.iv) }, key, b64d(ENC.ct));
     return JSON.parse(new TextDecoder().decode(pt));
   }
+  // Places the plan pins somewhere else (config.planPlaces) where they really are.
+  const place = d => G.planPlaces ? G.planPlaces(d) : d;
   // The device remembers the password (not a key), so a plan update with the same password stays unlocked,
   // while a new password asks everyone again.
   async function unlock(pw) {
-    P = await decrypt(await keyFromPassword(pw)); // throws on a wrong password
+    P = place(await decrypt(await keyFromPassword(pw))); // throws on a wrong password
     try { localStorage.setItem(LS, pw); } catch (e) { }
     lockNote = ''; init();
   }
@@ -38,7 +40,7 @@
     let pw = null;
     try { pw = localStorage.getItem(LS); } catch (e) { }
     if (!pw || !ENC || !window.crypto || !crypto.subtle) return false;
-    try { P = await decrypt(await keyFromPassword(pw)); init(); return true; }
+    try { P = place(await decrypt(await keyFromPassword(pw))); init(); return true; }
     catch (e) { try { localStorage.removeItem(LS); } catch (x) { } return false; } // password changed: ask again
   }
 
@@ -289,10 +291,8 @@
     });
     const legend = L.control({ position: 'bottomleft' });
     legend.onAdd = () => {
-      const d = L.DomUtil.create('div', 'map-legend');
-      d.innerHTML = MEDICAL.map(g => `<i style="background:${col(g)}"></i>${g}`).join('<br>') +
-        '<br><i style="background:#9e9e9e"></i>Safety Officers only<br>Size = runners per hour<br>Red ring = on call';
-      return d;
+      return G.foldKey(L.DomUtil.create('div', 'map-legend'), MEDICAL.map(g => `<i style="background:${col(g)}"></i>${g}`).join('<br>') +
+        '<br><i style="background:#9e9e9e"></i>Safety Officers only<br>Size = runners per hour<br>Red ring = on call');
     };
     legend.addTo(map);
     fitMap();
@@ -336,7 +336,7 @@
     if (!T0) T0 = new Date(src.t0);
     if (!soKey) {
       soKey = L.control({ position: 'bottomright' });
-      soKey.onAdd = () => { const d = L.DomUtil.create('div', 'map-legend'); d.innerHTML = '<span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers on post<br><span class="so-mark" style="display:inline-block;width:22px;margin-right:5px">SO</span>Not on post at this time'; return d; };
+      soKey.onAdd = () => G.foldKey(L.DomUtil.create('div', 'map-legend'), '<span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers on post<br><span class="so-mark" style="display:inline-block;width:22px;margin-right:5px">SO</span>Not on post at this time', 'SO key');
       soKey.addTo(fmap);
     }
     const h = curH();

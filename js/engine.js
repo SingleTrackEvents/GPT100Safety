@@ -316,5 +316,30 @@
   const courses = [main].concat(EXTRA.map(c => makeCourse(c)));
   // window.GPT is the main course engine; every course engine is in GPT.courses.
   courses.forEach(c => { c.courses = courses; c.course = id => courses.find(x => x.id === id) || main; });
+  // The medical plan (or the public Safety Officer posts) with config.planPlaces applied: a copy with those places
+  // where they really are. Names stay, so every shift stays with its place.
+  const placed = new WeakMap();
+  main.planPlaces = src => {
+    if (!src) return src;
+    if (!placed.has(src)) {
+      const M = C.planPlaces || {};
+      placed.set(src, Object.assign({}, src, { stations: src.stations.map(s => M[s.name] ? Object.assign({}, s, { lat: M[s.name].lat, lon: M[s.name].lon }) : s) }));
+    }
+    return placed.get(src);
+  };
+  main.foldKey = (d, html, label) => {
+    let open = innerWidth >= 1000;
+    try { const v = localStorage.getItem('gptMapKey'); if (v != null) open = v === '1'; } catch (e) { }
+    d.classList.add('mp-key');
+    d.innerHTML = `<button type="button" class="mp-key-btn" aria-expanded="${open}">${label || 'Key'}</button><div class="mp-key-body"${open ? '' : ' hidden'}></div>`;
+    d.lastChild.innerHTML = html;
+    if (window.L) { L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d); }
+    d.firstChild.addEventListener('click', () => {
+      const show = d.lastChild.hidden;
+      document.querySelectorAll('.mp-key').forEach(k => { k.lastChild.hidden = !show; k.firstChild.setAttribute('aria-expanded', show); });
+      try { localStorage.setItem('gptMapKey', show ? '1' : '0'); } catch (e) { }
+    });
+    return d;
+  };
   window.GPT = main;
 })();

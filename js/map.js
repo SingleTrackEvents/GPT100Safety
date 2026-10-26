@@ -73,7 +73,7 @@
     GPTBaseMap.overlay(map, 'Track grades', grades, false);
   }
   // Safety Officer posts (public: posts and shift times only), lit when on post during the event.
-  const SO = window.GPT100_SO, soLayer = L.layerGroup();
+  const SO = G.planPlaces ? G.planPlaces(window.GPT100_SO) : window.GPT100_SO, soLayer = L.layerGroup();
   // Shift times are hours from t0 (Melbourne; the race is in daylight saving, UTC+11), as in js/field.js.
   const soT0 = SO ? new Date(SO.t0 + '+11:00').getTime() : 0;
   const soTime = h => new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(soT0 + h * 3600e3)).replace(',', '');
@@ -92,24 +92,16 @@
   if (SO) { drawSO(); GPTBaseMap.overlay(map, 'Safety Officer posts', soLayer, true); setInterval(drawSO, 5 * 60e3); }
 
   // The key folds away (a button) so it doesn't cover the map on a phone; open to start with on a big screen.
-  const KEY = 'gptMapKey';
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = () => {
-    const d = L.DomUtil.create('div', 'map-legend mp-key');
-    let open = innerWidth >= 1000;
-    try { const v = localStorage.getItem(KEY); if (v != null) open = v === '1'; } catch (e) { }
-    d.innerHTML = `<button type="button" class="mp-key-btn" aria-expanded="${open}">Key</button><div class="mp-key-body"${open ? '' : ' hidden'}></div>`;
-    L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
-    d.firstChild.addEventListener('click', () => { const b = d.lastChild; b.hidden = !b.hidden; d.firstChild.setAttribute('aria-expanded', !b.hidden); try { localStorage.setItem(KEY, b.hidden ? '0' : '1'); } catch (e) { } });
-    d.lastChild.innerHTML = G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)} base`).join('<br>') +
+    return G.foldKey(L.DomUtil.create('div', 'map-legend'), G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)} base`).join('<br>') +
       `<br><i class="ln" style="background:${COL.main}"></i>GPT100${courses.length > 1 ? `<br><i class="ln" style="background:${COL.other}"></i>${esc(courses.filter(c => !c.main).map(c => c.label).join(', '))}` : ''}` +
       '<br><i style="background:#111"></i>Aid station or water point<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
       `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach` +
       (SO ? '<br><span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers' : '') +
       (window.GPTHelipads ? '<br><span class="legend-head">Helicopter landing sites</span><br>' + GPTHelipads.legendHTML() : '') +
       (window.GPTTrack ? '<br><span class="legend-head">Track grades (layers button)</span><br>' + GPTTrack.legendHTML() : '') +
-      (TR ? '<br><span class="trk-mk" style="display:inline-block;vertical-align:middle">1047</span> Tracked runner (grey: quiet, red: not moving, purple: off the course)' + (TR.chip() ? '<br><span class="trk-mk est" style="display:inline-block;vertical-align:middle">1047</span> Estimated from the timing chips (amber: late at the next checkpoint)' : '') : '');
-    return d;
+      (TR ? '<br><span class="trk-mk" style="display:inline-block;vertical-align:middle">1047</span> Tracked runner (grey: quiet, red: not moving, purple: off the course)' + (TR.chip() ? '<br><span class="trk-mk est" style="display:inline-block;vertical-align:middle">1047</span> Estimated from the timing chips (amber: late at the next checkpoint)' : '') : ''));
   };
   legend.addTo(map);
   // Whole course button (words, not an icon: a target icon reads as "find me").

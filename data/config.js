@@ -90,6 +90,9 @@ window.GPT100_CONFIG = {
   // without them. For a rehearsal: node tools/gps_demo_feed.mjs, then open the app with
   // ?gps=<full address of the folder> (timing.json in the same folder is picked up), or ?chip=<address of the list>.
   // credit: the timing and tracking provider, named in the intros, next to the Live tracking button and in the tracking status.
+  // Where a medical plan place really is, when the plan pins it somewhere else, by the plan's place name.
+  // Everyone at the place moves (medics, vehicles, Safety Officers), on every map and in every time.
+  planPlaces: { 'Jimmy Creek': { lat: -37.37167, lon: 142.50391 } }, // Jimmy Creek Camp, not the road crossing
   tracking: { url: '', label: 'Live tracking', gps: '', chip: '', chipEvery: 30, chipContests: {}, chipDay: '', chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
