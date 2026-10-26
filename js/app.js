@@ -482,6 +482,7 @@
       (b.walkKm < 0.05 ? 'The casualty is right by the parking spot.\n' : `Walk in ${one(b.walkKm)} km, about ${G.fmt(b.walk)}.\n`) +
       `ETA to casualty ${G.fmt(b.total)}.`;
     if (r.exAlt) s += ` Fastest carry-out to ${G.cleanName(r.exAlt.a)}${G.isGated(r.exAlt.a) ? ' (gated)' : ''}, ${kmTxt(r.exAlt.joinKm)}, about ${G.fmt(r.exAlt.carry)}.`;
+    if (r.remote) s += ` Remote: over ${G.fmt(C.redMin)} to reach, tell the Race Director now and think about a helicopter.`;
     if (r.longJob) s += ` Long job: about ${G.fmt(r.longJob)} with the carry-out, think about a helicopter.`;
     if (r.backup) s += ` Backup ${r.backup.base.name} team, ${G.fmt(r.backup.total)}.`;
     const so = window.MedPlan && window.MedPlan.soLine ? window.MedPlan.soLine(r) : '';
@@ -525,7 +526,7 @@
     const b = r.best, a = b.a, base = b.base;
     // The fastest carry-out, to another exit when that's at least 5 min quicker than back to the team's vehicle.
     const ex = r.exit && r.exit.a !== a && r.exit.carry < b.carry - 5 ? r.exit : null, carry = ex ? ex.carry : b.carry;
-    r.exAlt = ex; r.longJob = b.total <= C.redMin && b.total + carry > LONG_MIN ? b.total + carry : 0;
+    r.exAlt = ex; r.remote = b.total > C.redMin; r.longJob = !r.remote && b.total + carry > LONG_MIN ? b.total + carry : 0;
     let h = '';
     if (isSub()) {
       h += r.raceKm != null
