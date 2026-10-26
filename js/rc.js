@@ -7,8 +7,11 @@
   if (!$('rcBody')) return;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   // The Worker, or ?rcapi=, or the demo's own board (js/demo.js), which also opens without the password.
-  const DEMO = !!(window.GPTDemo && window.GPTDemo.rcBase);
-  const BASE = (new URLSearchParams(location.search).get('rcapi') || (DEMO ? window.GPTDemo.rcBase : '') || W.refreshUrl || '').replace(/\/$/, '');
+  // A test link (?rcapi= or ?wxrefresh=) may only point at this computer, so a link can't send the password elsewhere.
+  const DEMO = !!(window.GPTDemo && window.GPTDemo.rcBase), Q = new URLSearchParams(location.search);
+  const local = u => { try { return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(new URL(u).hostname); } catch (e) { return false; } };
+  const linked = u => (u === Q.get('rcapi') || u === Q.get('wxrefresh')) && !local(u);
+  const BASE = ([Q.get('rcapi'), DEMO ? window.GPTDemo.rcBase : '', W.refreshUrl].find(u => u && !linked(u)) || '').replace(/\/$/, '');
   const unlocked = () => DEMO || !!(window.MedPlan && window.MedPlan.unlocked());
   const LSQ = 'gpt100_rc_queue', LSN = 'gpt100_rc_name';
   const SEV = { urgent: ['Urgent', '#c62828'], priority: ['Priority', '#e8710a'], routine: ['Routine', '#1d7f45'] };
@@ -18,9 +21,16 @@
 
   // ---------- state ----------
   const incidents = new Map(), units = new Map();
-  let log = [], since = 0, lastOk = 0, lastErr = '', built = false, shown = false, timer = null, map = null, layer = null, editing = null, draft = null;
-  let queue = []; try { queue = JSON.parse(localStorage.getItem(LSQ) || '[]'); } catch (e) { queue = []; }
-  const saveQ = () => { try { localStorage.setItem(LSQ, JSON.stringify(queue)); } catch (e) { } };
+  let log = [], since = 0, lastOk = 0, lastErr = '', built = false, shown = false, timer = null, map = null, layer = null, editing = null, draft = null, orig = null, held = false;
+  const closing = new Map(); // incident id: outcome picked in its open Close box
+  // The queue is shared by every tab on the device, so it's read fresh from storage before each change. Bad or blocked storage falls back to memory.
+  let mem = [];
+  const readQ = () => {
+    try { const v = JSON.parse(localStorage.getItem(LSQ) || '[]'); mem = Array.isArray(v) ? v.filter(x => x && x.path) : []; } catch (e) { return mem; }
+    if (mem.some(x => !x.qid)) { mem.forEach(x => { x.qid = x.qid || newId(); }); saveQ(mem); }
+    return mem;
+  };
+  const saveQ = q => { mem = q; try { localStorage.setItem(LSQ, JSON.stringify(q)); } catch (e) { } };
   const who = () => { try { return localStorage.getItem(LSN) || ''; } catch (e) { return ''; } };
   const now = () => Date.now();
 
@@ -36,7 +46,7 @@
   async function api(path, body) {
     const r = await fetch(BASE + path, {
       method: body ? 'POST' : 'GET', cache: 'no-store',
-      headers: Object.assign({ 'X-RC-Password': (window.MedPlan && window.MedPlan.pw()) || '' }, body ? { 'Content-Type': 'application/json' } : {}),
+      headers: Object.assign({ 'X-RC-Password': (!DEMO && window.MedPlan && window.MedPlan.pw()) || '' }, body ? { 'Content-Type': 'application/json' } : {}),
       body: body ? JSON.stringify(body) : undefined
     });
     const j = await r.json().catch(() => ({}));
@@ -44,20 +54,26 @@
     return j;
   }
   // Changes go in a queue (kept on the device), so nothing is lost without signal; they send in order.
-  function send(path, body) { queue.push({ path, body: Object.assign({ who: who() }, body) }); saveQ(); flush(); }
+  function send(path, body) { saveQ(readQ().concat({ qid: newId(), path, body: Object.assign({ who: who() }, body) })); flush(); }
+  const drop = x => saveQ(readQ().filter(y => y.qid !== x.qid));
+  // One tab sends at a time (Web Locks where the browser has them), so two tabs don't send the same change twice.
   let flushing = false;
   async function flush() {
-    if (flushing || !queue.length || !ready()) return;
+    if (flushing || !readQ().length || !ready()) return;
     flushing = true;
-    try {
-      while (queue.length) {
-        const j = await api(queue[0].path, queue[0].body);
-        if (j.incident) incidents.set(j.incident.id, j.incident);
-        if (j.unit) units.set(j.unit.id, j.unit);
-        queue.shift(); saveQ();
-      }
-      lastErr = '';
-    } catch (e) { lastErr = e.message; if (e.status === 400 || e.status === 413) { queue.shift(); saveQ(); } }
+    const run = async () => {
+      let x;
+      try {
+        while ((x = readQ()[0])) {
+          const j = await api(x.path, x.body);
+          if (j.incident) incidents.set(j.incident.id, j.incident);
+          if (j.unit) units.set(j.unit.id, j.unit);
+          drop(x);
+        }
+        lastErr = '';
+      } catch (e) { lastErr = e.message; if (e.status === 400 || e.status === 413) drop(x); }
+    };
+    try { await (navigator.locks ? navigator.locks.request('gpt100_rc_send', run) : run()); } catch (e) { lastErr = e.message; }
     flushing = false;
     status();
   }
@@ -70,7 +86,7 @@
       j.incidents.forEach(i => { const cur = incidents.get(i.id); if (!cur || (cur.version || 0) <= i.version) incidents.set(i.id, i); });
       j.units.forEach(u => units.set(u.id, u));
       if (j.log.length) { const ids = new Set(log.map(l => l.id)); log = j.log.filter(l => !ids.has(l.id)).concat(log).sort((a, b) => b.id - a.id).slice(0, 500); }
-      if (!queue.length) log = log.filter(l => !l.pending);
+      if (!readQ().length) log = log.filter(l => !l.pending);
       since = j.now - 3000; lastOk = now(); lastErr = '';
       if (j.incidents.length || j.units.length || j.log.length) render(); else { tick(); status(); }
     } catch (e) { lastErr = e.message; status(); if (e.status === 401 || e.status === 503) render(); }
@@ -106,12 +122,14 @@
     const E = courseOf(inc);
     try { return E.assess(E.idxAtKm(inc.km)); } catch (e) { return null; }
   }
-  // Expected time to reach the casualty for the unit sent (a base team), else the fastest team.
+  // Expected time to reach the casualty for the unit sent (a base team), or the fastest team before one is sent. Null when not known.
   function eta(inc) {
     const r = assess(inc); if (!r || !r.results.length) return null;
-    const team = inc.unit && inc.unit.startsWith('team-') ? r.results.find(x => 'team-' + x.base.key === inc.unit) : null;
-    return Math.round((team || r.results[0]).total);
+    const team = inc.unit ? r.results.find(x => 'team-' + x.base.key === inc.unit) : r.results[0];
+    return team ? Math.round(team.total) : null;
   }
+  // The unit is free, or on this incident (not busy on another open one).
+  const freeFor = (uid, id) => { const u = units.get(uid), o = u && u.incident && incidents.get(u.incident); return !u || !u.incident || u.incident === id || !o || o.status === 'closed'; };
 
   // ---------- units ----------
   function unitList() {
@@ -155,9 +173,13 @@
     });
     $('rcAddUnit').addEventListener('submit', e => {
       e.preventDefault();
-      const n = $('rcUnitName').value.trim(); if (!n) return flash($('rcUnitName'));
-      patchUnit('u-' + n.replace(/[^A-Za-z0-9]+/g, '-').slice(0, 40), { custom: true, label: n, status: 'available' }, 'Unit added: ' + n);
-      $('rcUnitName').value = '';
+      const el = $('rcUnitName'), n = el.value.trim(); if (!n) return flash(el);
+      el.value = '';
+      if (unitList().some(u => u.label.toLowerCase() === n.toLowerCase())) { el.placeholder = n + ' is already on the board'; return flash(el); }
+      el.placeholder = 'Add a unit, e.g. Sweep 3';
+      // Ids keep the name's letters; a name with other characters (e.g. non-Latin) gets a short code so names never share an id.
+      const h = [...n].reduce((a, c) => Math.imul(a ^ c.codePointAt(0), 16777619) >>> 0, 2166136261);
+      patchUnit('u-' + n.replace(/[^A-Za-z0-9 _-]/g, '').slice(0, 40) + (/[^A-Za-z0-9 _-]/.test(n) ? '.' + h.toString(36) : ''), { custom: true, label: n, status: 'available' }, 'Unit added: ' + n);
     });
     if (window.L) {
       map = L.map('rcMap', { zoomControl: true });
@@ -169,6 +191,8 @@
       runnerLayer = L.layerGroup().addTo(map);
       map.fitBounds(L.latLngBounds(G.route.map(p => [p[0], p[1]])).pad(0.04));
     }
+    // A redraw skips a list while one of its menus is in use (so it doesn't snap shut), and catches up when it's left (after any click).
+    ['rcOpen', 'rcUnits'].forEach(k => $(k).addEventListener('focusout', () => { if (!held) return; held = false; if (pressing) addEventListener('pointerup', () => setTimeout(render, 0), { once: true }); else setTimeout(render, 0); }));
     built = true;
     renderWatch();
   }
@@ -221,12 +245,16 @@
     const all = [...incidents.values()];
     const open = all.filter(i => i.status !== 'closed').sort((a, b) => sevRank(a) - sevRank(b) || a.created - b.created);
     const closed = all.filter(i => i.status === 'closed').sort((a, b) => (b.times && b.times.closed || 0) - (a.times && a.times.closed || 0));
-    $('rcOpen').innerHTML = open.length ? open.map(card).join('') : '<p class="rc-empty">No open incidents.</p>';
+    if (!hold($('rcOpen'))) { $('rcOpen').innerHTML = open.length ? open.map(card).join('') : '<p class="rc-empty">No open incidents.</p>'; bindCards($('rcOpen')); }
     $('rcClosed').innerHTML = closed.map(card).join('');
     $('rcClosedSum').textContent = `Closed (${closed.length})`;
-    bindCards();
+    bindCards($('rcClosed'));
     renderUnits(); renderLog(); renderMap(); tick(); status(); renderForm();
   }
+  let pressing = false;
+  addEventListener('pointerdown', () => { pressing = true; }, true);
+  addEventListener('pointerup', () => setTimeout(() => { pressing = false; }, 0), true);
+  const hold = el => { const a = document.activeElement; return !!(a && a.tagName === 'SELECT' && el.contains(a)) && (held = true); };
   const sevRank = i => ({ urgent: 0, priority: 1, routine: 2 }[i.severity] ?? 3);
   function card(i) {
     const t = i.times || {}, sev = SEV[i.severity] || ['Unrated', '#777'], e = eta(i), closed = i.status === 'closed';
@@ -234,16 +262,17 @@
     const loc = i.km != null ? `km ${(+i.km).toFixed(1)} <span>${esc(placeAt(+i.km))}</span>` : esc(i.where || 'Location not given');
     return `<div class="rc-card${closed ? ' closed' : ''}" data-id="${i.id}" style="--sev:${sev[1]}">
       <div class="rc-card-top"><b>#${i.num || '…'}</b><span class="rc-sev">${sev[0]}</span><span class="rc-loc">${loc}</span>
-        <span class="rc-timer" data-t0="${t.call || i.created}" data-due="${t.dispatched && e && !t.onScene ? t.dispatched + e * 60000 : ''}"></span></div>
+        <span class="rc-timer" data-t0="${t.call || i.created}" data-due="${t.dispatched && e != null && !t.onScene ? t.dispatched + e * 60000 : ''}"></span></div>
       <p class="rc-what">${esc(i.desc || '')}${i.bib || i.name ? ` <span class="rc-runner">${esc([i.bib ? 'Bib ' + i.bib : '', i.name, i.race].filter(Boolean).join(', '))}</span>` : ''}</p>
       ${liveBib(i)}
       <p class="rc-times">${[['call', 'Call'], ['dispatched', 'Sent'], ['onScene', 'On scene'], ['leaving', 'Left'], ['closed', 'Closed']].filter(([k]) => t[k]).map(([k, l]) => `${l} <b>${hm(t[k])}</b>`).join(' · ')}
-        ${i.unit ? ` · <b>${esc(unitLabel(i.unit))}</b>` : ''}${e != null && !closed ? ` · ETA ${dur(e)}` : ''}${i.outcome ? ` · ${esc(i.outcome)}` : ''}</p>
-      ${closed ? '' : `<div class="rc-actions">
+        ${i.unit ? ` · <b>${esc(unitLabel(i.unit))}</b>` : ''}${closed ? '' : e != null ? ` · ETA ${dur(e)}` : i.unit && !t.onScene ? ' · ETA unknown' : ''}${i.outcome ? ` · ${esc(i.outcome)}` : ''}</p>
+      ${closed ? '<div class="rc-actions"><button class="btn small" data-act="reopen" type="button">Reopen</button></div>' : `<div class="rc-actions">
         ${next ? `<button class="btn small primary" data-step="${next[0]}" type="button">${next[1]}</button>` : ''}
         <button class="btn small" data-act="close" type="button">Close</button>
         <button class="btn small" data-act="edit" type="button">Edit</button>
-        ${i.km != null ? '<button class="btn small" data-act="find" type="button">Find</button>' : ''}</div>`}
+        ${i.km != null ? '<button class="btn small" data-act="find" type="button">Find</button>' : ''}</div>
+      ${closing.has(i.id) ? `<div class="rc-closebox"><label>Outcome <select>${OUTCOMES.map(o => `<option${o === closing.get(i.id) ? ' selected' : ''}>${o}</option>`).join('')}</select></label><button class="btn small primary" data-act="closeit" type="button">Close incident</button><button class="btn small" data-act="keep" type="button">Cancel</button></div>` : ''}`}
     </div>`;
   }
   // Where the incident's runner is now, from the GPS tracker or the timing chips, whichever is newer.
@@ -255,14 +284,18 @@
     const km = TR.cur(r);
     return `<p class="trk-bib">${r.pos.src === 'chip' ? 'Chips' : 'Tracker'}: km ${km.toFixed(1)}${r.pos.est ? ' (estimated)' : ''}${r.pos.offM > 60 ? ', ' + TR.dist(r.pos.offM) + ' off the course' : ''}. ${TR.where(r)}${i.km != null && !r.pos.done && Math.abs(km - i.km) > 0.3 ? ` <b>(${TR.dist(Math.abs(km - i.km) * 1000)} from the logged km)</b>` : ''} <button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></p>`;
   }
-  function bindCards() {
-    document.querySelectorAll('#rcBody .rc-card').forEach(el => {
-      const id = el.dataset.id, i = incidents.get(id);
-      el.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => step(i, b.dataset.step)));
+  function bindCards(root) {
+    root.querySelectorAll('.rc-card').forEach(el => {
+      const id = el.dataset.id, sel = el.querySelector('.rc-closebox select');
+      if (sel) sel.addEventListener('change', () => closing.set(id, sel.value));
+      el.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => step(incidents.get(id), b.dataset.step)));
       el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
-        const a = b.dataset.act;
+        const a = b.dataset.act, i = incidents.get(id);
         if (a === 'edit') openForm(i);
-        if (a === 'close') closeIncident(i, el);
+        if (a === 'close' && needName()) { closing.set(id, closing.get(id) || OUTCOMES[0]); render(); }
+        if (a === 'keep') { closing.delete(id); render(); }
+        if (a === 'closeit') closeIncident(i, sel.value);
+        if (a === 'reopen' && needName()) patchIncident(id, { status: 'open', outcome: null, times: { closed: null } }, 'Reopened');
         if (a === 'find' && window.GPT_UI) window.GPT_UI.openKm(+i.km);
       }));
       el.addEventListener('mouseenter', () => focusMarker(id));
@@ -274,30 +307,27 @@
     if (k === 'dispatched' && !i.unit) { openForm(i, 'Choose the unit sent, then save.'); flash($('rcForm').querySelector('select[name=unit]')); return; }
     const patch = { times: { [k]: now() } };
     patchIncident(i.id, patch, `${label}${i.unit ? ' (' + unitLabel(i.unit) + ')' : ''}`);
-    if (i.unit) patchUnit(i.unit, { status: k === 'onScene' ? 'onscene' : k === 'leaving' ? 'returning' : 'tasked', incident: i.id });
+    if (i.unit && freeFor(i.unit, i.id)) patchUnit(i.unit, { status: k === 'onScene' ? 'onscene' : k === 'leaving' ? 'returning' : 'tasked', incident: i.id });
   }
-  function closeIncident(i, el) {
+  // Frees the unit only if it's still on this incident.
+  function closeIncident(i, outcome) {
     if (!needName()) return;
-    const box = document.createElement('div');
-    box.className = 'rc-closebox';
-    box.innerHTML = `<label>Outcome <select>${OUTCOMES.map(o => `<option>${o}</option>`).join('')}</select></label><button class="btn small primary" type="button">Close incident</button>`;
-    el.appendChild(box);
-    box.querySelector('button').addEventListener('click', () => {
-      const outcome = box.querySelector('select').value;
-      patchIncident(i.id, { status: 'closed', outcome, times: { closed: now() } }, 'Closed: ' + outcome);
-      if (i.unit) patchUnit(i.unit, { status: 'available', incident: null });
-    });
+    closing.delete(i.id);
+    patchIncident(i.id, { status: 'closed', outcome, times: { closed: now() } }, 'Closed: ' + outcome);
+    if (i.unit && (units.get(i.unit) || {}).incident === i.id) patchUnit(i.unit, { status: 'available', incident: null });
   }
   function renderUnits() {
+    if (hold($('rcUnits'))) return;
     const list = unitList(), groups = {};
     list.forEach(u => (groups[u.kind] = groups[u.kind] || []).push(u));
     $('rcUnits').innerHTML = Object.entries(groups).map(([k, us]) => `<h4>${esc(k)}</h4>` + us.map(u => {
       const inc = u.inc && incidents.get(u.inc);
       return `<div class="rc-unit st-${u.st}"><span class="rc-unit-name">${u.color ? `<i style="background:${u.color}"></i>` : ''}${esc(u.label)}${u.where ? `<small>${esc(u.where)}</small>` : ''}</span>
-        <select data-unit="${esc(u.id)}">${Object.entries(UNIT_ST).map(([v, l]) => `<option value="${v}"${v === u.st ? ' selected' : ''}>${l}</option>`).join('')}</select>
+        <select data-unit="${esc(u.id)}" aria-label="${esc(u.label)} status">${Object.entries(UNIT_ST).map(([v, l]) => `<option value="${v}"${v === u.st ? ' selected' : ''}>${l}</option>`).join('')}</select>
         ${inc && inc.status !== 'closed' && u.st !== 'available' ? `<small class="rc-unit-inc">#${inc.num || '…'} km ${inc.km != null ? (+inc.km).toFixed(1) : '?'}</small>` : ''}</div>`;
     }).join('')).join('');
     $('rcUnits').querySelectorAll('select[data-unit]').forEach(s => s.addEventListener('change', () => {
+      s.blur();
       if (!needName()) { renderUnits(); return; }
       const label = unitLabel(s.dataset.unit);
       patchUnit(s.dataset.unit, Object.assign({ status: s.value, label }, s.value === 'available' || s.value === 'unavailable' ? { incident: null } : {}), `${label}: ${UNIT_ST[s.value]}`);
@@ -340,7 +370,7 @@
     const el = $('rcSync'); if (!el) return;
     const age = lastOk ? Math.round((now() - lastOk) / 1000) : null;
     el.className = 'rc-sync ' + (lastErr ? 'bad' : age != null && age < 20 ? 'ok' : 'warn');
-    el.textContent = (lastErr ? 'Not syncing: ' + lastErr : age == null ? 'Connecting…' : 'Live') + (queue.length ? ` · ${queue.length} waiting to send` : '');
+    el.textContent = (lastErr ? 'Not syncing: ' + lastErr : age == null ? 'Connecting…' : 'Live') + (readQ().length ? ` · ${readQ().length} waiting to send` : '');
   }
   async function renderWx() {
     const box = $('rcWx'); if (!box || !window.WeatherTab || !window.WeatherTab.peek) return;
@@ -352,7 +382,19 @@
   }
 
   // ---------- new and edit form ----------
-  function openForm(inc, note) { editing = inc && inc.id ? inc.id : null; draft = Object.assign({}, inc); draft.note = note || ''; renderForm(true); }
+  function openForm(inc, note) { editing = inc && inc.id ? inc.id : null; orig = Object.assign({}, inc); draft = Object.assign({}, inc); draft.note = note || ''; renderForm(true); }
+  // Km as typed ("87.3", "87,3" or "87.3 km"), checked against the course. NaN if it isn't a km on the course.
+  function kmOf(v, d) {
+    v = String(v).trim().replace(/\s*km$/i, '').replace(',', '.');
+    const km = /^(\d+\.?\d*|\.\d+)$/.test(v) ? +v : NaN;
+    return km >= 0 && km <= courseOf(d).totalKm + 0.05 ? km : NaN;
+  }
+  function badKm(f) {
+    let p = f.querySelector('.rc-kmmsg');
+    if (!p) { p = document.createElement('p'); p.className = 'notice warn rc-kmmsg'; f.querySelector('h3').after(p); }
+    p.textContent = `Km must be a number between 0 and ${courseOf(draft).totalKm.toFixed(1)}.`;
+    flash(f.km);
+  }
   function renderForm(scroll) {
     const box = $('rcForm'); if (!box) return;
     if (!draft) { box.innerHTML = ''; return; }
@@ -376,8 +418,8 @@
       <p class="rc-reqnote"><em class="rc-req">*</em> Required: a km or where, and what happened.</p>
       <div class="rc-actions"><button class="btn primary small" type="submit">${editing ? 'Save' : 'Log incident'}</button><button class="btn small" type="button" data-cancel>Cancel</button></div></form>`;
     const f = box.querySelector('form');
-    f.km.addEventListener('change', () => { const v = parseFloat(f.km.value); draft.km = isNaN(v) ? null : v; keep(f); renderForm(true); });
-    f.querySelector('[data-cancel]').addEventListener('click', () => { draft = null; editing = null; renderForm(); });
+    f.km.addEventListener('change', () => { const v = kmOf(f.km.value, draft); if (f.km.value.trim() && isNaN(v)) return badKm(f); draft.km = isNaN(v) ? null : v; keep(f); renderForm(true); });
+    f.querySelector('[data-cancel]').addEventListener('click', () => { draft = null; editing = null; orig = null; renderForm(); });
     f.addEventListener('submit', e => { e.preventDefault(); save(f); });
     if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -389,30 +431,35 @@
     const missing = [];
     if (!f.km.value.trim() && !f.where.value.trim()) missing.push(f.km, f.where);
     if (!f.desc.value.trim()) missing.push(f.desc);
-    if (f.km.value.trim() && isNaN(parseFloat(f.km.value))) missing.push(f.km);
     if (missing.length) { flash(...missing); return; }
-    const km = parseFloat(f.km.value);
+    const km = kmOf(f.km.value, draft);
+    if (f.km.value.trim() && isNaN(km)) return badKm(f);
     const p = { severity: draft.severity, km: isNaN(km) ? null : Math.round(km * 10) / 10, where: draft.where.trim(), bib: draft.bib.trim(), name: draft.name.trim(), race: draft.race, reporter: draft.reporter.trim(), desc: draft.desc.trim(), unit: draft.unit || null };
     if (draft.course) p.course = draft.course;
     if (draft.lat != null) { p.lat = draft.lat; p.lon = draft.lon; }
     if (draft.w3w) p.w3w = draft.w3w;
     if (editing) {
-      const old = incidents.get(editing), patch = Object.assign({}, p);
-      if (p.unit && p.unit !== old.unit && !(old.times || {}).dispatched) patch.times = { dispatched: now() };
-      patchIncident(editing, patch, 'Updated' + (p.unit && p.unit !== old.unit ? ': ' + unitLabel(p.unit) + ' sent' : ''));
-      if (p.unit && p.unit !== old.unit) patchUnit(p.unit, { status: 'tasked', incident: editing });
+      // Only what this operator changed since opening the form, so a stale form can't undo someone else's change.
+      const old = incidents.get(editing), patch = {}, n = v => v == null ? '' : String(v);
+      Object.keys(p).forEach(k => { if (n(p[k]) !== n(k === 'severity' ? orig[k] || 'priority' : orig[k])) patch[k] = p[k]; });
+      const sent = 'unit' in patch && p.unit !== old.unit;
+      if (sent && p.unit && !(old.times || {}).dispatched) patch.times = { dispatched: now() };
+      if (Object.keys(patch).length) patchIncident(editing, patch, 'Updated' + (sent && p.unit ? ': ' + unitLabel(p.unit) + ' sent' : ''));
+      if (sent && old.unit && (units.get(old.unit) || {}).incident === editing) patchUnit(old.unit, { status: 'available', incident: null });
+      if (sent && p.unit) patchUnit(p.unit, { status: 'tasked', incident: editing });
     } else {
       const id = newId();
       p.times = Object.assign({ call: now() }, p.unit ? { dispatched: now() } : {});
       patchIncident(id, p, `Logged: ${SEV[p.severity][0]}${p.km != null ? ', km ' + p.km : ''}${p.desc ? ', ' + p.desc.slice(0, 80) : ''}`);
       if (p.unit) patchUnit(p.unit, { status: 'tasked', incident: id });
     }
-    draft = null; editing = null; renderForm();
+    draft = null; editing = null; orig = null; renderForm();
   }
 
   // ---------- export ----------
   function exportCSV() {
-    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    // A leading = + - @ tab or return is a formula to a spreadsheet, so those cells get a ' first.
+    const q = v => '"' + String(v == null ? '' : v).replace(/^[=+\-@\t\r]/, "'$&").replace(/"/g, '""') + '"';
     const rows = [['Number', 'Status', 'Severity', 'Km', 'Where', 'Bib', 'Runner', 'Race', 'What happened', 'Reported by', 'Unit', 'Call', 'Sent', 'On scene', 'Left scene', 'Closed', 'Outcome']];
     [...incidents.values()].sort((a, b) => (a.num || 0) - (b.num || 0)).forEach(i => {
       const t = i.times || {};
@@ -443,9 +490,9 @@
     clearInterval(clock);
     clearInterval(timer); timer = setInterval(sync, 30000); // keep up to date in the background, more slowly
   }
-  // From Find: start a new incident at the casualty, with the course, km, coordinates and what3words.
+  // From Find: start a new incident at the casualty, with the course, km, coordinates, what3words and the runner's race.
   function newFromFind(r) {
-    openForm({ course: r.course, km: Math.round(r.km * 10) / 10, lat: r.q && r.q.lat != null ? r.q.lat : r.lat, lon: r.q && r.q.lat != null ? r.q.lon : r.lon, w3w: r.casW3w || '', where: r.casW3w ? '///' + r.casW3w : '' });
+    openForm({ course: r.course, km: Math.round(r.km * 10) / 10, lat: r.q && r.q.lat != null ? r.q.lat : r.lat, lon: r.q && r.q.lat != null ? r.q.lon : r.lon, w3w: r.casW3w || '', where: r.casW3w ? '///' + r.casW3w : '', race: r.race || '' });
   }
   // Rebuild only when the device locks or unlocks (the medical plan also calls this every minute when live).
   let authState = null;
