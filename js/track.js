@@ -15,7 +15,7 @@
     unassessed: { label: 'Not yet assessed', col: '#9a9a9a', text: '#fff', note: 'Parks Victoria has not graded this track. Expect the harder end.' },
     'road:sealed': { label: 'Sealed road', col: '#c9a6ff', text: '#2d0a5e', note: 'The course is on a sealed road here. A 2WD vehicle can reach it.' },
     'road:unsealed': { label: 'Unsealed road', col: '#5fb52c', text: '#fff', note: 'The course is on an unsealed road here. A 2WD vehicle can usually reach it.' },
-    'road:4wd': { label: '4WD track', col: '#2f7bff', text: '#fff', note: 'The course is on a 4WD track here. A 4WD can reach it.' }
+    'road:4wd': { label: '4WD track', col: '#0e7c7b', text: '#fff', note: 'The course is on a 4WD track here. A 4WD can reach it.' }
   };
   const ROADS = { sealed: 'Sealed road, 2WD', unsealed: 'Unsealed road, 2WD', '4wd': '4WD only' };
   const KINDS = {
@@ -180,7 +180,8 @@
   }
 
   function legendHTML() {
-    return ['easy', 'medium', 'hard', 'unassessed'].map(g => `<i class="ln" style="background:${GRADES[g].col}"></i>${GRADES[g].label}`).join('<br>');
+    // Every grade the course can show, roads too (teal 4WD is kept clear of the 14k's blue).
+    return Object.keys(GRADES).map(g => `<i class="ln" style="background:${GRADES[g].col}"></i>${GRADES[g].label}`).join('<br>');
   }
 
   window.GPTTrack = { at, between, near, card, line, draw, overlay, slowed, legendHTML, GRADES, KINDS };
