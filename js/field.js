@@ -7,7 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const one = x => (Math.round(x * 10) / 10).toFixed(1);
   const tf = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  let here = null, watchId = null, map = null, layer = null, runnerLayer = null;
+  let here = null, watchId = null, map = null, layer = null, runnerLayer = null, fs = null, RP = null;
   // The race clock: the demo's when it's on (js/demo.js, ?demo=), so cut-offs and expected times can be rehearsed.
   const D0 = window.GPT100_DEMO ? Date.parse(GPT100_DEMO.contests['GPT100 Miler'].start + ':00+11:00') : 0;
   const clock = () => window.GPTDemo && D0 ? D0 + GPTDemo.simNow() : Date.now();
@@ -366,7 +366,7 @@
       (ahead.length ? `<p class="fd-hint">Just past you:</p>` + ahead.map(x => row(x, 'ahead')).join('') : '') +
       `<p class="trk-src">${esc(TR.status())}</p></div>`;
   }
-  if (window.GPTTracking) GPTTracking.onUpdate(() => { drawRunners(); if (here && here.S && here.S.tier !== 'far' && here.S.tier !== 'long' && $('fdGrade')) $('fdGrade').innerHTML = (window.GPTTrack ? GPTTrack.card(here.r, here.E, { vehicle: here.w }) : '') + runnersHTML(here.E, here.r); });
+  if (window.GPTTracking) GPTTracking.onUpdate(() => { drawRunners(); if (RP) RP.render(); if (here && here.S && here.S.tier !== 'far' && here.S.tier !== 'long' && $('fdGrade')) $('fdGrade').innerHTML = (window.GPTTrack ? GPTTrack.card(here.r, here.E, { vehicle: here.w }) : '') + runnersHTML(here.E, here.r); });
   function drawRunners() {
     if (!runnerLayer || !window.GPTTracking) return;
     // Redrawn on every update: an open runner popup is opened again on the new marker, without panning.
@@ -487,7 +487,7 @@
     if (!window.L) { $('fdMap').innerHTML = '<p class="map-off">Map unavailable without signal.</p>'; return; }
     map = L.map('fdMap', { zoomControl: true });
     GPTBaseMap(map);
-    if (window.GPTFullscreen) GPTFullscreen(map, $('fdMap'));
+    if (window.GPTFullscreen) fs = GPTFullscreen(map, $('fdMap'));
     MAIN.courses.forEach(E => L.polyline(E.route.map(p => [p[0], p[1]]), { color: '#8a8a8a', weight: 2, opacity: .55, interactive: false }).addTo(map));
     raceLayer = L.layerGroup().addTo(map);
     soLayer = L.layerGroup().addTo(map);
@@ -509,9 +509,17 @@
       return d;
     };
     loc.addTo(map);
+    // Runners (js/runners.js): under + and -, clear of the layers, full screen, ◎ and the Key.
+    const rc = L.control({ position: 'topleft' });
+    rc.onAdd = () => {
+      const d = L.DomUtil.create('div', 'leaflet-bar fd-rbar');
+      d.innerHTML = '<button type="button" id="fdRunners" class="fd-rbtn" aria-expanded="false" aria-controls="mpPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6 M15 14.5c3 0 6 1.8 6 5"/></svg>Runners</button>';
+      L.DomEvent.disableClickPropagation(d);
+      return d;
+    };
+    rc.addTo(map);
     const t = document.createElement('div'); t.id = 'fdToast'; t.className = 'rn-toast'; t.hidden = true; t.setAttribute('role', 'status');
     $('fdMap').appendChild(t);
-    window.GPTField = { map };
   }
 
   function drawRaceMap(fit) {
@@ -645,6 +653,7 @@
     if (!document.querySelector(`.rn-tab[data-tab="${t}"]`)) t = 'home';
     try { if (pop !== true) (history.state && history.state.fdTab && t !== tab ? history.pushState : history.replaceState).call(history, { fdTab: t }, ''); } catch (e) { }
     tab = t; rstore.set('tab2', t);
+    if (t !== 'map' && RP && !$('mpPanel').hidden) RP.open(false);
     if (t === 'home') home();
     document.querySelectorAll('.rn-tab').forEach(el => el.hidden = el.dataset.tab !== t);
     document.querySelectorAll('.rn-nav button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
@@ -667,9 +676,16 @@
     setInterval(() => { if (!document.hidden) { raceDraw(); if (tab === 'home') home(); } }, 60e3);
   } else $('fdRaceCard').hidden = true;
   setTab(tab);
+  // The Runners panel on the Map tab, as on the map page (js/runners.js): a sheet over the app on a phone, beside the
+  // map on a big screen. Show goes to the Map tab first; field.html#bib=1047 opens on that runner.
+  if (map && window.GPTRunners) RP = GPTRunners({ map, layer: () => runnerLayer, panel: $('mpPanel'), button: $('fdRunners'), esc: true,
+    before: () => { if (tab !== 'map') setTab('map'); map.invalidateSize(); if (pendingFit) { map.fitBounds(...pendingFit); pendingFit = null; } },
+    opened: on => { if (on && fs && fs.on()) fs.toggle(); document.body.classList.toggle('fd-rp-on', on); },
+    none: `<p class="muted">Live tracking isn't set up for this race yet. Once the GPS trackers or timing chips are linked, every runner shows here and on the map. To see how it looks, <a href="field.html?demo=1">run the demo</a>: made-up runners on the course, GPS and chips both.</p>` });
+  window.GPTField = { map, show: RP ? RP.show : null };
   // First-time intro and how-to (and the ? button).
   if (window.GPTIntro) GPTIntro({
-    key: 'gptIntroField', done: offlineCard,
+    key: 'gptIntroField', done: offlineCard, quiet: !!(RP && RP.bib),
     steps: [
       () => ({ title: 'GPT100 Field', html: `<p>For Safety Officers, sweeps, aid station crews and medics out on the course.</p>
         <p>It tells you exactly where you are on the course, the quickest way out, and sends your location to race control in one tap. Once it's set up it works with no signal.</p>` }),
@@ -678,6 +694,7 @@
       () => ({ title: '3. How to use it', html: `<ul class="rn-tablist">
         <li><b>Home</b> Your race at a glance: the race clock, the next cut-offs, Safety Officers on post, and big buttons to the map, cut-offs and Send my location.</li>
         <li><b>Map</b> A big topo map of your race: its course, aid stations with cut-offs, and Safety Officer posts (SO). Tap <b>◎</b> to find yourself: under the profile you'll see your race km, the next aid station and cut-off, and the way out. Drag the profile or tap the course to see any point.</li>
+        <li><b>Runners</b> On the map: find a bib, the Runner watch (not moving, off the course, late, tracker quiet), the field by section and the front and tail of each race. Show centres the map on a runner.</li>
         <li><b>Where</b> Tap <b>Where am I?</b> for your course km, between which aid stations, and how far off the course you are (and which way the course is). No GPS? Type the km.</li>
         <li><b>Send</b> <b>Send my location</b> or <b>Urgent: casualty here</b> opens WhatsApp with the km, position, map link and nearest vehicle access ready. Add a note, pick the group, send.</li>
         <li><b>Way out</b> The nearest vehicle access and how long it takes on foot, and the aid stations either side.</li>
