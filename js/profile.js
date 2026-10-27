@@ -27,22 +27,25 @@
       <p class="prof-legend" aria-label="Steepness">${GRADES.map(g => `<span><i style="background:${g[1]}"></i>${g[2]}</span>`).join('')}</p>
       <p class="prof-info"></p>`;
     const q = s => root.querySelector(s), box = q('.prof-svg'), info = q('.prof-info');
-    let base = o.course, viewE = null, here = null, mode = 'course', picked = false, prof = null, hideT = null, mk = null;
+    let base = o.course, viewE = null, here = null, tap = null, mode = 'course', picked = false, prof = null, hideT = null, mk = null;
+    // The section shown: around a point tapped on the map, else around you (or the casualty).
+    const focus = () => tap || here;
     const map = () => (o.map && o.map()) || null;
 
     function setMode(m) {
       mode = m;
       if (m === 'section') viewE = null;
-      root.querySelectorAll('.prof-seg button').forEach(b => { b.classList.toggle('on', b.dataset.p === m); if (b.dataset.p === 'section') b.disabled = !here; });
+      root.querySelectorAll('.prof-seg button').forEach(b => { b.classList.toggle('on', b.dataset.p === m); if (b.dataset.p === 'section') b.disabled = !focus(); });
       draw();
     }
     root.querySelectorAll('.prof-seg button').forEach(b => b.addEventListener('click', () => { picked = true; setMode(b.dataset.p); }));
 
     function range() {
-      const E = viewE || (here ? here.E : base), route = E.route, last = route[route.length - 1][2];
+      const E = viewE || (focus() ? focus().E : base), route = E.route, last = route[route.length - 1][2];
       const W = (o.window && o.window(E)) || { k0: 0, k1: last };
-      if (mode !== 'section' || !here || E !== here.E) return { E, k0: W.k0, k1: W.k1 };
-      const km = here.km, A = E.AID;
+      const F = focus();
+      if (mode !== 'section' || !F || E !== F.E) return { E, k0: W.k0, k1: W.k1 };
+      const km = F.km, A = E.AID;
       let a = A[0], b = A[A.length - 1];
       for (let i = 1; i < A.length; i++) if (A[i].trail_km >= km) { a = A[i - 1]; b = A[i]; break; }
       // A short section still gets a useful width.
@@ -164,15 +167,14 @@
       // The course shown when no point is set (the Find tab's course picker).
       setCourse(E) { base = E; viewE = null; draw(); },
       // The point: { E, km, ele }, or null. The first point shows its section, unless a view was picked.
-      setHere(h) { here = h; viewE = null; setMode(h && !picked ? 'section' : mode); },
-      // A tap on a map: the nearest course within reach, shown on the profile (switching course or view if needed).
+      setHere(h) { here = h; tap = null; viewE = null; setMode(h && !picked ? 'section' : mode); },
+      // A tap on a map: the nearest course within reach, and the profile goes to its section.
       showLL(lat, lng, zoom) {
         let best = null;
         (base.courses || [base]).forEach(E => { const s = E.snap(lat, lng); if (!best || s.offM < best.s.offM) best = { E, s }; });
         if (!best || best.s.offM > Math.max(150, 40 * Math.pow(2, 16 - (zoom || 14)))) return false;
         const E = best.E, km = E.route[best.s.ic][2];
-        if (prof.R.E !== E) { viewE = here && here.E === E ? null : E; setMode('course'); }
-        else if (km < prof.R.k0 || km > prof.R.k1) setMode('course');
+        tap = { E, km }; viewE = null; setMode('section');
         show(km);
         hideT = setTimeout(hide, 8000);
         return true;

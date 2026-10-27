@@ -218,7 +218,7 @@
 }
 /* Dark mode (colours in app.css) */
 @media (prefers-color-scheme: dark) {
-  .rn-tag { background: var(--chip-bg); }
+  .rn-tag { background: #3d382f; color: #f3efe6; box-shadow: inset 0 0 0 1px #6f6656; }
   .rn-tag.crew { background: #15301f; color: var(--ok); }
   .rn-sch.live { background: var(--hl); }
   .rn-sch.past { color: #8f887d; }
