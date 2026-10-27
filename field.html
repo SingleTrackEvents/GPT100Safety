@@ -15,9 +15,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="css/app.css?v=73">
-<link rel="stylesheet" href="css/field.css?v=73">
-<link rel="stylesheet" href="css/runner.css?v=73">
+<link rel="stylesheet" href="css/app.css?v=74">
+<link rel="stylesheet" href="css/field.css?v=74">
+<link rel="stylesheet" href="css/runner.css?v=74">
 </head>
 <body class="field">
 <header class="top">
@@ -90,6 +90,8 @@
       <div id="fdProf" class="fd-prof"></div>
     </section>
   </div>
+  <!-- Runners: bib search, Runner watch and the field (js/runners.js, as on the map page) -->
+  <aside id="mpPanel" class="mp-panel fd-rp" hidden aria-label="Runners"></aside>
 
   <!-- Race: the race picker and cut-offs -->
   <div class="rn-tab" data-tab="race" hidden>
@@ -118,35 +120,36 @@
 <!-- The Weather tab code supplies the weather line; it stays hidden here. -->
 <div id="wxBody" hidden></div>
 
-<script src="js/viewport.js?v=73"></script>
+<script src="js/viewport.js?v=74"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="data/config.js?v=73"></script>
-<script src="data/course.js?v=73"></script>
-<script src="data/courses.js?v=73"></script>
-<script src="data/course-w3w.js?v=73"></script>
-<script src="data/access-edits.js?v=73"></script>
-<script src="js/engine.js?v=73"></script>
-<script src="data/safety-officers.js?v=73"></script>
-<script src="data/tiles.js?v=73"></script>
-<script src="js/basemap.js?v=73"></script>
-<script src="js/profile.js?v=73"></script>
-<script src="data/helipads.js?v=73"></script>
-<script src="js/helipads.js?v=73"></script>
-<script src="data/track-grades.js?v=73"></script>
-<script src="js/track.js?v=73"></script>
-<script src="data/pacing.js?v=73"></script>
-<script src="data/demo-runners.js?v=73"></script>
-<script src="js/demo.js?v=73"></script>
-<script src="js/timing.js?v=73"></script>
-<script src="js/tracking.js?v=73"></script>
-<script src="js/fullscreen.js?v=73"></script>
-<script src="js/weather-core.js?v=73"></script>
-<script src="js/weather.js?v=73"></script>
-<script src="data/races.js?v=73"></script>
-<script src="data/splits.js?v=73"></script>
-<script src="data/runner-courses.js?v=73"></script>
-<script src="js/races.js?v=73"></script>
-<script src="js/intro.js?v=73"></script>
-<script src="js/field.js?v=73"></script>
+<script src="data/config.js?v=74"></script>
+<script src="data/course.js?v=74"></script>
+<script src="data/courses.js?v=74"></script>
+<script src="data/course-w3w.js?v=74"></script>
+<script src="data/access-edits.js?v=74"></script>
+<script src="js/engine.js?v=74"></script>
+<script src="data/safety-officers.js?v=74"></script>
+<script src="data/tiles.js?v=74"></script>
+<script src="js/basemap.js?v=74"></script>
+<script src="js/profile.js?v=74"></script>
+<script src="data/helipads.js?v=74"></script>
+<script src="js/helipads.js?v=74"></script>
+<script src="data/track-grades.js?v=74"></script>
+<script src="js/track.js?v=74"></script>
+<script src="data/pacing.js?v=74"></script>
+<script src="data/demo-runners.js?v=74"></script>
+<script src="js/demo.js?v=74"></script>
+<script src="js/timing.js?v=74"></script>
+<script src="js/tracking.js?v=74"></script>
+<script src="js/fullscreen.js?v=74"></script>
+<script src="js/runners.js?v=74"></script>
+<script src="js/weather-core.js?v=74"></script>
+<script src="js/weather.js?v=74"></script>
+<script src="data/races.js?v=74"></script>
+<script src="data/splits.js?v=74"></script>
+<script src="data/runner-courses.js?v=74"></script>
+<script src="js/races.js?v=74"></script>
+<script src="js/intro.js?v=74"></script>
+<script src="js/field.js?v=74"></script>
 </body>
 </html>

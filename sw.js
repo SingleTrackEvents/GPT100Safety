@@ -5,7 +5,7 @@
 // Pages use the network first (so updates land), falling back to the saved copy when the network hasn't answered in a
 // few seconds (weak signal). Leaflet, fonts and map tiles are cached as they're used; the topo map can also be saved
 // whole (js/basemap.js).
-const BUILD = '73';
+const BUILD = '74';
 const VERSION = 'gpt100-v' + BUILD;
 const NEXT = 'gpt100-next-v'; // + a newer build: files for its pages, fetched before that build's worker is in
 // Pages, manifests and icons, saved by their own address.
@@ -14,7 +14,7 @@ const PAGES = ['./', 'index.html', 'field.html', 'runner.html', 'map.html', 'adm
 // Scripts and styles, saved as the pages ask for them (with ?v=BUILD).
 const FILES = [
   'css/app.css', 'css/field.css', 'css/runner.css', 'js/engine.js', 'js/app.js', 'js/medplan.js', 'js/weather-core.js', 'js/weather.js', 'js/rc.js', 'js/basemap.js', 'js/intro.js',
-  'js/viewport.js', 'js/races.js', 'js/profile.js', 'js/helipads.js', 'js/track.js', 'js/timing.js', 'js/tracking.js', 'js/fullscreen.js', 'js/demo.js', 'js/map.js', 'js/field.js', 'js/runner.js',
+  'js/viewport.js', 'js/races.js', 'js/profile.js', 'js/helipads.js', 'js/track.js', 'js/timing.js', 'js/tracking.js', 'js/fullscreen.js', 'js/runners.js', 'js/demo.js', 'js/map.js', 'js/field.js', 'js/runner.js',
   'data/config.js', 'data/course.js', 'data/courses.js', 'data/course-w3w.js', 'data/access-edits.js', 'data/medplan.enc.js', 'data/safety-officers.js', 'data/pacing.js', 'data/splits.js',
   'data/tiles.js', 'data/helipads.js', 'data/track-grades.js', 'data/demo-runners.js', 'data/races.js', 'data/runner-courses.js', 'data/runner-info.js', 'data/safety-cards.js'
 ];

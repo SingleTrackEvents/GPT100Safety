@@ -157,6 +157,27 @@ html.demo-on body.field .fd-maptab:not([hidden]) { height: calc(var(--vvh, 100sv
   body.field .fd-maptab .prof-legend { display: none; }
   body.field .fd-maptab .prof-info { font-size: 12px; }
 }
+/* Runners on the Map tab (js/runners.js, the map page's panel): a button under + and -, and the panel as a sheet over
+   the whole app on a phone (× or Esc closes it), or beside the map on a big screen */
+.leaflet-bar.fd-rbar { border: 0; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,.4); }
+.fd-rbtn { display: flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 11px 0 9px; border: 0; border-radius: 4px; background: var(--paper); color: var(--ink); font: 700 14px var(--body); cursor: pointer; }
+.fd-rbtn:hover { background: var(--hover); }
+.fd-rbtn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fd-rbtn.on { background: var(--ink); color: var(--paper); }
+body.field .fd-rp { position: fixed; inset: 0; z-index: 2600; width: auto; max-width: none; border: 0; padding: 0 14px calc(24px + env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+body.field .fd-rp .mp-panel-head { position: sticky; top: 0; z-index: 1; margin: 0 -14px; padding: max(8px, env(safe-area-inset-top)) 14px 6px; background: var(--paper); border-bottom: 1px solid var(--line); }
+body.field .fd-rp .mp-x { width: 44px; height: 44px; font-size: 26px; color: var(--ink); }
+body.field .fd-rp .mp-bib input { min-height: 44px; font-size: 16px; }
+body.field .fd-rp .btn.small { min-height: 44px; }
+@media (min-width: 700px) {
+  body.field .fd-rp { top: calc(44px + max(10px, env(safe-area-inset-top))); left: auto; width: 360px; z-index: 1250; border-left: 1px solid var(--line); }
+  body.field .fd-rp .mp-panel-head { padding-top: 8px; }
+  /* The app moves over to make room */
+  body.field.fd-rp-on .fd { margin-left: max(0px, calc((100vw - 920px) / 2)); margin-right: 360px; }
+  body.field.fd-rp-on .rn-nav { left: max(0px, calc((100vw - 920px) / 2)); right: auto; width: min(560px, calc(100vw - 360px)); transform: none; }
+  html.demo-on body.field.fd-rp-on .demo-bar { right: 360px; }
+  html.demo-on body.field.fd-rp-on .demo-list { right: 368px; }
+}
 /* Dark mode (colours in app.css): the big buttons stand out from the dark page */
 @media (prefers-color-scheme: dark) {
   .fd-big { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
