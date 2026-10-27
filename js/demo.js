@@ -325,7 +325,7 @@
   }
   function drawList() {
     setup();
-    const now = simNow(), canFind = !!(window.GPT_UI || window.GPTMapPage);
+    const now = simNow(), canFind = !!(window.GPT_UI || window.GPTMapPage || (window.GPTField && GPTField.show));
     const rows = RUN.filter(r => r.kase).sort((a, b) => a.tCase - b.tCase).map(r => {
       const when = r.tCase === Infinity ? '' : r.tCase <= now ? ` at km ${r.caseKm}, ${mins(now - r.tCase)} ago` : ` at km ${r.caseKm}, in ${mins(r.tCase - now)}`;
       return `<div class="row"><span><b>Bib ${r.bib}</b> ${esc(r.name)}${r.contest !== 'GPT100 Miler' ? ` (${esc(r.contest)})` : ''}<span class="sub">${NOTE[r.kase]}${when}</span></span>${canFind ? `<button class="btn small trk-go" type="button" data-bib="${r.bib}">Find</button>` : ''}</div>`;

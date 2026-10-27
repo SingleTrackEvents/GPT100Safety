@@ -129,7 +129,7 @@
   });
 
   // ---------- live runners ----------
-  let runnerLayer = null;
+  let runnerLayer = null, RP = null;
   if (TR) {
     runnerLayer = L.layerGroup().addTo(map);
     TR.onUpdate(() => {
@@ -138,72 +138,17 @@
       runnerLayer.eachLayer(l => { if (l.isPopupOpen && l.isPopupOpen()) open = l.options.bib; });
       runnerLayer.clearLayers(); courses.forEach(E => TR.draw(runnerLayer, E, null, null, { extra: r => `<br><a class="btn small" style="margin-top:6px" href="${esc(findHref('#bib=' + r.bib))}">Open in Find</a>` }));
       runnerLayer.eachLayer(l => { if (open != null && l.options.bib === open) { const p = l.getPopup(); p.options.autoPan = false; l.openPopup(); p.options.autoPan = true; } });
-      renderPanel(); $('mpStatus').textContent = TR.status();
+      if (RP) RP.render(); $('mpStatus').textContent = TR.status();
     });
   } else $('mpStatus').textContent = 'No live tracking feed is set.';
 
-  // Centre on a runner and say where they are.
-  function show(bib) {
-    const r = TR && TR.byBib(bib);
-    if (!r || !r.pos) { $('mpBibMsg').textContent = TR && TR.ready() ? `No position for bib ${bib} yet` : 'Tracking is still loading'; return false; }
-    const p = r.pos, at = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon];
-    map.setView(at, Math.max(map.getZoom(), 14));
-    // Open the runner's own marker popup (runners on one spot are stacked, each with its own marker).
-    let mk = null;
-    if (runnerLayer) runnerLayer.eachLayer(l => { if (l.options && l.options.bib === r.bib) mk = l; });
-    if (mk) mk.openPopup();
-    else L.popup({ maxWidth: 280 }).setLatLng(at).setContent(`${TR.who(r)}<br>km ${one(TR.cur(r))}${p.est ? ' (estimated)' : ''}${p.offM > 60 ? ', ' + TR.dist(p.offM) + ' off the course' : ''}<br>${TR.where(r)}<br><a class="btn small" style="margin-top:6px" href="${esc(findHref('#bib=' + r.bib))}">Open in Find</a>`).openOn(map);
-    $('mpBibMsg').textContent = '';
-    if (innerWidth < 700) openPanel(false);
-    return true;
-  }
-  $('mpBibForm').addEventListener('submit', e => { e.preventDefault(); const v = $('mpBib').value.replace(/^#|^bib\s*/i, '').trim(); if (v) show(v); });
-  document.addEventListener('click', e => { const b = e.target.closest('.trk-go'); if (b) show(b.dataset.bib); });
-
-  // ---------- the Runners panel ----------
-  const PANEL = 'gptMapPanel';
-  function openPanel(on) {
-    $('mpPanel').hidden = !on; $('mpRunners').setAttribute('aria-expanded', on); $('mpRunners').classList.toggle('on', on);
-    try { localStorage.setItem(PANEL, on ? '1' : '0'); } catch (e) { }
-    setTimeout(() => map.invalidateSize(), 50);
-    if (on) renderPanel();
-  }
-  $('mpRunners').addEventListener('click', () => openPanel($('mpPanel').hidden));
-  $('mpClose').addEventListener('click', () => openPanel(false));
-  function renderPanel() {
-    if ($('mpPanel').hidden) return;
-    const el = $('mpLive');
-    if (!TR) { el.innerHTML = `<p class="muted">No live tracking feed is set (<code>tracking.gps</code> and <code>tracking.chip</code> in the config). To see how it looks, <a href="map.html?demo=1">run the demo</a>: made-up runners on the course, GPS and chips both.</p>`; return; }
-    if (!TR.ready()) { el.innerHTML = `<p class="muted">${esc(TR.status())}</p>`; return; }
-    const w = TR.watch();
-    const row = (r, why) => `<div class="row"><span>${TR.who(r)}<span class="sub">${why}, km ${one(TR.cur(r))}${r.pos.est ? ' (estimated)' : ''}${r.pos.course !== G ? ' (' + esc(r.pos.course.label) + ')' : ''}. ${TR.where(r)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Show</button></div>`;
-    let h = `<p class="trk-status">${esc(TR.status())}</p><h3>Runner watch</h3>`;
-    const any = w.stopped.length || (w.off || []).length || w.late.length || w.quiet.length;
-    if (w.stopped.length) h += '<h4>Not moving for 20 min</h4>' + w.stopped.slice(0, 12).map(r => row(r, 'Not moving')).join('');
-    if ((w.off || []).length) h += '<h4>Off the course</h4>' + w.off.slice(0, 12).map(r => row(r, TR.dist(r.pos.offM) + ' off the course')).join('');
-    if (w.late.length) h += '<h4>Late at the next checkpoint</h4>' + w.late.slice(0, 12).map(r => row(r, (r.pos.next.overdue ? 'Overdue' : 'Late') + ' at ' + esc(r.pos.next.name))).join('');
-    if (w.quiet.length) h += '<h4>Tracker gone quiet</h4>' + w.quiet.slice(0, 12).map(r => row(r, 'No fix')).join('');
-    if (!any) h += '<p class="muted">Everyone on course is moving and accounted for.</p>';
-    courses.forEach(E => {
-      const on = TR.leaders(E);
-      if (!on.length) return;
-      h += `<h3>${esc(E.label)}: ${on.length} on course</h3>`;
-      const A = E.AID;
-      const rows = [];
-      for (let i = 1; i < A.length; i++) { const n = TR.between(E, A[i - 1].trail_km, A[i].trail_km).length; if (n) rows.push({ a: A[i - 1], b: A[i], n }); }
-      h += rows.map(x => `<div class="row"><span><b>${esc(x.a.name)}</b> to <b>${esc(x.b.name)}</b><span class="sub">km ${one(x.a.trail_km)} to ${one(x.b.trail_km)}</span></span><span class="v">${x.n}</span></div>`).join('');
-      const few = (list, label) => list.length ? `<h4>${label}</h4>` + list.map(r => `<div class="row"><span>${TR.who(r)}<span class="sub">km ${one(TR.cur(r))}${r.pos.est ? ' (estimated)' : ''}, ${TR.where(r)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Show</button></div>`).join('') : '';
-      h += few(on.slice(0, 3), 'Front') + few(on.slice(-3).reverse().filter(r => !on.slice(0, 3).includes(r)), 'Tail');
-    });
-    el.innerHTML = h;
-  }
+  // ---------- the Runners panel (js/runners.js, shared with the field app) ----------
+  RP = GPTRunners({ map, layer: () => runnerLayer, panel: $('mpPanel'), button: $('mpRunners'), key: 'gptMapPanel',
+    extra: r => `<br><a class="btn small" style="margin-top:6px" href="${esc(findHref('#bib=' + r.bib))}">Open in Find</a>` });
+  const show = RP.show, m = RP.bib;
   let want = innerWidth >= 1000;
-  try { const v = localStorage.getItem(PANEL); if (v != null) want = v === '1'; } catch (e) { }
-  if (TR && want && innerWidth >= 700) openPanel(true);
-
-  // A bib in the link opens on that runner: map.html#bib=1047.
-  const m = /bib=(\d+)/.exec(location.hash);
-  if (m && TR) { let done = false; TR.onUpdate(() => { if (!done && TR.ready()) { done = true; show(m[1]); } }); }
+  try { const v = localStorage.getItem('gptMapPanel'); if (v != null) want = v === '1'; } catch (e) { }
+  if (TR && want && innerWidth >= 700) RP.open(true);
 
   // The ? help (js/intro.js): once on first open on a phone, unless the link opens on a runner. On a big screen
   // (the race control wall) it only opens from the ? button.
