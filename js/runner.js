@@ -605,6 +605,7 @@
         <li><b>Map</b> Your race on a big topo map. Tap <b>◎</b> to see where you are: your race km, the next aid station, the climb to it, its cut-off and when you'll get there show under the profile.</li>
         <li><b>${mode === 'crew' ? 'Crew' : 'Aid'}</b> ${mode === 'crew' ? 'Crew points with directions and your runner’s expected times.' : 'Every aid station with cut-offs. Add a target time to see your splits.'}</li>
         <li><b>Help</b> Your safety tab, in English, Japanese, Chinese, Russian or Polish: call 000 or race medical, find your three words (what3words) and GPS numbers to read out, share your location, and what to do if you're lost, bitten, or helping another runner.</li>
+        <li><b>Track</b> Follow runners live by bib or name: where they are, their time at each checkpoint, when they're expected next, and the live order of each race. Share a runner's link with family and friends.</li>
         <li><b>Schedule</b> What's on now, what's next, and the full schedule.</li>
         <li><b>Gear</b> Tick off your mandatory gear.</li>
       </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. A guide only: follow the course markings and the race briefing.${C.tracking && C.tracking.credit && C.tracking.credit.name ? ` Timing and tracking by ${C.tracking.credit.url ? `<a href="${esc(C.tracking.credit.url)}" target="_blank" rel="noopener">${esc(C.tracking.credit.name)}</a>` : esc(C.tracking.credit.name)}.` : ''}</p>`;
@@ -634,6 +635,8 @@
     el: $('rnProf'), course: engineFor(R.stages[race.stages[0]]) || MAIN, map: () => map, who: 'you',
     empty: RUN_HINT,
     window: En => stage && En === E() ? { k0: stage.points[0].gk, k1: stage.points[stage.points.length - 1].gk } : null,
+    // A map tap only ever shows the runner's own course, not the GPT100 where the 14k shares its track.
+    courses: () => E() ? [E()] : null,
     km: { toRace: k => stage ? toRace(stage, k) : k, toCourse: k => stage ? toCourse(stage, k) : k },
     title: () => !stage ? '' : `${race.short}${race.stages.length > 1 ? ' ' + stage.label : ''}: ${one(stage.points[stage.points.length - 1].km)} km`
   });
@@ -652,5 +655,5 @@
   function netStatus() { $('net').hidden = navigator.onLine; }
   addEventListener('online', netStatus); addEventListener('offline', netStatus); netStatus();
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
-  window.GPTRunner = { map: () => map, stage: () => stage };
+  window.GPTRunner = { map: () => map, stage: () => stage, race: () => race, setTab: t => setTab(t), tab: () => tab };
 })();
