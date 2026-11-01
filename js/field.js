@@ -102,7 +102,8 @@
   function raceLine() {
     const rp = racePos(); if (!rp) return '';
     const P = stage.points, { at, nx } = nextPt(rp), fin = P[P.length - 1];
-    let h = `<p class="fd-facts fd-raceline"><b>${esc(race.short)}${race.stages.length > 1 ? ' ' + esc(stage.label) : ''} km ${one(rp.rk)}</b> of ${one(fin.km)}${at ? ` · At <b>${esc(at.name)}</b>` : ''}`;
+    // The race km itself is the big number on the card: one km on the screen, so there's only one to read out.
+    let h = `<p class="fd-facts fd-raceline">Of ${one(fin.km)} km${at ? ` · At <b>${esc(at.name)}</b>` : ''}`;
     if (nx) {
       const j = rp.E.idxAtKm(nx.gk), e = etaLine(rp, nx);
       h += ` · Next: <b>${esc(nx.name)}</b> in ${one(nx.km - rp.rk)} km, +${Math.round(rp.E.climb(rp.ic, j))} m`;
@@ -288,7 +289,10 @@
     $('fdOut').classList.toggle('long', S.tier === 'long');
     const poor = g && g.acc > POOR_GPS_M ? `<p class="notice warn"><b>GPS isn't accurate enough yet</b> (±${Math.round(g.acc)} m). Stand in the open and tap Where am I? again.</p>` : '';
     const pos = `<p class="fd-facts">${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}${g ? ` · GPS ±${Math.round(g.acc)} m, fix ${tf.format(new Date(here.t))}` : ''}${here.w3w ? ` · ${w3wLink(here.w3w)}` : here.w3wDone && here.near ? ` · ${w3wLink(here.near.words)} (${savedNote()})` : ''}</p>`;
-    const kmTag = `<span class="fd-course">${esc(E.name)} course</span>`;
+    // One km on the card: the picked race's km when you're on its course (the km in the race docs and at the aid
+    // stations), else the course km.
+    const rp = racePos(), kmNow = rp ? one(rp.rk) : one(r.km);
+    const kmTag = `<span class="fd-course">${rp ? esc(rname()) : esc(E.name) + ' course'}</span>`;
     if (S.tier === 'far') {
       $('fdWhere').innerHTML = `${poor}
         <div class="fd-kmrow"><span class="fd-kmbig">${Math.round(here.offM / 1000)} KM</span></div>
@@ -321,7 +325,7 @@
       : S.tier === 'near' ? `Just off the course. The course is ${dist(here.offM)} ${S.dir} of you`
       : `${S.at ? `At ${esc(S.at)}, ` : ''}${dist(here.offM)} off the course. The course is ${S.dir} of you (straight line, may not be walkable)`;
     $('fdWhere').innerHTML = `${poor}
-      <div class="fd-kmrow"><span class="fd-kmbig">KM ${one(r.km)}</span>${kmTag}</div>
+      <div class="fd-kmrow"><span class="fd-kmbig">KM ${kmNow}</span>${kmTag}</div>
       <p class="fd-between">${esc(between(r))}</p>
       <p class="fd-facts fd-off-${S.tier}"><b>${off}</b> · ${Math.round(r.ele)} m high</p>
       ${pos}${raceLine()}<button type="button" class="fd-linkbtn fd-seemap" onclick="GPTFieldTab('map')">See it on the map</button>`;
@@ -340,7 +344,7 @@
       h += `<div class="fd-way"><b>${l}: ${esc(x.a.name)}</b><span>${one(x.distKm)} km, about ${E.fmt(x.walk)} on foot${x.a.w3w ? ` · <a href="https://w3w.co/${esc(x.a.w3w)}" target="_blank" rel="noopener">///${esc(x.a.w3w)}</a>` : ''}</span></div>`;
     });
     h += `<p class="fd-hint">The team that would come to you: <b>${esc(r.best.base.name)}</b>, about ${E.fmt(r.best.total)}${r.night ? ' (night times)' : ''}.</p>`;
-    if (S.tier === 'off') h = `<p class="notice warn">You're ${dist(here.offM)} off the course. These times assume you get back onto the course at km ${one(r.km)} first.</p>` + h;
+    if (S.tier === 'off') h = `<p class="notice warn">You're ${dist(here.offM)} off the course. These times assume you get back onto the course at km ${kmNow} first.</p>` + h;
     $('fdOutWay').innerHTML = h;
     // Track grade here, what a carry-out crosses, the nearest emergency marker and helipad (Parks Victoria access maps).
     here.w = w;
@@ -360,7 +364,7 @@
     if (!TR.ready()) return `<div class="card trk"><h3>Runners near you</h3><p class="muted">${esc(TR.status())}</p></div>`;
     const back = TR.near(E, r.km, 6, 30).filter(x => TR.cur(x) <= r.km).sort((a, b) => TR.cur(b) - TR.cur(a)).slice(0, 6);
     const ahead = TR.near(E, r.km, 6, 30).filter(x => TR.cur(x) > r.km).sort((a, b) => TR.cur(a) - TR.cur(b)).slice(0, 3);
-    const row = (x, dir) => `<div class="row"><span>${TR.who(x)}<span class="sub">km ${one(TR.cur(x))}${x.pos.est ? ' (estimated)' : ''}, ${TR.dist(Math.abs(TR.cur(x) - r.km) * 1000)} ${dir}${x.pos.stopped ? ', <b>not moving</b>' : ''}. ${TR.seen(x)}</span></span></div>`;
+    const row = (x, dir) => `<div class="row"><span>${TR.who(x)}<span class="sub">${TR.dist(Math.abs(TR.cur(x) - r.km) * 1000)} ${dir}${x.pos.est ? ' (estimated)' : ''}${x.pos.stopped ? ', <b>not moving</b>' : ''}. ${TR.seen(x)}</span></span></div>`;
     return `<div class="card trk"><h3>Runners near you</h3>` +
       (back.length ? `<p class="fd-hint">Coming towards you (nearest first):</p>` + back.map(x => row(x, 'back')).join('') : '<p class="muted">No tracked runners within 6 km behind you.</p>') +
       (ahead.length ? `<p class="fd-hint">Just past you:</p>` + ahead.map(x => row(x, 'ahead')).join('') : '') +
@@ -432,9 +436,8 @@
   function message(urgent) {
     const r = here.r, E = here.E, note = $('fdNote').value.trim(), S = here.S || { tier: 'on' };
     const long = S.tier === 'long', w = long ? null : r.results.slice().sort((a, b) => a.walk - b.walk)[0];
-    // Both kms when a race is picked: the race km the sweeps and crews use, and the course km the responders use.
-    const rp = racePos(), ck = `${E.name} km ${one(r.km)}`, rk = rp ? `${rname()} km ${one(rp.rk)}` : '';
-    const km = !rk ? ck : rp.E === E && Math.abs(rp.rk - r.km) < 0.05 ? rk : `${rk} (${ck})`, fixT = here.t;
+    // One km, as on the screen: the picked race's km when you're on its course, else the course km.
+    const rp = racePos(), km = rp ? `${rname()} km ${one(rp.rk)}` : `${E.name} km ${one(r.km)}`, fixT = here.t;
     const where = S.tier === 'on' ? `${km}${between(r) ? ', ' + between(r) : ''}`
       : `${S.at ? 'at ' + S.at + ', ' : ''}${dist(here.offM)} ${({ north: 'south', 'north-east': 'south-west', east: 'west', 'south-east': 'north-west', south: 'north', 'south-west': 'north-east', west: 'east', 'north-west': 'south-east' })[S.dir]} of the course at ${km}${between(r) ? ', ' + between(r) : ''}`;
     const lines = [
@@ -688,7 +691,7 @@
     key: 'gptIntroField', done: offlineCard, quiet: !!(RP && RP.bib),
     steps: [
       () => ({ title: 'GPT100 Field', html: `<p>For Safety Officers, sweeps, aid station crews and medics out on the course.</p>
-        <p>It tells you exactly where you are on the course, the quickest way out, and sends your location to race control in one tap. Once it's set up it works with no signal.</p>` }),
+        <p>It tells you exactly where you are on the course, the quickest way out, and sends your location to Event HQ in one tap. Once it's set up it works with no signal.</p>` }),
       GPTIntro.installStep('GPT100 Field', 'Do this first, before saving the map. On iPhone, the home screen app keeps its own copy, so a map saved here in the browser would have to download again.'),
       GPTIntro.saveStep(offlineCard),
       () => ({ title: '3. How to use it', html: `<ul class="rn-tablist">
@@ -696,7 +699,7 @@
         <li><b>Map</b> A big topo map of your race: its course, aid stations with cut-offs, and Safety Officer posts (SO). Tap <b>◎</b> to find yourself: under the profile you'll see your race km, the next aid station and cut-off, and the way out. Drag the profile or tap the course to see any point.</li>
         <li><b>Runners</b> On the map: find a bib, the Runner watch (not moving, off the course, late, tracker quiet), the field by section and the front and tail of each race. Show centres the map on a runner.</li>
         <li><b>Where</b> Tap <b>Where am I?</b> for your course km, between which aid stations, and how far off the course you are (and which way the course is). No GPS? Type the km.</li>
-        <li><b>Send</b> <b>Send my location</b> or <b>Urgent: casualty here</b> opens WhatsApp with the km, position, map link and nearest vehicle access ready. Add a note, pick the group, send.</li>
+        <li><b>Send</b> <b>Send my location</b> or <b>Urgent: casualty here</b> opens WhatsApp with the km, position, map link and nearest vehicle access ready. Add a note, pick the Safety Officer and Rescue Team group (or Event HQ), send.</li>
         <li><b>Way out</b> The nearest vehicle access and how long it takes on foot, and the aid stations either side.</li>
         <li><b>Race</b> Pick your race (it stays picked): every aid station with its cut-off, and when you'll reach each one at your current pace (or from a target time). Handy for sweeps.</li>
         <li><b>Trail</b> Turn on <b>Keep updating</b> to follow your position and draw the trail you've walked.</li>

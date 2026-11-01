@@ -76,7 +76,9 @@
   function where(p, km) {
     if (!p.onCourse || km == null) return `${dist(p.line)} away${p.off_m > 150 ? ', ' + dist(p.off_m) + ' off the course' : ''}`;
     if (p.m < 60) return 'right here';
-    return `${dist(p.m)} ${p.km < km ? 'back' : 'ahead'} along the course, km ${one(p.km)}`;
+    // The field app shows one km, the race km, so it leaves out the course km of the marker or helipad.
+    const fieldApp = document.body && document.body.classList.contains('field');
+    return `${dist(p.m)} ${p.km < km ? 'back' : 'ahead'} along the course${fieldApp ? '' : ', km ' + one(p.km)}`;
   }
   function chip(g) { const i = info(g); return `<span class="tg-chip" style="background:${i.col};color:${i.text}">${esc(i.label)}</span>`; }
   function breakdown(b) {

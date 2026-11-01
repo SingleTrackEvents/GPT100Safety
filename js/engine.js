@@ -196,6 +196,18 @@
       return (min + up * C.climbPenalty) * (f || 1);
     }
 
+    // Minutes on foot along the course between two km, before the climb: config.walkPace, or the slower pace of any
+    // config.slowWalk section it crosses (GPT100 km, e.g. the rough ground below Seven Dials).
+    function walkMin(k0, k1) {
+      const lo = Math.min(k0, k1), hi = Math.max(k0, k1);
+      let min = (hi - lo) * C.walkPace;
+      if (def.main) for (const s of C.slowWalk || []) {
+        const o = Math.min(s.to, hi) - Math.max(s.from, lo);
+        if (o > 0) min += o * (s.pace - C.walkPace);
+      }
+      return min;
+    }
+
     // Best way for one base to reach course index ic. f: the night factor on the walk and carry (1 by day).
     function bestFor(key, ic, f) {
       f = f || 1;
@@ -209,7 +221,7 @@
           const j = jn.idx, conn = jn.conn_m / 1000;
           const along = Math.abs(route[j][2] - km);
           const up = climb(j, ic) + jn.conn_ascent;
-          const walk = ((conn + along) * C.walkPace + up * C.climbPenalty) * f;
+          const walk = (conn * C.walkPace + walkMin(route[j][2], km) + up * C.climbPenalty) * f;
           const total = drive + walk;
           if (!best || total < best.total) {
             best = { key, a, idx: j, joinKm: route[j][2], drive, walk, total, walkKm: conn + along, climb: up, connM: jn.conn_m, connBack: jn.conn_back || 0, connGeom: jn.geom || null };
@@ -245,7 +257,7 @@
       }
       const info = a => a && {
         a, distKm: Math.abs(a.trail_km - km),
-        walk: (Math.abs(a.trail_km - km) * C.walkPace + climb(a.idx, ic) * C.climbPenalty) * f,
+        walk: (walkMin(a.trail_km, km) + climb(a.idx, ic) * C.climbPenalty) * f,
         carry: carryMin(a.trail_km, km, 0, climb(ic, a.idx), f)
       };
       return { prev: info(prev), next: info(next) };
@@ -307,7 +319,7 @@
     return {
       id: def.id, name: def.name, label: def.label, note: def.note || '', main: !!def.main,
       data: D, config: C, route, ACCESS, AID: STOPS, BASES, crossings: def.main ? D.crossings : [],
-      idxAtKm, snap, storedW3w, nearW3w, metres, climb, carryMin, exitFor, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName, now, sun, isNight,
+      idxAtKm, snap, storedW3w, nearW3w, metres, climb, walkMin, carryMin, exitFor, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName, now, sun, isNight,
       totalKm: def.total_km
     };
   }

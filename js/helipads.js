@@ -90,7 +90,9 @@
   function where(p, km) {
     if (!p.onCourse || km == null) return `${dist(p.line)} away${p.off_m > 150 ? ', ' + dist(p.off_m) + ' off the course' : ''}`;
     if (p.m < 60) return 'right here';
-    return `${dist(p.m)} ${p.km < km ? 'back' : 'ahead'} along the course, km ${one(p.km)}`;
+    // The field app shows one km, the race km, so it leaves out the course km of the marker or helipad.
+    const fieldApp = document.body && document.body.classList.contains('field');
+    return `${dist(p.m)} ${p.km < km ? 'back' : 'ahead'} along the course${fieldApp ? '' : ', km ' + one(p.km)}`;
   }
   // The two nearest within 10 km, unsuitable or closed today last; the better kept of the two leads only when it's under 1 km further.
   function pick(lat, lon, km) {

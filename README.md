@@ -270,7 +270,7 @@ The what3words API key lives in `config.js`, so every device can look up what3wo
 
 ## How the estimates work
 
-For each base (Halls Gap, Jimmy Creek, Dunkeld), the app checks every access point: the drive time, plus the walk from the car park to the course and along the course to the casualty (12 min/km, plus 0.1 min for every metre climbed, which is 10 min per 100 m, Naismith's rule). It picks the fastest option for each base, then ranks the bases. The stretcher carry-out uses 30 min/km (slower on Hard and not yet assessed track) plus the same climb allowance, including any climb back up to the car park.
+For each base (Halls Gap, Jimmy Creek, Dunkeld), the app checks every access point: the drive time, plus the walk from the car park to the course and along the course to the casualty (12 min/km, plus 0.1 min for every metre climbed, which is 10 min per 100 m, Naismith's rule). Rough stretches can be given a slower walking pace in `slowWalk` in `config.js` (the Seven Dials post to the Seven Dials Track 4WD, km 77.5 to 79.2, is 15 min/km). It picks the fastest option for each base, then ranks the bases. The stretcher carry-out uses 30 min/km (slower on Hard and not yet assessed track) plus the same climb allowance, including any climb back up to the car park.
 
 Between sunset and sunrise at the course, the walk-in and carry-out take 30% longer (`nightFactor` in `config.js`; drive times are unchanged). Find, the field app, the map page and Race Control use the time now (Race Control uses the time the unit was sent), or the demo's race time when the demo is running, and say "Night" with the times. Find's 2 hour and 4 hour warnings, Race Control's overdue timers and the Safety Officers' walk times use them too.
 

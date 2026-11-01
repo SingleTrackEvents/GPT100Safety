@@ -12,6 +12,10 @@ window.GPT100_CONFIG = {
   evacPace: 30,     // stretcher / carry-out, min per km on Medium or Easy track
   // Carry-out slows on the harder Parks Victoria track grades (data/track-grades.js): multiplier on evacPace by grade.
   carryFactor: { hard: 1.75, unassessed: 1.5 },
+  // Slower walking on rough ground, by GPT100 km: pace in min per km instead of walkPace (walk-in, walk-out and the
+  // Safety Officers' walk times; the carry-out already slows on Hard track). Seven Dials: Jason, who holds the post, says
+  // the walk out to the Seven Dials Track 4WD is a good hour with about 200 m of climbing on tricky ground.
+  slowWalk: [{ from: 77.5, to: 79.2, pace: 15, name: 'Seven Dials post to the Seven Dials Track 4WD' }],
   climbPenalty: 0.10, // min per metre of ascent (10 min per 100 m, Naismith), walking in and carrying out
   nightFactor: 1.3, // walk-in and carry-out take this much longer between sunset and sunrise (not the drive)
   driveFactor: 1.2, // multiplier on measured drive times for access roads
