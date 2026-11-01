@@ -373,7 +373,7 @@
       let distKm, walk;
       if (main) {
         distKm = Math.abs(k.km - r.km) + k.off / 1000;
-        walk = distKm * C.walkPace + G.climb(k.ic, r.ic) * C.climbPenalty;
+        walk = (k.off / 1000) * C.walkPace + G.walkMin(k.km, r.km) + G.climb(k.ic, r.ic) * C.climbPenalty;
       } else {
         distKm = G.metres([s.lat, s.lon], [r.lat, r.lon]) / 1000 * 1.4;
         walk = distKm * C.walkPace;
