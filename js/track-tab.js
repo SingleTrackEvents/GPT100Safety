@@ -193,7 +193,8 @@
     });
     // The top of the field, plus anyone followed further down; Show all for the rest.
     const shown = showAll ? rows : rows.filter((x, i) => i < TOP || isOn(all[i].bib));
-    $('tkOrder').innerHTML = `<p class="fd-hint">Live order from the timing chips: finishers by time, then runners on course by how far along they are. Tap a name to follow them.</p>` + shown.join('') +
+    const by = T.credit && T.credit.name ? ` Timing by ${T.credit.url ? `<a href="${esc(T.credit.url)}" target="_blank" rel="noopener">${esc(T.credit.name)}</a>` : esc(T.credit.name)}.` : '';
+    $('tkOrder').innerHTML = `<p class="fd-hint">Live order from the timing chips: finishers by time, then runners on course by how far along they are. Tap a name to follow them.${by}</p>` + shown.join('') +
       (rows.length > shown.length ? `<button type="button" class="btn small tk-all" data-all="1">Show all ${rows.length}</button>` : showAll && rows.length > TOP ? `<button type="button" class="btn small tk-all" data-all="0">Show the top ${TOP}</button>` : '');
   }
   $('tkRace').addEventListener('change', () => { raceSel = $('tkRace').value; showAll = false; drawOrder(); });
