@@ -163,8 +163,9 @@
     if (/^(distance|category|course)$/.test(n)) return 'contest0';
     if (/^(status|state|statusname)$/.test(n)) return 'status';
     if (/^(place|rank|pos|position|overall|overallplace|overallrank)$/.test(n)) return 'place';
+    if (/^(gender|sex)$/.test(n)) return 'gender';
     // Not timing points: elapsed race time and gaps (Time, Diff), and the runner's details.
-    if (/^(time|nettime|chiptime|guntime|racetime|elapsed|elapsedtime|totaltime|duration|pace|speed|diff|difference|behind|gaptoleader|gender|sex|age|agegroup|agegrp|club|team|city|nation|nationality|country|id|pid|rrid|email|phone|comment)$/.test(n) || /(rank|place|diff|behind)$/.test(n)) return 'skip';
+    if (/^(time|nettime|chiptime|guntime|racetime|elapsed|elapsedtime|totaltime|duration|pace|speed|diff|difference|behind|gaptoleader|age|agegroup|agegrp|club|team|city|nation|nationality|country|id|pid|rrid|email|phone|comment)$/.test(n) || /(rank|place|diff|behind)$/.test(n)) return 'skip';
     return 'point';
   }
   // A time from the feed: a full date and time or a Unix time ({ t }, in ms), or a Melbourne time of day ({ sec }):
@@ -210,7 +211,7 @@
     const runners = new Map(), pts = new Map(), unmatched = new Set(), matched = new Set(), badContests = new Map(), odd = new Set(), tests = new Set(), future = [];
     let undated = 0;
     for (const row of rows) {
-      let bib = '', name = '', first = '', last = '', contest = '', cp = -1, status = '', place = '', m;
+      let bib = '', name = '', first = '', last = '', contest = '', cp = -1, status = '', place = '', gender = '', m;
       const reads = [];
       for (const [l, v] of Object.entries(row)) {
         const ro = role(l), sv = String(v == null ? '' : v).trim();
@@ -221,6 +222,7 @@
         else if ((m = /^contest(\d)$/.exec(ro))) { if (sv && +m[1] > cp) { contest = sv; cp = +m[1]; } }
         else if (ro === 'status') status = sv;
         else if (ro === 'place') place = sv;
+        else if (ro === 'gender') gender = sv;
         else if (ro === 'point') reads.push({ label: l, c: clock(v), t: 0 });
       }
       if (!bib || !/^\d+$/.test(bib)) continue;
@@ -273,7 +275,7 @@
       if (!st && /[a-z]/i.test(place)) { st = statusOf(place); if (st == null) { odd.add(place); st = ''; } }
       const fin = finishKm(E, race);
       if (!st && out.length && out[out.length - 1].km >= fin - 0.05 && fin > 0) st = 'finished';
-      runners.set(bib, { bib, name: name + ' (' + ct.label + ')', contest: ct.name, raceKey: ct.key, raceLabel: ct.label, course: E, race, day: ct.day, status: st, reads: out, last: out[out.length - 1] || null, startKm: startKm(E, race), finishKm: fin });
+      runners.set(bib, { bib, name: name + ' (' + ct.label + ')', person: name, gender: /^(f|w)/i.test(gender) ? 'F' : /^m/i.test(gender) ? 'M' : gender ? 'X' : '', contest: ct.name, raceKey: ct.key, raceLabel: ct.label, course: E, race, day: ct.day, status: st, reads: out, last: out[out.length - 1] || null, startKm: startKm(E, race), finishKm: fin });
     }
     S.runners = runners;
     S.points = [...pts.values()].sort((a, b) => a.course.id === b.course.id ? a.km - b.km : a.course.main ? -1 : 1);

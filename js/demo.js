@@ -156,7 +156,7 @@
     const fin = {}, rows = RUN.map(r => {
       const km = kmAt(r, now), dnf = r.kase === 'dnf' && now >= r.tCase;
       const miss = r.kase === 'missed' ? COLS.map(c => c[1] && kmOf(c[1])).find(k => k != null && k >= r.caseKm - 0.05) : null;
-      const row = { Place: dnf ? 'DNF' : '', Status: dnf ? 'DNF' : '', Bib: r.bib, Name: r.name.replace(/^(.*) (\S+)$/, '$2, $1'), Contest: FEED_NAME[r.contest] || 'GPT ' + r.contest, Gender: '' };
+      const row = { Place: dnf ? 'DNF' : '', Status: dnf ? 'DNF' : '', Bib: r.bib, Name: r.name.replace(/^(.*) (\S+)$/, '$2, $1'), Contest: FEED_NAME[r.contest] || 'GPT ' + r.contest, Gender: +r.bib % 3 ? 'M' : 'F' };
       let last = 0;
       for (const [col, name, out] of COLS) {
         const k = col === 'Start' ? r.k0 : col === 'Finish' ? r.k1 : kmOf(name);

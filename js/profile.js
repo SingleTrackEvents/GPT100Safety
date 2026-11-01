@@ -17,7 +17,7 @@
 
   // o: { el, course, map() → Leaflet map or null, who ('you' or 'the casualty'), colour, empty (text before a point is set),
   //       window(E) → { k0, k1 } to show only part of a course (one race), km { toRace(k), toCourse(rk) } to label in race km,
-  //       title(E) → the whole-view title, height (px, default 164), summary() → HTML under the graph (or null) }
+  //       courses() → the courses a map tap can pick (default: every course), title(E) → the whole-view title, height (px, default 164), summary() → HTML under the graph (or null) }
   window.GPTProfile = function (o) {
     const root = o.el, who = o.who || 'you', colour = o.colour || '#1666c9';
     root.classList.add('prof');
@@ -170,8 +170,11 @@
       setHere(h) { here = h; tap = null; viewE = null; setMode(h && !picked ? 'section' : mode); },
       // A tap on a map: the nearest course within reach, and the profile goes to its section.
       showLL(lat, lng, zoom) {
+        // Only the courses this app shows (the runner app: just the runner's own race). Where courses share
+        // the track (the 14k and the GPT100 around Halls Gap and Mt Rosea), the course on show wins a near tie.
+        const list = (o.courses && o.courses()) || base.courses || [base];
         let best = null;
-        (base.courses || [base]).forEach(E => { const s = E.snap(lat, lng); if (!best || s.offM < best.s.offM) best = { E, s }; });
+        list.forEach(E => { const s = E.snap(lat, lng), d = s.offM - (E === base ? 30 : 0); if (!best || d < best.d) best = { E, s, d }; });
         if (!best || best.s.offM > Math.max(150, 40 * Math.pow(2, 16 - (zoom || 14)))) return false;
         const E = best.E, km = E.route[best.s.ic][2];
         tap = { E, km }; viewE = null; setMode('section');
