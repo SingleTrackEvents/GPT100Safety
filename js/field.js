@@ -584,8 +584,17 @@
     if (w) {
       pts.push([w.a.lat, w.a.lon]);
       L.circleMarker([w.a.lat, w.a.lon], { radius: 8, color: '#fff', weight: 2, fillColor: '#111', fillOpacity: 1 }).bindTooltip(here.E.cleanName(w.a)).addTo(layer);
-      const line = w.connGeom && w.connGeom.length > 1 ? w.connGeom : null;
-      if (line) L.polyline(line, { color: '#1666c9', weight: 4, dashArray: '2 8', lineCap: 'round' }).addTo(layer);
+      // The whole walk out, as on the safety page: the access point's track to the course, then along the
+      // course from where it joins to you.
+      const R = here.E.route, ic = here.r.ic, lo = Math.min(w.idx, ic), hi = Math.max(w.idx, ic);
+      const along = R.slice(lo, hi + 1).map(p => [p[0], p[1]]);
+      if (w.idx > ic) along.reverse();
+      const conn = w.connGeom && w.connGeom.length > 1 ? w.connGeom : w.a.conn_geom && w.a.conn_geom.length > 1 ? w.a.conn_geom : [[w.a.lat, w.a.lon]];
+      const walk = conn.concat(along);
+      if (walk.length > 1) {
+        L.polyline(walk, { color: '#1666c9', weight: 6, opacity: .95, dashArray: '1 8', lineCap: 'round', interactive: false }).addTo(layer);
+        walk.forEach(p => pts.push(p));
+      }
     }
     // Far away: show you and the course together.
     if (tier === 'far') { fitMap(L.latLngBounds(pts).extend(L.latLngBounds(MAIN.route.map(p => [p[0], p[1]]))).pad(0.1)); return; }
