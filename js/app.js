@@ -26,6 +26,8 @@
     document.body.classList.toggle('on-med', name === 'med');
     document.body.classList.toggle('on-wx', name === 'wx');
     document.body.classList.toggle('on-rc', name === 'rc');
+    document.body.classList.toggle('on-risk', name === 'risk');
+    if (window.RiskTab) { if (name === 'risk') window.RiskTab.onShow(); else window.RiskTab.onHide(); }
     if (window.RaceControl) { if (name === 'rc') window.RaceControl.onShow(); else window.RaceControl.onHide(); }
     if (window.WeatherTab) { if (name === 'wx') window.WeatherTab.onShow(); else window.WeatherTab.onHide(); }
     if (name === 'med' && window.MedPlan) window.MedPlan.onShow();
@@ -33,7 +35,7 @@
     if (name === 'find' && profile) setTimeout(profile.redraw, 0);
   }
   document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.addEventListener('click', () => {
-    history.replaceState(null, '', b.dataset.tab === 'med' ? '#medical' : b.dataset.tab === 'wx' ? '#weather' : b.dataset.tab === 'rc' ? '#control' : location.pathname + location.search);
+    history.replaceState(null, '', b.dataset.tab === 'med' ? '#medical' : b.dataset.tab === 'wx' ? '#weather' : b.dataset.tab === 'rc' ? '#control' : b.dataset.tab === 'risk' ? '#risk' : location.pathname + location.search);
     showTab(b.dataset.tab);
   }));
 
@@ -694,6 +696,7 @@
     if (h === 'medical') { showTab('med'); return; }
     if (h === 'weather') { showTab('wx'); return; }
     if (h === 'control') { showTab('rc'); return; }
+    if (h === 'risk') { showTab('risk'); return; }
     showTab('find');
     const cm = /[&?]c=([\w-]+)/.exec(h), rm = /[&?]r=([\w-]+)/.exec(h);
     setCourse(cm ? cm[1] : window.GPT.id);

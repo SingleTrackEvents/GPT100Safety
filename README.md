@@ -95,6 +95,20 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - With more than 6 units the unit board shows only the busy ones (anything not Available or Unavailable), with a line such as "9 available, show all" to open the rest. Each device remembers the choice.
 - The log is kept in a database on the Cloudflare Worker, locked with the medical password. Setup: [`tools/RACE_CONTROL.md`](tools/RACE_CONTROL.md).
 
+**Risk** (the race-morning dynamic risk assessment, unlocked with the medical password)
+
+- The Risk Management Plan's Appendix A as a form, for the morning weather meeting, ten minutes before every start, at each Event HQ shift change and at any significant change. Start one from the Risk tab, or from **Start risk assessment** next to Share weather update on the Weather tab.
+- It fills itself in from the app: BOM observations near the course, every weather trigger for the next 48 hours and race weekend, the CFA ratings and Total Fire Bans, EPA AirWatch, VicEmergency, and what has changed since the last signed-off assessment. **Update from the app** captures the latest; the form keeps what the meeting saw.
+- The meeting adds course conditions, positions in place (the staged pairs at Longpoint East and First Wannon Camp, the Secondary Response Unit, the Safety Officers, the Traffic Marshals), staffing, the comms check and new hazards. A staged pair or the Secondary Response Unit marked Not yet is the response gap trigger; a comms check marked Not yet is the comms lost trigger.
+- **Triggers reached** shows each one with the plan's pre-agreed response (Section 5) and a box for what we're doing about it.
+- **Register risks reviewed today:** the register risks today's triggers point at are added already (wind on the ridges brings in falling limbs, severe weather and structures in wind, for example), starting from their existing score and a step more likely when the trigger is met. Score each one on the register's 5x5 matrix (consequence 1 to 5, likelihood A to E), with the band and its required action, the existing and target scores, the owner, and the register's controls. Any other risk can be added by number or name.
+- Top 3 hazards (or **Suggest** from the highest scores), the decision (PROCEED, MODIFY, DELAY, SUSPEND or CANCEL, with the detail), actions with who, by when and how, the comms to teams and to runners, public and partners, and who took the minutes.
+- **Sign off** records the time and the weather as it stands and locks the assessment. Actions can still be ticked off, on any device, and open actions from every assessment are listed together. Signing off goes in the Control radio log.
+- **Today's Safety Briefing** is written from the form, ready for the crew and volunteer WhatsApp groups. **Copy the full record** and **Print** give the whole assessment for the event records, and **Export** downloads every assessment, trigger, risk score and action as a spreadsheet.
+- **Needs review:** once one is signed off, the app keeps watching. When a trigger gets worse, a new BOM warning is issued near the course, a fire or burn appears on VicEmergency, or 6 hours pass during the event (the plan's review through the Miler), the Risk tab gets a red dot and the list says why, with **New assessment** or **Reviewed, no change**.
+- Assessments are shared between race control devices through the same Worker database as Control (`tools/RACE_CONTROL.md`), and kept on the device without signal until they send.
+- The register (79 risks, scores, owners and controls) and the plan's trigger responses are in `data/register.enc.js`, encrypted with the medical password. See Updating the risk register below.
+
 **Runner app** (`runner.html`, for runners and their crews; public, kept separate from the staff and field apps)
 
 - **Intro the first time** (and from the **?** button): pick running or crewing and the race, install the app, save the map, and what each tab does. On iPhone a home screen app keeps its own storage apart from Safari, so the app asks iPhone users to install first and save the map from the installed app (saving in Safari would mean downloading it twice); there's a "Save in Safari anyway" option. On Android, Chrome's Install app button is offered when available.
@@ -252,6 +266,16 @@ MEDPLAN_PASSWORD='new password' node tools/encrypt_medplan.mjs path/to/GPT100_Me
 
 This replaces `data/medplan.enc.js` and `data/safety-officers.js` (the public Safety Officer posts, no names). When the plan pins a place somewhere other than where it really is, add it to `planPlaces` in `data/config.js` by the plan's place name (Jimmy Creek is at Jimmy Creek Camp, not the road crossing, this way). Everyone at the place moves, on every map and in every time, and it carries over when the plan is replaced. Commit those two files only, never the plan itself (`.gitignore` blocks it). Changing the password asks every device for the new one.
 
+## Updating the risk register
+
+When the GPT100 Risk Register or the Risk Management Plan is reissued, download both from Google Docs as Markdown (File, Download, Markdown), then run:
+
+```
+MEDPLAN_PASSWORD='the medical password' node tools/import_register.mjs register.md plan.md
+```
+
+It reads every risk from the register (number, category, description, existing and target scores, controls, owner) and the triggers and pre-agreed responses from the plan's Section 5, and writes `data/register.enc.js`. Commit that file only; the plain copy it also writes (`out/register.json`) stays off GitHub. Run it again whenever the medical password changes, or the Risk tab can't unlock the register.
+
 ## Weather watch
 
 `.github/workflows/weather.yml` runs `tools/weather_watch.mjs` on GitHub Actions, trying four times an hour because GitHub sometimes drops scheduled runs. It fetches the forecast models from Open-Meteo every 3 hours (they only update a few times a day), and the CFA fire ratings, BOM warnings (from the Bureau's anonymous FTP service) and the air quality forecast every hour. It publishes the results to the `weather-data` branch, which the Weather tab reads. The branch holds only the latest results, so it doesn't grow.
@@ -290,6 +314,8 @@ These are planning estimates. Always check access, gates and closures on the day
 | --- | --- |
 | `index.html` | Staff app (Find, Weather, Medical and Control) |
 | `js/rc.js` | Race Control board |
+| `js/risk.js` | Risk tab: the dynamic risk assessment |
+| `data/register.enc.js` | The risk register and the plan's triggers, encrypted (`tools/import_register.mjs`) |
 | `field.html`, `js/field.js`, `css/field.css` | Field app |
 | `tools/CUSTOM_DOMAIN.md` | Steps to move the apps to app.gpt100.com.au |
 | `tools/refresh-worker.js` | Cloudflare Worker: weather refresh relay and the Race Control database |

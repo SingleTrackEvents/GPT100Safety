@@ -240,7 +240,8 @@
   function pill(st, advisory) { return `<span class="wx-pill st-${st}">${advisory && st === 'close' ? 'Advisory' : WORD[st]}</span>`; }
   function triggersHTML() {
     const L = latest, tr = L.triggers;
-    let h = '<button class="btn primary wx-share-btn" id="wxShare" type="button">Share weather update</button><div id="wxSharePanel"></div>';
+    let h = '<div class="wx-share-row"><button class="btn primary wx-share-btn" id="wxShare" type="button">Share weather update</button>' +
+      (window.RiskTab ? '<button class="btn wx-share-btn" id="wxRisk" type="button">Start risk assessment</button>' : '') + '</div><div id="wxSharePanel"></div>';
     h += '<div class="wx-overall">' + Object.entries(tr).map(([k, s]) =>
       `<button class="wx-scope st-${s.status}${trigScope === k ? ' on' : ''}" data-scope="${k}"><span>${esc(s.label)}</span><b>${WORD[s.status]}</b></button>`).join('') + '</div>';
 
@@ -374,6 +375,7 @@
   }
   function bindTriggers() {
     $('wxShare').addEventListener('click', openShare);
+    if ($('wxRisk')) $('wxRisk').addEventListener('click', () => { const b = document.querySelector('.tab-btn[data-tab="risk"]'); if (b) b.click(); window.RiskTab.start('morning'); });
     $('wxView').querySelectorAll('.wx-scope').forEach(b => b.addEventListener('click', () => {
       trigScope = b.dataset.scope; renderView();
       const el = $('wxs-' + trigScope); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1039,5 +1041,5 @@
 
   // For the Race Control board: the latest triggers, loading them if this tab hasn't yet.
   async function peek() { if (!latest || nowS() - latest.updated > 15 * 60) await load(); return latest; }
-  window.WeatherTab = { onShow, onHide, nearHTML, peek, valueAt: (km, t) => grid && conditions(grid, km, t || nowS()), loadGrid: () => load().then(loadGrid) };
+  window.WeatherTab = { onShow, onHide, nearHTML, peek, peekObs: () => obs, valueAt: (km, t) => grid && conditions(grid, km, t || nowS()), loadGrid: () => load().then(loadGrid) };
 })();
