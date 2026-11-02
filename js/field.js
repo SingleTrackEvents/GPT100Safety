@@ -197,6 +197,7 @@
   }
   function locate() {
     if (!navigator.geolocation) { msg('This phone can\'t share its location with the app. Enter the km instead.', true); return; }
+    if (window.GPTHeading) GPTHeading.start(); // the compass, for the arrow on your dot (asked from this tap)
     msg('Finding you… (stand in the open for the best fix)');
     const b = locBtn(); if (b) b.classList.add('busy');
     navigator.geolocation.getCurrentPosition(gotFix, gpsError, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
@@ -205,6 +206,7 @@
     const c = p.coords, b = locBtn();
     if (b) { b.classList.remove('busy'); b.classList.add('on'); }
     msg(`GPS fix ${tf.format(new Date(p.timestamp))}, accurate to about ${Math.round(c.accuracy)} m.`);
+    if (window.GPTHeading) GPTHeading.gps(c);
     addTrail(c.latitude, c.longitude, c.accuracy);
     place(c.latitude, c.longitude, { acc: c.accuracy, alt: c.altitude, t: p.timestamp });
   }
@@ -217,6 +219,7 @@
   function follow(on) {
     rstore.set('follow', !!on);
     if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+    if (on && window.GPTHeading) GPTHeading.start();
     if (on && navigator.geolocation) watchId = navigator.geolocation.watchPosition(gotFix, gpsError, { enableHighAccuracy: true, maximumAge: 15000 });
   }
   // On the Where tab the message sits under the button; on the map it floats over the map for a few seconds.
@@ -582,7 +585,7 @@
     // Off the course: a dashed line to the nearest course point.
     if (tier && tier !== 'on' && tier !== 'far') { const cp = [here.r.lat, here.r.lon]; pts.push(cp); L.polyline([me, cp], { color: '#111', weight: 2, dashArray: '4 6', interactive: false }).addTo(layer); L.circleMarker(cp, { radius: 6, color: '#111', weight: 2, fillColor: '#fff', fillOpacity: 1 }).bindTooltip('Course km ' + one(here.r.km)).addTo(layer); }
     if (here.gps) L.circle(me, { radius: here.gps.acc, color: '#1666c9', weight: 1, fillOpacity: .12 }).addTo(layer);
-    L.circleMarker(me, { radius: 9, color: '#fff', weight: 3, fillColor: '#1666c9', fillOpacity: 1 }).bindTooltip('You').addTo(layer);
+    (window.GPTHeading ? GPTHeading.marker(me) : L.circleMarker(me, { radius: 9, color: '#fff', weight: 3, fillColor: '#1666c9', fillOpacity: 1 })).bindTooltip('You').addTo(layer);
     if (w) {
       pts.push([w.a.lat, w.a.lon]);
       L.circleMarker([w.a.lat, w.a.lon], { radius: 8, color: '#fff', weight: 2, fillColor: '#111', fillOpacity: 1 }).bindTooltip(here.E.cleanName(w.a)).addTo(layer);
