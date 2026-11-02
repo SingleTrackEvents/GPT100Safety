@@ -75,8 +75,10 @@
   }
   // Pace: 0 = the first runner's time, 1 = the cut-off. From the target time, else from where you are now.
   function racePace() {
-    const P = stage.points, fin = P[P.length - 1], v = $('fdTarget').value.trim(), m = /^(\d{1,2})(?:[:.h ](\d{1,2}))?$/.exec(v);
-    if (m) return { p: (P[0].ft.getTime() + (+m[1] * 60 + +(m[2] || 0)) * 60000 - fin.ft) / (fin.ct - fin.ft), from: 'target' };
+    const P = stage.points, fin = P[P.length - 1], v = $('fdTarget').value.trim(),
+      // The iPhone number pad has no colon, so digits alone count too: 32 is 32:00, 330 is 3:30, 3200 is 32:00.
+      m = /^(\d{1,2})(?:\s*[:.h ]\s*(\d{1,2}))?$/i.exec(v) || /^(\d{1,2})(\d{2})$/.exec(v);
+    if (m && +(m[2] || 0) <= 59) return { p: (P[0].ft.getTime() + (+m[1] * 60 + +(m[2] || 0)) * 60000 - fin.ft) / (fin.ct - fin.ft), from: 'target' };
     const rp = racePos(), now = clock(), L = rp && RX.livePace && now < fin.ct.getTime() + 6 * 3600e3 ? RX.livePace(stage, rp.rk, now) : null;
     return L ? Object.assign(L, { from: 'here', rp }) : null;
   }
@@ -684,6 +686,11 @@
     // A new race: the map shows that race (after Where am I? has redrawn you on it).
     $('fdRace').onchange = () => { setRace(RX.R.races.find(x => x.id === $('fdRace').value)); if (here) { render(); drawRaceMap(true); } };
     $('fdTarget').addEventListener('input', () => { rstore.set('target.' + rkey(), $('fdTarget').value); raceDraw(); home(); });
+    // Once they leave the box, show what was understood: 3200 becomes 32:00.
+    $('fdTarget').addEventListener('change', () => {
+      const v = $('fdTarget').value.trim(), m = /^(\d{1,2})(\d{2})$/.exec(v);
+      if (m && +m[2] <= 59) { $('fdTarget').value = +m[1] + ':' + m[2]; rstore.set('target.' + rkey(), $('fdTarget').value); }
+    });
     setRace(race);
     setInterval(() => { if (!document.hidden) { raceDraw(); if (tab === 'home') home(); } }, 60e3);
   } else $('fdRaceCard').hidden = true;

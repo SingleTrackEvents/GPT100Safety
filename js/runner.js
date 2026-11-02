@@ -383,11 +383,17 @@
   // the runner was last seen. The time at each point for that p comes from js/races.js (the splits fitted to last
   // year's field where the race has them).
   function targetPace() {
-    const S = stage, P = S.points, v = $('rnTarget').value.trim(), m = /^(\d{1,2})(?:[:.h ](\d{1,2}))?$/.exec(v);
-    if (!m || +(m[2] || 0) > 59) return null;
+    const S = stage, P = S.points, m = parseTarget($('rnTarget').value);
+    if (!m) return null;
     const ms = (+m[1] * 60 + +(m[2] || 0)) * 60000, fin = P[P.length - 1], [lo, hi] = targetRange();
     if (ms < lo || ms > hi) return null;
     return (P[0].ft.getTime() + ms - fin.ft) / (fin.ct - fin.ft);
+  }
+  // The iPhone number pad has no colon, so digits alone count too: 32 is 32:00, 330 is 3:30, 3200 is 32:00.
+  function parseTarget(v) {
+    v = v.trim();
+    const m = /^(\d{1,2})(?:\s*[:.h ]\s*(\d{1,2}))?$/i.exec(v) || /^(\d{1,2})(\d{2})$/.exec(v);
+    return m && +(m[2] || 0) <= 59 ? m : null;
   }
   // A sensible target: from half the first runner's time to half as long again as the cut-off allows.
   function targetRange() { const P = stage.points, fin = P[P.length - 1], t0 = P[0].ft.getTime(); return [Math.max(60e3, (fin.ft - t0) / 2), (fin.ct - t0) * 1.5]; }
@@ -435,6 +441,12 @@
     $('rnPlan').innerHTML = rows;
   }
   $('rnTarget').addEventListener('input', () => { store.set('target.' + KEY(), $('rnTarget').value); plan(); home(); });
+  // Once they leave the box, show what was understood: 3200 becomes 32:00.
+  $('rnTarget').addEventListener('change', () => {
+    const m = parseTarget($('rnTarget').value); if (!m) return;
+    $('rnTarget').value = +m[1] + ':' + String(+(m[2] || 0)).padStart(2, '0');
+    store.set('target.' + KEY(), $('rnTarget').value);
+  });
   const saveSeen = () => { store.set('seen.' + KEY(), $('rnSeenAt').value ? { i: $('rnSeenAt').value, t: $('rnSeenTime').value } : null); plan(); home(); };
   $('rnSeenAt').addEventListener('change', saveSeen); $('rnSeenTime').addEventListener('input', saveSeen);
 
