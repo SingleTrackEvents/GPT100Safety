@@ -22,11 +22,13 @@
     if (started || asking) return;
     const listen = () => {
       started = true;
-      if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', onTurn);
-      else window.addEventListener('deviceorientation', onTurn);
+      window.addEventListener('ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation', onTurn);
     };
     const D = window.DeviceOrientationEvent;
     if (!D) return;
+    // Android (Chrome): the compass needs no asking, so start now, tap or not. Newer Chrome has the iPhone's
+    // requestPermission too, but asking there without a tap can answer "denied" and leave the arrow off.
+    if ('ondeviceorientationabsolute' in window) { listen(); return; }
     if (typeof D.requestPermission === 'function') {
       const later = () => { asking = false; document.addEventListener('click', start, { once: true, capture: true }); };
       // Not from a tap (the field app's Follow me turns back on as the page opens): an iPhone may answer
