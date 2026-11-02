@@ -2,7 +2,7 @@
 // The phone's compass when it has one (iPhone asks once, from the tap on Where am I?), otherwise the
 // GPS direction of travel while you're moving. No reading: just the dot, as before.
 (function () {
-  let asking = false, compass = null, compassT = 0, gpsDir = null, shown = null, started = false, frame = 0;
+  let asking = false, compass = null, compassT = 0, gpsDir = null, started = false, frame = 0;
   const norm = a => ((a % 360) + 360) % 360;
   // The compass reads from the top of the phone held upright: turned sideways, the screen's top is elsewhere.
   const screenAngle = () => (screen.orientation && typeof screen.orientation.angle === 'number' ? screen.orientation.angle : +window.orientation || 0);
@@ -17,7 +17,7 @@
     compassT = Date.now();
     paint();
   }
-  // Call from a tap (iPhone only lets a page use the compass after one).
+  // Best called from a tap (iPhone only lets a page use the compass after one; without one it waits for the next).
   function start() {
     if (started || asking) return;
     const listen = () => {
@@ -52,9 +52,8 @@
     if (frame) return;
     frame = requestAnimationFrame(() => {
       frame = 0;
+      // Every dot on the page each time (a dot drawn again since, as when the map opens, starts from when it was made).
       const h = now();
-      if (h === shown) return;
-      shown = h;
       document.querySelectorAll('.me-mk .me-dir').forEach(el => {
         el.hidden = h == null;
         if (h != null) el.style.transform = `rotate(${Math.round(h)}deg)`;
@@ -62,8 +61,11 @@
     });
   }
   // The blue "You" marker, with the arrow when there's a direction.
+  // Drawing the dot starts the compass too: the field app puts your last location back on the map as it
+  // opens, with no tap on Where am I? (an iPhone then asks at the next tap anywhere).
   function marker(ll) {
-    return L.marker(ll, { zIndexOffset: 800, keyboard: false, icon: L.divIcon({ className: '', html: html(), iconSize: [44, 44], iconAnchor: [22, 22], tooltipAnchor: [12, 0] }) });
+    start();
+    return L.marker(ll, { zIndexOffset: 800, keyboard: false, icon: L.divIcon({ className: '', html: html(), iconSize: [44, 44], iconAnchor: [22, 22], tooltipAnchor: [12, 0] }) }).on('add', paint);
   }
   window.GPTHeading = { start, gps, marker };
 })();
