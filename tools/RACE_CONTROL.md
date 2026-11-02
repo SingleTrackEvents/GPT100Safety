@@ -1,6 +1,6 @@
 # Race Control setup (Cloudflare)
 
-The Race Control board keeps its incident log, unit status and radio log in a small database on the same Cloudflare Worker that runs the weather refresh (`gpt100-refresh`). It's locked with the medical password, so the public app can't read it, and nothing about incidents goes into the GitHub repository.
+The Race Control board keeps its incident log, unit status and radio log, and the Risk tab its risk assessments, in a small database on the same Cloudflare Worker that runs the weather refresh (`gpt100-refresh`). It's locked with the medical password, so the public app can't read it, and nothing about incidents goes into the GitHub repository.
 
 Setup takes about 10 minutes, all in the Cloudflare dashboard.
 
@@ -36,17 +36,22 @@ Open the app on a device where the Medical tab is unlocked, go to **Control**, a
 - **"Race Control isn't set up on the Worker yet"** means the `DB` binding or the `RC_PASSWORD` secret is missing.
 - **"Wrong password"** means `RC_PASSWORD` doesn't match the medical password.
 
+## Risk assessments
+
+The Risk tab uses the same database and password. If the Worker was set up before the Risk tab, do step 1 again (paste in the latest `refresh-worker.js` and Deploy); nothing else changes, and the Worker adds its table itself. Until then the Risk tab says the Worker needs the latest code, and keeps assessments on the device.
+
 ## When the medical password changes
 
-Update `RC_PASSWORD` in the Worker to the new password at the same time, so devices keep syncing.
+Update `RC_PASSWORD` in the Worker to the new password at the same time, so devices keep syncing, and re-run `tools/import_register.mjs` with the new password (see the README).
 
 ## After the event
 
+- **Export** on the Risk tab downloads every risk assessment and its actions.
 - **Export** on the board downloads every incident and the full radio log as a spreadsheet (CSV), for the incident report.
 - To clear the log before the next event, open the `gpt100-race-control` database in Cloudflare, go to **Console**, and run:
 
   ```
-  DELETE FROM incidents; DELETE FROM units; DELETE FROM log;
+  DELETE FROM incidents; DELETE FROM units; DELETE FROM log; DELETE FROM ra;
   ```
 
   Export first.

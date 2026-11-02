@@ -1,5 +1,7 @@
 # Never commit the unencrypted medical plan; only data/medplan.enc.js goes in the repo.
 *MedicalPlan*.html
 *medplan*.json
+# Nor the plain risk register (tools/import_register.mjs writes it to out/); only data/register.enc.js goes in.
+*register*.json
 __pycache__/
 out/

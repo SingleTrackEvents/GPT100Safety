@@ -12,6 +12,9 @@
 //   POST /rc/incident        create or update an incident: { id?, patch, note?, who }
 //   POST /rc/unit            update a unit's status: { id, patch, note?, who }
 //   POST /rc/log             add a radio log entry: { text, incident?, who }
+//   GET  /rc/ra?since=ms     risk assessments changed since then (the Risk tab)
+//   POST /rc/ra              create or update a risk assessment: { id, patch, note?, who }. Once it's signed off,
+//                            only its actions and reviews can change (409 for anything else)
 //
 // Live GPS tracking relay (the tracking provider's files, with CORS headers the app can use; no key needed):
 //   GET  /gps/<event>/init.txt            the event setup and competitors
@@ -100,7 +103,9 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS log (id INTEGER PRIMARY KEY AUTOINCREMENT, t INTEGER NOT NULL, incident TEXT, kind TEXT, text TEXT, who TEXT, updated INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS incidents_updated ON incidents (updated)',
   'CREATE INDEX IF NOT EXISTS units_updated ON units (updated)',
-  'CREATE INDEX IF NOT EXISTS log_updated ON log (updated)'
+  'CREATE INDEX IF NOT EXISTS log_updated ON log (updated)',
+  'CREATE TABLE IF NOT EXISTS ra (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated INTEGER NOT NULL, version INTEGER NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS ra_updated ON ra (updated)'
 ];
 let schemaReady = false;
 async function ensureSchema(db) {
@@ -151,6 +156,11 @@ async function raceControl(req, env, url, c) {
       log: log.results
     });
   }
+  if (url.pathname === '/rc/ra' && req.method === 'GET') {
+    const since = Math.max(0, +url.searchParams.get('since') || 0);
+    const r = await db.prepare('SELECT id, data, updated, version FROM ra WHERE updated > ?1 ORDER BY updated').bind(since).all();
+    return json({ now, ra: r.results.map(x => Object.assign(JSON.parse(x.data), { id: x.id, updated: x.updated, version: x.version })) });
+  }
   if (req.method !== 'POST') return json({ error: 'Not found' }, 404);
   const text = await req.text();
   if (text.length > 32000) return json({ error: 'Too big' }, 413);
@@ -182,6 +192,20 @@ async function raceControl(req, env, url, c) {
     if (body.note) ops.push(addLog(data.incident || null, 'unit', body.note));
     await db.batch(ops);
     return json({ ok: true, unit: Object.assign(data, { id: body.id, updated: now }) });
+  }
+  // Risk assessments (the race-morning dynamic risk assessment, RMP Appendix A). Signed off means locked:
+  // after that only the actions (ticked off as they're done) and reviews can change.
+  if (url.pathname === '/rc/ra') {
+    if (typeof body.id !== 'string' || !/^[A-Za-z0-9-]{4,40}$/.test(body.id)) return json({ error: 'Bad assessment' }, 400);
+    const patch = cleanPatch(body.patch);
+    const old = await db.prepare('SELECT data, version FROM ra WHERE id = ?1').bind(body.id).first();
+    const cur = old ? JSON.parse(old.data) : null;
+    if (cur && cur.signed && cur.signed.at && Object.keys(patch).some(k => k !== 'actions' && k !== 'reviews')) return json({ error: 'That assessment is signed off', ra: Object.assign(cur, { id: body.id, version: old.version }) }, 409);
+    const data = cur ? merge(cur, patch) : Object.assign({ created: now }, patch), version = old ? old.version + 1 : 1;
+    const ops = [db.prepare('INSERT INTO ra (id, data, updated, version) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(id) DO UPDATE SET data = ?2, updated = ?3, version = ?4').bind(body.id, JSON.stringify(data), now, version)];
+    if (body.note) ops.push(addLog(null, 'risk', body.note));
+    await db.batch(ops);
+    return json({ ok: true, ra: Object.assign(data, { id: body.id, updated: now, version }) });
   }
   if (url.pathname === '/rc/log') {
     if (!body.text) return json({ error: 'Empty' }, 400);
