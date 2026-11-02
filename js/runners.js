@@ -51,11 +51,11 @@
       if (P.hidden) return;
       const el = $('#mpLive');
       if (!TR) { el.innerHTML = o.none || `<p class="muted">No live tracking feed is set (<code>tracking.gps</code> and <code>tracking.chip</code> in the config). To see how it looks, <a href="${esc(location.pathname.replace(/.*\//, '') || 'index.html')}?demo=1">run the demo</a>: made-up runners on the course, GPS and chips both.</p>`; return; }
-      if (!TR.ready()) { el.innerHTML = `<p class="muted">${esc(TR.status())}</p>`; return; }
+      if (!TR.ready()) { el.innerHTML = `<p class="muted">${esc(TR.status())}</p>` + TR.links(); return; }
       const w = TR.watch();
       const go = r => `<button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Show</button>`;
       const row = (r, why) => `<div class="row"><span>${TR.who(r)}<span class="sub">${why}, km ${one(TR.cur(r))}${r.pos.est ? ' (estimated)' : ''}${r.pos.course !== G ? ' (' + esc(r.pos.course.label) + ')' : ''}. ${TR.where(r)}</span></span>${go(r)}</div>`;
-      let h = `<p class="trk-status">${esc(TR.status())}</p><h3>Runner watch</h3>`;
+      let h = `<p class="trk-status">${esc(TR.status())}</p>${TR.links()}<h3>Runner watch</h3>`;
       const any = w.stopped.length || (w.off || []).length || w.late.length || w.quiet.length;
       if (w.stopped.length) h += '<h4>Not moving for 20 min</h4>' + w.stopped.slice(0, 12).map(r => row(r, 'Not moving')).join('');
       if ((w.off || []).length) h += '<h4>Off the course</h4>' + w.off.slice(0, 12).map(r => row(r, TR.dist(r.pos.offM) + ' off the course')).join('');

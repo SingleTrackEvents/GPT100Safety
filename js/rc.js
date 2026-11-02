@@ -229,10 +229,10 @@
     const TR = window.GPTTracking, el = $('rcWatch');
     if (!TR || !el) return;
     if (runnerLayer) { runnerLayer.clearLayers(); G.courses.forEach(E => TR.draw(runnerLayer, E, null, null, { find: true })); }
-    if (!TR.ready()) { el.innerHTML = `<p class="rc-live">${esc(TR.status())}</p>`; return; }
+    if (!TR.ready()) { el.innerHTML = `<p class="rc-live">${esc(TR.status())}</p>` + TR.links(); return; }
     const w = TR.watch();
     const row = (r, why) => `<div class="row"><span>${TR.who(r)}<span class="sub">${why}, km ${TR.cur(r).toFixed(1)}${r.pos.est ? ' (estimated)' : ''}${r.pos.course !== G ? ' (' + esc(r.pos.course.label) + ')' : ''}. ${TR.where(r)}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(r.bib)}">Find</button></div>`;
-    el.innerHTML = `<h3>Runner watch</h3><p class="rc-live">${esc(TR.status())}</p>` +
+    el.innerHTML = `<h3>Runner watch</h3><p class="rc-live">${esc(TR.status())}</p>${TR.links()}` +
       (w.stopped.length ? `<h4>Not moving for 20 min</h4>` + w.stopped.slice(0, 10).map(r => row(r, 'Not moving')).join('') : '') +
       (w.off.length ? `<h4>Off the course</h4>` + w.off.slice(0, 10).map(r => row(r, TR.dist(r.pos.offM) + ' off the course')).join('') : '') +
       (w.late.length ? `<h4>Late at the next checkpoint</h4>` + w.late.slice(0, 10).map(r => row(r, (r.pos.next.overdue ? 'Overdue' : 'Late') + ' at ' + esc(r.pos.next.name))).join('') : '') +

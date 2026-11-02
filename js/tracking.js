@@ -16,13 +16,22 @@
   const CHIP = () => window.GPTTiming && window.GPTTiming.on() ? window.GPTTiming : null;
 
   // Where the GPS feed comes from: ?gps=… overrides the config (an event id goes through the Worker relay, a full address is read as is).
+  // There can be more than one event (the GPT100 and the GPT50 and stage race are separate events at the provider):
+  // a list in the config, or ids separated by commas. Every event is followed side by side and its runners merged.
   let src = null;
   try { const q = new URLSearchParams(location.search).get('gps'); if (q) src = q; } catch (e) { }
   src = src || T.gps || '';
-  if (!src && !window.GPTTiming) { window.GPTTracking = null; return; }
-  const GPS = !!src;
-  const BASE = GPS ? (/^https?:\/\//.test(src) ? src.replace(/\/?$/, '/') : ((C.weather && C.weather.refreshUrl) || '').replace(/\/$/, '') + '/gps/' + src + '/') : '';
-  const RELAY = GPS && !/^https?:\/\//.test(src);
+  const SRCS = (Array.isArray(src) ? src : String(src).split(',')).map(x => String(x).trim()).filter(Boolean);
+  if (!SRCS.length && !window.GPTTiming) { window.GPTTracking = null; return; }
+  const GPS = SRCS.length > 0;
+  const isUrl = x => /^https?:\/\//.test(x);
+  const FEEDS = SRCS.map((x, i) => ({
+    key: SRCS.length > 1 ? i + ':' : '',   // runner ids are per event, so keep them apart when there's more than one
+    base: isUrl(x) ? x.replace(/\/?$/, '/') : ((C.weather && C.weather.refreshUrl) || '').replace(/\/$/, '') + '/gps/' + x + '/',
+    relay: !isUrl(x), ready: false, live: false, name: '', interval: 15, bytes: -1, reset: -1, lastLine: 'undef', error: null, timer: null
+  }));
+  const BASE = GPS ? FEEDS[0].base : '';
+  const RELAY = GPS && FEEDS.every(f => f.relay);
 
   const EPOCH = Date.UTC(2006, 0, 1) / 1000;  // the GPS feed counts seconds from 1 January 2006 UTC
   const ALPHA = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -33,19 +42,19 @@
   const S = { ready: false, live: false, name: '', interval: 15, runners: new Map(), byBib: new Map(), bytes: -1, reset: -1, lastLine: 'undef', updated: 0, error: null, listeners: [], gps: GPS };
 
   // ---------- the GPS feed ----------
-  function parseInit(txt) {
+  function parseInit(F, txt) {
     for (const raw of txt.split('\n')) {
       const line = raw.replace(/\r$/, ''), i = line.indexOf(':');
       if (i < 0) continue;
       const k = line.slice(0, i), v = line.slice(i + 1);
-      if (k === 'RACENAME') S.name = v.trim();
-      else if (k === 'LIVE') S.live = v.trim() === '1';
+      if (k === 'RACENAME') F.name = v.trim();
+      else if (k === 'LIVE') F.live = v.trim() === '1';
       // The provider's own cadence. A feed read straight from an address of our own (the demo, a rehearsal folder)
       // can be read more often: tracking.gpsEvery seconds. The relay keeps the provider's cadence.
-      else if (k === 'GRABINTERVAL') S.interval = !RELAY && T.gpsEvery ? Math.max(2, +T.gpsEvery) : Math.max(10, +v || 15);
+      else if (k === 'GRABINTERVAL') F.interval = !F.relay && T.gpsEvery ? Math.max(2, +T.gpsEvery) : Math.max(10, +v || 15);
       else if (k === 'COMPETITOR') {
         // id|date|start|"1047 Jane Smith"|short name|...
-        const f = v.split('|'), id = f[0], full = (f[3] || '').trim(), m = full.match(/^(\d+)\s*(.*)$/);
+        const f = v.split('|'), id = f[0] && F.key + f[0], full = (f[3] || '').trim(), m = full.match(/^(\d+)\s*(.*)$/);
         if (!id) continue;
         const r = S.runners.get(id) || { id, pts: [] };
         r.bib = m ? m[1] : ''; r.name = m ? m[2] : full; r.label = full;
@@ -56,10 +65,10 @@
   }
 
   // One line of data.lst: "<id>.<t>_<lon*5e4>_<lat*1e5>_B<batt>_S<speed>.<dt>_<dlon>_<dlat>.<3 chars: dt dlon dlat, each minus 31>…"
-  function parseLine(line) {
+  function parseLine(F, line) {
     const c = line.split('.');
     if (c.length < 2 || c[1].indexOf('*') >= 0) return;
-    const r = S.runners.get(c[0]);
+    const r = S.runners.get(F.key + c[0]);
     if (!r) return;
     const u = c[1].split('_');
     let t = +u[0], lon = +u[1], lat = +u[2];
@@ -75,9 +84,9 @@
       add();
     }
   }
-  function handleData(txt) {
+  function handleData(F, txt) {
     const lines = txt.split('\n');
-    for (const l of lines) if (l.length > 10) { parseLine(l); S.lastLine = l.slice(0, 29); }
+    for (const l of lines) if (l.length > 10) { parseLine(F, l); F.lastLine = l.slice(0, 29); }
     // Keep each runner's fixes in time order, drop duplicates and the oldest beyond KEEP.
     for (const r of S.runners.values()) {
       if (!r.pts.length) continue;
@@ -223,43 +232,57 @@
     r.pos = pos;
   }
 
-  // ---------- reading the GPS feed ----------
-  async function get(path, extra) {
-    const res = await fetch(BASE + path + (extra || ''), { cache: 'no-store' });
+  // ---------- reading the GPS feed (each event on its own) ----------
+  // The state shows all the events together: ready once any is, live if any is, the names joined, any error.
+  function sum() {
+    S.ready = FEEDS.some(F => F.ready);
+    S.live = FEEDS.some(F => F.live);
+    S.name = FEEDS.map(F => F.name).filter(Boolean).join(', ');
+    S.interval = Math.min(...FEEDS.map(F => F.interval));
+    const bad = FEEDS.filter(F => F.error);
+    S.error = bad.length ? bad.map(F => (FEEDS.length > 1 ? (F.name || 'event') + ': ' : '') + F.error).join('; ') : null;
+  }
+  async function get(F, path, extra) {
+    const res = await fetch(F.base + path + (extra || ''), { cache: 'no-store' });
     if (!res.ok) throw new Error(path + ' ' + res.status);
     return res;
   }
-  let timer = null;
-  async function poll() {
+  async function poll(F) {
     try {
-      const q = S.bytes >= 0 ? `?offset=${S.bytes}&reset=${S.reset}` : `?data=${encodeURIComponent(S.lastLine)}`;
-      const res = await get('data.php', q);
+      const q = F.bytes >= 0 ? `?offset=${F.bytes}&reset=${F.reset}` : `?data=${encodeURIComponent(F.lastLine)}`;
+      const res = await get(F, 'data.php', q);
       const txt = await res.text();
       if (txt.slice(0, 6) !== '<HTML>' && txt.indexOf('DOCTYPE') < 0) {
         const fs = res.headers.get('X-GPS-Server-Filesize'), rs = res.headers.get('X-GPS-Server-Reset');
-        if (fs) S.bytes = +fs; if (rs) S.reset = +rs;
-        if (txt.trim()) handleData(txt);
-      }
-      S.error = null;
-    } catch (e) { S.error = e.message; }
-    timer = setTimeout(poll, S.interval * 1000);
+        if (fs) F.bytes = +fs; if (rs) F.reset = +rs;
+        F.error = null; sum();
+        if (txt.trim()) handleData(F, txt);
+      } else { F.error = null; sum(); }
+    } catch (e) { F.error = e.message; sum(); }
+    F.timer = setTimeout(() => poll(F), F.interval * 1000);
   }
-  async function start() {
+  async function start(F) {
     try {
-      parseInit(await (await get('init.txt')).text());
-      const res = await get('data.lst');
-      const fs = res.headers.get('X-GPS-Server-Filesize'); if (fs) S.bytes = +fs;
-      const txt = await res.text();
-      S.ready = true; S.error = null;
-      handleData(txt);
-      if (S.live && !timer) timer = setTimeout(poll, S.interval * 1000);
+      parseInit(F, await (await get(F, 'init.txt')).text());
+      // An event set up ahead of race day has no positions file until the first tracker sends: the provider answers
+      // 403 or 404. That's not an error, just nothing yet.
+      const res = await fetch(F.base + 'data.lst', { cache: 'no-store' });
+      if (!res.ok && res.status !== 403 && res.status !== 404) throw new Error('data.lst ' + res.status);
+      const fs = res.ok && res.headers.get('X-GPS-Server-Filesize'); if (fs) F.bytes = +fs;
+      const txt = res.ok ? await res.text() : '';
+      F.ready = true; F.error = null; sum();
+      handleData(F, txt);
+      if (F.live && !F.timer) F.timer = setTimeout(() => poll(F), F.interval * 1000);
+      // An event that isn't live yet (set up ahead of race day) is checked again every few minutes, so it's picked up
+      // when the provider switches it on, with its competitors, without reloading the app.
+      else if (!F.live && F.lastLine === 'undef') setTimeout(() => start(F), 5 * 60e3);
     } catch (e) {
-      S.error = e.message; recompute();
-      setTimeout(start, 60e3);
+      F.error = e.message; sum(); recompute();
+      setTimeout(() => start(F), 60e3);
     }
   }
   function boot() {
-    if (GPS) start();
+    if (GPS) FEEDS.forEach(start);
     if (window.GPTTiming) GPTTiming.onUpdate(recompute);
     // Positions age even when nothing new arrives: refresh the estimates every minute.
     setInterval(() => { if (ready()) recompute(); }, 60e3);
@@ -300,10 +323,18 @@
       if (!S.ready) return 'GPS tracking: loading…' + (chipLine ? ' ' + chipLine : '');
     }
     const on = list().filter(r => r.pos.onCourse && !r.pos.stale), byChip = on.filter(r => r.pos.src === 'chip').length;
-    let s = `${!GPS ? 'Timing chips only' : S.live ? 'Live tracking' : 'Tracking (replay)'}: ${on.length} runner${on.length === 1 ? '' : 's'} on course`;
+    const waiting = GPS && !S.live && FEEDS.every(F => F.lastLine === 'undef');  // set up at the provider, nothing sent yet
+    let s = `${!GPS ? 'Timing chips only' : S.live ? 'Live tracking' : waiting ? 'GPS tracking (not started yet)' : 'Tracking (replay)'}: ${on.length} runner${on.length === 1 ? '' : 's'} on course`;
     if (GPS && TC) s += ` (${on.length - byChip} placed by GPS, ${byChip} by the chips)`;
     if (GPS) s += `, GPS updated ${ago(Date.now() - S.updated)}${S.error ? ' (last fetch failed)' : ''}`;
     return s + '.' + (chipLine ? ' ' + chipLine : '') + (T.credit && T.credit.name ? ` Timing and tracking by ${T.credit.name}.` : '');
+  }
+  // The timing team's own pages, as small buttons beside the tracking status: their live tracking (or event) page and
+  // the official results (config tracking.url and tracking.results). Blank when neither is set.
+  function links() {
+    const a = (u, t) => `<a class="btn small" href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`;
+    const h = (T.url ? a(T.url, T.label || 'Live tracking') : '') + (T.results ? ' ' + a(T.results, 'Official results') : '');
+    return h ? `<p class="trk-links">${h}</p>` : '';
   }
   const who = r => `<b>Bib ${esc(r.bib || '?')}</b> ${esc(r.name)}`;
   // How the position was worked out, in a few words: "GPS fix 2 min ago", "chip read at Halls Gap 12:40, likely km 52.3 now".
@@ -375,5 +406,5 @@
   }
 
   function onUpdate(fn) { S.listeners.push(fn); if (ready()) fn(); }
-  window.GPTTracking = { state: S, ready, byBib, near, between, watch, leaders, list, cur, status, where, nearHTML, nearLine, draw, onUpdate, ago, dist, who, seen, hm, base: BASE, relay: RELAY, gps: GPS, chip: () => !!CHIP() };
+  window.GPTTracking = { state: S, ready, byBib, near, between, watch, leaders, list, cur, status, links, where, nearHTML, nearLine, draw, onUpdate, ago, dist, who, seen, hm, base: BASE, relay: RELAY, gps: GPS, chip: () => !!CHIP() };
 })();
