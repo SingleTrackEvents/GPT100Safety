@@ -28,8 +28,10 @@
     const D = window.DeviceOrientationEvent;
     if (!D) return;
     if (typeof D.requestPermission === 'function') {
-      // Asked without a tap (Follow me turned back on as the page opens), it fails: ask again at the next tap.
       const later = () => { asking = false; document.addEventListener('click', start, { once: true, capture: true }); };
+      // Not from a tap (the field app's Follow me turns back on as the page opens): an iPhone may answer
+      // "denied" for the whole visit without asking, so wait for the next tap rather than ask now.
+      if (navigator.userActivation && !navigator.userActivation.isActive) { later(); return; }
       asking = true;
       try { D.requestPermission().then(s => { asking = false; if (s === 'granted') listen(); }).catch(later); } catch (e) { later(); }
     } else listen();
