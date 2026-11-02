@@ -59,7 +59,6 @@
     $('rnAidTab').textContent = m === 'crew' ? 'Crew' : 'Aid';
     document.querySelectorAll('.rn-mode button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
     document.querySelectorAll('[data-for]').forEach(el => el.hidden = el.dataset.for !== m);
-    $('rnAppName').textContent = m === 'crew' ? 'Crew' : 'Runner';
     $('rnPlanTitle').textContent = m === 'crew' ? 'Crew points' : 'Aid stations and cut-offs';
     $('rnQuickAid').innerHTML = m === 'crew' ? 'Crew points<br>and times' : 'Aid stations<br>and cut-offs';
     if (profOpts) profOpts.empty = m === 'crew' ? 'Tap ◎ on the map to see where you are. Drag along the profile to see any point on your runner\'s course.' : RUN_HINT;
