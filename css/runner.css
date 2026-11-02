@@ -271,3 +271,11 @@
 .trk-mk.tk-mk.est { background: #fff; color: var(--course); border-color: var(--course); }
 @media (max-width: 380px) { .rn-nav svg { width: 22px; height: 22px; } .rn-nav button span { font-size: 10px; } }
 .tk-all { margin-top: 10px; }
+/* The blue "You" dot, with an arrow for the way you're facing (js/heading.js). */
+.me-mk { position: relative; width: 44px; height: 44px; pointer-events: auto; }
+.me-dot { position: absolute; left: 10px; top: 10px; width: 18px; height: 18px; border-radius: 50%; background: #1666c9; border: 3px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,.5); }
+.me-dir { position: absolute; inset: 0; transform-origin: 50% 50%; transition: transform .15s linear; }
+.me-dir[hidden] { display: none; }
+.me-dir svg { display: block; width: 44px; height: 44px; overflow: visible; }
+.me-cone { fill: #1666c9; opacity: .22; }
+.me-arrow { fill: #1666c9; stroke: #fff; stroke-width: 1.5; stroke-linejoin: round; }

@@ -151,12 +151,13 @@
   function locate(then) {
     if (!E()) { msg('Where am I? needs this race\'s map, which isn\'t in the app yet.', true); return; }
     if (!navigator.geolocation) { msg('This phone can\'t share its location with the app.', true); return; }
+    if (window.GPTHeading) GPTHeading.start(); // the compass, for the arrow on your dot (asked from this tap)
     msg(UL('finding'), false, true);
     const b = locBtn(); if (b) b.classList.add('busy');
     // Some phones never answer at all: give up after 30 s (a late fix still places you).
     const fail = e => { clearTimeout(wait); if (b) b.classList.remove('busy'); msg(UL(e.code === 1 ? 'gpsBlocked' : 'gpsNone'), true); $('rnShareMsg').textContent = T()[e.code === 1 ? 'gpsBlocked' : 'gpsNone']; $('rnW3wMsg').textContent = $('rnShareMsg').textContent; };
     const wait = setTimeout(() => fail({ code: 3 }), 30000);
-    navigator.geolocation.getCurrentPosition(p => { clearTimeout(wait); if (b) { b.classList.remove('busy'); b.classList.add('on'); } msg(fill(UL('located'), { acc: Math.round(p.coords.accuracy) })); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
+    navigator.geolocation.getCurrentPosition(p => { clearTimeout(wait); if (b) { b.classList.remove('busy'); b.classList.add('on'); } msg(fill(UL('located'), { acc: Math.round(p.coords.accuracy) })); if (window.GPTHeading) GPTHeading.gps(p.coords); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
       fail, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
   }
   const DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
@@ -277,7 +278,7 @@
     const me = [here.lat, here.lon];
     if (here.acc) L.circle(me, { radius: here.acc, color: '#1666c9', weight: 1, fillOpacity: .12, interactive: false }).addTo(meLayer);
     if (here.offM > OFF) L.polyline([me, here.cp], { color: '#111', weight: 2, dashArray: '4 6', interactive: false }).addTo(meLayer);
-    L.circleMarker(me, { radius: 9, color: '#fff', weight: 3, fillColor: '#1666c9', fillOpacity: 1 }).bindTooltip('You').addTo(meLayer);
+    (window.GPTHeading ? GPTHeading.marker(me) : L.circleMarker(me, { radius: 9, color: '#fff', weight: 3, fillColor: '#1666c9', fillOpacity: 1 })).bindTooltip('You').addTo(meLayer);
     if ($('fdMap').offsetWidth) map.fitBounds(L.latLngBounds([me, here.cp]).pad(0.6), { maxZoom: 15 }); else needFit = true;
   }
   // Share my location: the race, km and position, by text or WhatsApp (the phone's share sheet).
