@@ -43,7 +43,7 @@ RaceResult answers at most one call a second per link and caches for 10 to 30 se
 
 ## 3. Turn it on in the app
 
-In `data/config.js`, set `tracking.chip` to `'relay'` and commit. From then on every app (staff, field, Medical, Control) reads the chips every 30 seconds and merges them with the trackers. Leave it blank to switch the chips off again.
+In `data/config.js`, set `tracking.chip` to `'relay'` and commit (done for GPT100 2026, build 87: the chips start as soon as the `TIMING_URL` secret is in the Worker; until then the status line says the Worker has no TIMING_URL secret yet). From then on every app (staff, field, Medical, Control) reads the chips every 30 seconds and merges them with the trackers. Leave it blank to switch the chips off again.
 
 ## 4. How the two feeds are merged
 
