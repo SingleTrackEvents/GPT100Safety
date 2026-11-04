@@ -255,7 +255,8 @@
   }
 
   // ---------- everyone racing on the Map tab ----------
-  // A small dot for every runner on course, coloured by race, under the followed runners' bib markers. Tap one for
+  // Every runner on course, coloured by race, under the followed runners' bib markers: their bib number once zoomed
+  // in, a small dot on the whole course. Tap one for
   // their name, race and km, and to follow them. The Everyone button turns it off, and the key hides or shows a race;
   // both are remembered on the phone. Only where runners are: the staff apps' flags (not moving, late) aren't shown here.
   const GROUPS = [
@@ -268,7 +269,8 @@
   ];
   const groupOf = o => GROUPS.find(g => g.keys.includes(o.key)) || GROUPS[GROUPS.length - 1];
   let everyOn = store.get('everyone', true) !== false, hidden = store.get('everyHide', []);
-  let everyLayer = null, everyCtl = null, openBib = null;
+  let everyLayer = null, everyCtl = null, openBib = null, everyZoom = false;
+  const BIB_ZOOM = 12;  // from this zoom in, bib numbers instead of dots
   function everyControl(m) {
     everyCtl = L.control({ position: 'topleft' });
     everyCtl.onAdd = () => {
@@ -293,6 +295,8 @@
       m.on('popupclose', e => { if (e.popup && e.popup.options.bib === openBib) openBib = null; everyCtl.getContainer().classList.remove('tk-pop'); });
       // A popup sits under the map's buttons: the key steps aside while one is open, so its Follow button can be tapped.
       m.on('popupopen', () => everyCtl.getContainer().classList.add('tk-pop'));
+      // Swap dots and bib numbers as the map zooms past BIB_ZOOM.
+      m.on('zoomend', () => { if ((m.getZoom() >= BIB_ZOOM) !== everyZoom) drawEveryone(m); });
       m.getContainer().addEventListener('click', e => { const b = e.target.closest('button[data-every-follow]'); if (b) { toggle(b.dataset.everyFollow); m.closePopup(); } });
     }
     const keep = openBib;
@@ -306,11 +310,20 @@
       (everyOn ? `<div class="tk-every-key">${GROUPS.filter(g => n[g.id]).map(g => `<button type="button" data-g="${g.id}" class="${hidden.includes(g.id) ? 'off' : ''}" aria-pressed="${!hidden.includes(g.id)}"><i style="background:${g.color}"></i>${esc(g.label)} <small>${n[g.id]}</small></button>`).join('')}</div>` : '');
     if (!everyOn) return;
     let reopen = null;
-    for (const o of all) {
-      const g = groupOf(o); if (hidden.includes(g.id)) continue;
-      const p = o.r.pos, ll = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon], km = TR().cur(o.r);
-      const mk = L.circleMarker(ll, { pane: 'tkEvery', radius: 6, weight: 2, color: '#fff', fillColor: g.color, fillOpacity: p.est || p.stale ? 0.45 : 1, bubblingMouseEvents: false })
+    // Zoomed in, each runner is their bib number in their race's colour; on the whole course, a small dot.
+    const bibs = (everyZoom = m.getZoom() >= BIB_ZOOM);
+    const shown = all.filter(o => !hidden.includes(groupOf(o).id));
+    const spot = o => o.r.pos.est ? [o.r.pos.est.lat, o.r.pos.est.lon] : [o.r.pos.lat, o.r.pos.lon];
+    for (const o of shown) {
+      const g = groupOf(o);
+      const p = o.r.pos, ll = spot(o), km = TR().cur(o.r), faint = p.est || p.stale;
+      // Others on the same spot (an aid station, a bunch on the climb), named in the popup as their bibs overlap.
+      const near = bibs ? shown.filter(x => x !== o && window.GPT.metres(spot(x), ll) < 40).map(x => x.bib).sort((a, b) => a - b) : [];
+      const mk = (bibs
+        ? L.marker(ll, { pane: 'tkEvery', icon: L.divIcon({ className: '', html: `<div class="trk-mk tk-ev${faint ? ' est' : ''}" style="--c:${g.color}">${esc(o.bib)}</div>`, iconSize: [30, 18], iconAnchor: [15, 9] }) })
+        : L.circleMarker(ll, { pane: 'tkEvery', radius: 6, weight: 2, color: '#fff', fillColor: g.color, fillOpacity: faint ? 0.45 : 1, bubblingMouseEvents: false }))
         .bindPopup(`<b>${esc(o.name || 'Bib ' + o.bib)}</b><br>Bib ${esc(o.bib)}${o.label ? ' · ' + esc(o.label) : ''}<br>km ${one(raceKm(o, km))}${p.est ? ' (likely, at their pace)' : ''}<br><span class="muted">${source(p)}</span>` +
+          (near.length ? `<br><span class="muted">Also here: ${near.slice(0, 15).map(b => 'bib ' + esc(b)).join(', ')}${near.length > 15 ? ` and ${near.length - 15} more` : ''}</span>` : '') +
           `<br><button type="button" class="btn small tk-pop-follow" data-every-follow="${esc(o.bib)}">${isOn(o.bib) ? 'Unfollow' : 'Follow'}</button>`, { bib: o.bib })
         .on('popupopen', () => { openBib = o.bib; })
         .addTo(everyLayer);
