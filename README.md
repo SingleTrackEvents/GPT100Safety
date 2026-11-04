@@ -19,6 +19,7 @@ It works on a phone, tablet or laptop, and keeps working when there's no signal.
 - The whole course on one screen, for the big screen at race control or a phone: both courses, the aid stations and water points (named once zoomed in), access points, the response bases, helicopter landing sites, Safety Officer posts, and every tracked runner live. The layers button adds the emergency markers, camps, track hazards and the Parks Victoria track grades along the whole GPT100. The key folds away.
 - Tap the course for the km, the team to send and the ETA, with the nearest tracked runners and an **Open in Find** link for the full answer.
 - **Runners** opens a panel with a bib search, the Runner watch (not moving, off the course, late at the next checkpoint, tracker gone quiet), the field by section and the front and tail of each race. **Show** centres the map on a runner. `map.html#bib=1047` opens on that runner.
+- **Contingency course:** the switch under Whole course shows the GPT100, the Miler's contingency course or both, and the field app's map has the same switch. The contingency leaves the GPT100 at Mt William Carpark (km 86.4) and rejoins it at Jimmy Creek Camp (km 106.4): 21.7 km and 279 m up, instead of 20.1 km and 796 m up over the plateau, with no Stockyard Track water point. Shown alone, it takes the course colour and the stretch it replaces is hidden; with both, it's a purple dashed line. Tap it for the Miler km and the aid stations either side (Miler km after Jimmy Creek Camp are 1.6 km more than the GPT100 km). The choice is remembered on the phone for both maps. It's on the maps only: Find, Where am I?, response times and tracking still work on the GPT100 course. Data in `data/contingency.js`, made by `tools/add_contingency.mjs` (see Updating the course).
 - **Full screen** on every map (the button under the zoom buttons on Find, Medical, Control, the map page and the field app). Where the browser has no full screen of its own (iPhone), the map is pinned over the page instead. Esc or the button again brings the page back.
 
 **Find** (for whoever takes the call)
@@ -203,6 +204,14 @@ Then run `python3 tools/add_w3w.py` to give any new points a what3words address.
 
 The update script replaces the route, re-measures the km of every access point, and marks the aid stations from the GPX waypoints (any waypoint with "Aid Station" in its name). If an aid station has no access point nearby, it prints a warning. Add that point with its drive times, then run it again. Check a few km in Find afterwards and commit `data/course.js`.
 
+**Contingency course.** For the Miler's contingency GPX, run:
+
+```
+node tools/add_contingency.mjs path/to/contingency.gpx
+```
+
+It finds where the GPX leaves the GPT100 course and the aid stations either side (or name them: `node tools/add_contingency.mjs file.gpx "Mt William Carpark" "Jimmy Creek Camp"`), and writes only that stretch to `data/contingency.js`, with its length and climb next to the stretch it replaces. Then run `node tools/fetch_topo_tiles.mjs` to save the topo map along it for offline use, and bump the build.
+
 Where the course passes the same spot twice, such as the out and back to Jimmy Creek Camp, the app works that out automatically and shows both km.
 
 ## Live runner tracking
@@ -336,6 +345,7 @@ These are planning estimates. Always check access, gates and closures on the day
 | `tiles/topo/`, `data/tiles.js` | Our copy of the OpenTopoMap tiles along the course (CC-BY-SA), made once with `tools/fetch_topo_tiles.mjs` |
 | `map.html`, `js/map.js` | The map page: the whole course and every tracked runner on one screen |
 | `js/fullscreen.js` | Full screen button on the maps |
+| `js/contingency.js`, `data/contingency.js` | The contingency course and the course switch on the safety map and field map |
 | `js/runners.js` | The Runners panel (bib search, Runner watch, the field), shared by the map page and the field app |
 | `js/demo.js`, `data/demo-runners.js`, `tools/make_demo_runners.mjs` | The in-app demo: made-up runners, GPS and chips, played live (`?demo=1`) |
 | `css/app.css` | Staff app styles |

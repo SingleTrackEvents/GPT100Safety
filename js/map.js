@@ -28,24 +28,35 @@
   const lineOf = E => E.route.map(p => [p[0], p[1]]);
   const stopKind = a => a.kind ? ({ start: 'Start', finish: 'Finish', aid: 'Aid station', water: 'Water point', checkpoint: 'Checkpoint' }[a.kind] || 'Checkpoint') : (/water point/i.test(a.name) ? 'Staffed water point' : 'Aid station');
 
-  // Red wash on the GPT100 where the fastest team takes longer than the red threshold.
-  const all = G.bestAtAll(); let seg = null;
-  const wash = s => { if (s.length > 1) L.polyline(s, { color: '#e00000', weight: 12, opacity: .35, interactive: false }).addTo(map); };
-  G.route.forEach((p, i) => { if (all[i] && all[i].total > C.redMin) { (seg = seg || []).push([p[0], p[1]]); } else if (seg) { wash(seg); seg = null; } });
-  if (seg) wash(seg);
-  // The courses.
+  // The contingency (js/contingency.js): the switch on the map shows the GPT100, the contingency or both.
+  const CG = window.GPTContingency || null;
+  // Red wash on the GPT100 where the fastest team takes longer than the red threshold, the courses, and the aid
+  // stations and water points (named on the map once zoomed in). Redrawn when the switch changes.
+  const all = G.bestAtAll();
+  const courseLayer = L.layerGroup().addTo(map), stops = L.layerGroup().addTo(map);
+  const hidden = km => CG && CG.hides(km);
   const bounds = L.latLngBounds([]);
-  courses.forEach(E => {
-    const line = L.polyline(lineOf(E), { color: E.main ? COL.main : COL.other, weight: E.main ? 4 : 3, opacity: .95, interactive: false }).addTo(map);
-    bounds.extend(line.getBounds());
-  });
-  // Aid stations and water points, named on the map once zoomed in.
-  const stops = L.layerGroup().addTo(map);
-  courses.forEach(E => E.AID.forEach(a => {
-    L.marker([a.lat, a.lon], { title: a.name, icon: pin('#111', 14), zIndexOffset: 300 })
-      .bindTooltip(a.name, { direction: 'right', offset: [8, 0], permanent: true, className: 'mp-tip' })
-      .bindPopup(`<b>${esc(a.name)}</b><br>${stopKind(a)}, ${E.label}, km ${one(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(stops);
-  }));
+  courses.forEach(E => bounds.extend(L.latLngBounds(lineOf(E))));
+  if (CG) bounds.extend(L.latLngBounds(CG.line()));
+  function drawCourses() {
+    courseLayer.clearLayers(); stops.clearLayers();
+    let seg = null;
+    const wash = s => { if (s.length > 1) L.polyline(s, { color: '#e00000', weight: 12, opacity: .35, interactive: false }).addTo(courseLayer); };
+    G.route.forEach((p, i) => { if (all[i] && all[i].total > C.redMin && !hidden(p[2])) { (seg = seg || []).push([p[0], p[1]]); } else if (seg) { wash(seg); seg = null; } });
+    if (seg) wash(seg);
+    courses.forEach(E => {
+      const lines = E.main && CG ? CG.mainLines(E.route) : [lineOf(E)];
+      L.polyline(lines, { color: E.main ? COL.main : COL.other, weight: E.main ? 4 : 3, opacity: .95, interactive: false }).addTo(courseLayer);
+    });
+    if (CG && CG.shown()) L.polyline(CG.line(), CG.only() ? { color: COL.main, weight: 4, opacity: .95, interactive: false } : { color: CG.color, weight: 4, opacity: .95, dashArray: '8 6', interactive: false }).addTo(courseLayer);
+    courses.forEach(E => E.AID.forEach(a => {
+      if (E.main && hidden(a.trail_km)) return;  // not on the contingency
+      L.marker([a.lat, a.lon], { title: a.name, icon: pin('#111', 14), zIndexOffset: 300 })
+        .bindTooltip(a.name, { direction: 'right', offset: [8, 0], permanent: true, className: 'mp-tip' })
+        .bindPopup(`<b>${esc(a.name)}</b><br>${stopKind(a)}, ${E.label}, km ${one(a.trail_km)}<br>${w3wLink(a.w3w)}`).addTo(stops);
+    }));
+  }
+  drawCourses();
   const labels = () => map.getContainer().classList.toggle('mp-labels', map.getZoom() >= 12);
   map.on('zoomend', labels);
   // Access points, from the layers button (on to start with).
@@ -94,8 +105,9 @@
   // The key folds away (a button) so it doesn't cover the map on a phone; open to start with on a big screen.
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = () => {
+    const only = CG && CG.only();
     return G.foldKey(L.DomUtil.create('div', 'map-legend'), G.BASES.map(b => `<i style="background:${b.color}"></i>${esc(b.name)} base`).join('<br>') +
-      `<br><i class="ln" style="background:${COL.main}"></i>GPT100${courses.length > 1 ? `<br><i class="ln" style="background:${COL.other}"></i>${esc(courses.filter(c => !c.main).map(c => c.label).join(', '))}` : ''}` +
+      `<br><i class="ln" style="background:${COL.main}"></i>${only ? 'GPT100 with the contingency' : 'GPT100'}${CG && CG.mode() === 'both' ? '<br>' + CG.legendHTML() : ''}${courses.length > 1 ? `<br><i class="ln" style="background:${COL.other}"></i>${esc(courses.filter(c => !c.main).map(c => c.label).join(', '))}` : ''}` +
       '<br><i style="background:#111"></i>Aid station or water point<br><i style="background:#888"></i>Access point<br><i style="background:#6d3b8e"></i>Gated access' +
       `<br><i class="ln" style="background:#e00000;opacity:.5"></i>Over ${G.fmt(C.redMin)} to reach` +
       (SO ? '<br><span class="so-mark on" style="display:inline-block;width:22px;margin-right:5px">SO</span>Safety Officers' : '') +
@@ -108,6 +120,11 @@
   const fitCtrl = L.control({ position: 'topleft' });
   fitCtrl.onAdd = () => { const d = L.DomUtil.create('div', 'leaflet-bar gpt-fs'); d.innerHTML = '<button type="button" class="gpt-fs-btn mp-fit" title="Zoom out to the whole course" style="width:auto;padding:0 8px;font:600 12px var(--body)">Whole course</button>'; L.DomEvent.disableClickPropagation(d); d.firstChild.onclick = () => map.fitBounds(bounds.pad(0.04)); return d; };
   fitCtrl.addTo(map);
+  // The course switch, under Whole course.
+  if (CG) {
+    CG.control(map, 'topleft');
+    CG.onChange(() => { drawCourses(); legend.remove(); legend.addTo(map); if (tapPop) map.closePopup(tapPop); });
+  }
   map.fitBounds(bounds.pad(0.04));
   labels();
 
@@ -115,7 +132,17 @@
   let tapPop = null;
   map.on('click', e => {
     let best = null;
-    for (const E of courses) { const s = E.snap(e.latlng.lat, e.latlng.lng); if (!best || s.offM < best.offM) best = { E, ic: s.ic, offM: s.offM }; }
+    for (const E of courses) {
+      const s = E.snap(e.latlng.lat, e.latlng.lng);
+      if (E.main && hidden(E.route[s.ic][2])) continue;  // that stretch isn't shown
+      if (!best || s.offM < best.offM) best = { E, ic: s.ic, offM: s.offM };
+    }
+    // On the contingency (when it shows): its Miler km and the aid stations either side. No response times.
+    const cs = CG && CG.shown() ? CG.snap(e.latlng.lat, e.latlng.lng) : null;
+    if (cs && cs.offM <= 2000 && (!best || cs.offM < best.offM)) {
+      tapPop = L.popup({ maxWidth: 280 }).setLatLng([cs.lat, cs.lon]).setContent(CG.popup(cs, esc) + (cs.offM > 150 ? `<br>(${cs.offM >= 1000 ? one(cs.offM / 1000) + ' km' : Math.round(cs.offM) + ' m'} from the tap)` : '')).openOn(map);
+      return;
+    }
     if (!best || best.offM > 2000) return;
     const E = best.E, r = E.assess(best.ic, E.now ? E.now() : Date.now()), b = r.best, p = E.route[best.ic];
     const between = r.aid.prev && r.aid.next ? `<br>${esc(r.aid.prev.a.name)} ${one(r.aid.prev.distKm)} km back, ${esc(r.aid.next.a.name)} ${one(r.aid.next.distKm)} km ahead` : '';
@@ -158,6 +185,7 @@
       <li><b>Tap the course</b> The km, the team to send and the ETA, with Open in Find for the full answer.</li>
       <li><b>Runners</b> Find a bib, the Runner watch (not moving, off the course, late, tracker quiet) and the field by section. Show centres the map on a runner.</li>
       <li><b>Layers</b> The button at the top right adds emergency markers, camps, track hazards and track grades. Key, at the bottom left, says what the markers mean.</li>
+      <li><b>GPT100, Contingency, Both</b> Shows the course, the Miler's contingency (Mt William Carpark to Jimmy Creek Camp) or both.</li>
       <li><b>Whole course</b> Zooms back out. The button under the layers button is full screen.</li>
     </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. Planning guide only: in an emergency call 000.</p>` })]
   });

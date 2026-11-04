@@ -526,6 +526,17 @@
       return d;
     };
     rc.addTo(map);
+    // The course switch (js/contingency.js): the GPT100, the contingency or both.
+    if (window.GPTContingency) {
+      GPTContingency.control(map, 'topleft');
+      GPTContingency.onChange(() => drawRaceMap(false));
+      map.on('click', e => {
+        const CG = GPTContingency; if (!CG.shown()) return;
+        const s = CG.snap(e.latlng.lat, e.latlng.lng);
+        if (s.offM > Math.max(150, 40 * 2 ** (16 - map.getZoom()))) return;
+        L.popup({ maxWidth: 280 }).setLatLng([s.lat, s.lon]).setContent(CG.popup(s, esc)).openOn(map);
+      });
+    }
     const t = document.createElement('div'); t.id = 'fdToast'; t.className = 'rn-toast'; t.hidden = true; t.setAttribute('role', 'status');
     $('fdMap').appendChild(t);
   }
@@ -538,8 +549,15 @@
     if (!En) return;
     const i0 = En.idxAtKm(P[0].gk), i1 = En.idxAtKm(P[P.length - 1].gk);
     if (!En.main && !MAIN.courses.includes(En)) L.polyline(En.route.map(p => [p[0], p[1]]), { color: '#8a8a8a', weight: 2, opacity: .55, interactive: false }).addTo(raceLayer);
-    const line = L.polyline(En.route.slice(i0, i1 + 1).map(p => [p[0], p[1]]), { color: '#d9531e', weight: 5, opacity: .95, interactive: false }).addTo(raceLayer);
-    P.forEach((x, i) => L.circleMarker([x.lat, x.lon], { radius: i && i < P.length - 1 ? 6 : 7, color: '#fff', weight: 2, fillColor: '#111', fillOpacity: 1 })
+    // The contingency (js/contingency.js), when the switch shows it: the race goes that way when it covers the
+    // stretch the contingency replaces, and only the contingency is shown.
+    const CG = En.main ? window.GPTContingency : null, onRace = CG && CG.covers(P[0].gk, P[P.length - 1].gk);
+    const lines = CG ? CG.mainLines(En.route, i0, i1) : [En.route.slice(i0, i1 + 1).map(p => [p[0], p[1]])];
+    const line = L.polyline(lines, { color: '#d9531e', weight: 5, opacity: .95, interactive: false }).addTo(raceLayer);
+    if (CG && CG.shown()) L.polyline(CG.line(), CG.only() && onRace ? { color: '#d9531e', weight: 5, opacity: .95, interactive: false }
+      : onRace ? { color: CG.color, weight: 4, opacity: .95, dashArray: '8 6', interactive: false } : { color: CG.color, weight: 2, opacity: .6, dashArray: '6 6', interactive: false }).addTo(raceLayer);
+    if (onRace && CG.only()) $('fdMapFor').textContent = `${race.label}${race.stages.length > 1 ? ', ' + stage.label : ''}: ${one(P[P.length - 1].km + CG.data.extra_km)} km, contingency`;
+    P.filter(x => !(CG && CG.hides(x.gk))).forEach((x, i, P) => L.circleMarker([x.lat, x.lon], { radius: i && i < P.length - 1 ? 6 : 7, color: '#fff', weight: 2, fillColor: '#111', fillOpacity: 1 })
       .bindTooltip(`<b>${esc(x.name)}</b><br>km ${one(x.km)}${x.ct && i && !x.noCut ? '<br>Cut-off ' + RX.when(x.ct) : i ? '' : '<br>Start ' + RX.when(x.ft)}`).addTo(raceLayer));
     if (fit) fitMap(line.getBounds().pad(0.06));
   }
