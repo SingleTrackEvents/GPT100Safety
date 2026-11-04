@@ -68,6 +68,9 @@
     L.marker([a.lat, a.lon], { title: E.cleanName(a), icon: pin(E.isGated(a) ? '#6d3b8e' : '#888', 10) })
       .bindPopup(`<b>${esc(E.cleanName(a))}</b><br>Access point, ${E.label} km ${one(a.trail_km)}${E.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m walk to course' : ''}${a.note ? '<br>' + esc(a.note) : ''}<br>${w3wLink(a.w3w)}`).addTo(access);
   }));
+  // Access points for the contingency course only (Serra Rd), with its km.
+  if (ALT) ALT.ACCESS.filter(a => !G.ACCESS.includes(Object.getPrototypeOf(a))).forEach(a => L.marker([a.lat, a.lon], { title: ALT.cleanName(a), icon: pin(ALT.isGated(a) ? '#6d3b8e' : '#888', 10) })
+    .bindPopup(`<b>${esc(ALT.cleanName(a))}</b><br>Access point, ${esc(ALT.name)} km ${one(a.trail_km)}${ALT.isGated(a) ? ' &middot; gated' : ''}${a.note ? '<br>' + esc(a.note) : ''}<br>${w3wLink(a.w3w)}`).addTo(access));
   GPTBaseMap.overlay(map, 'Access points', access, true);
   G.BASES.forEach(b => L.marker([b.lat, b.lon], { title: b.name + ' base', icon: pin(b.color, 22), zIndexOffset: 500 }).bindPopup(`<b>${esc(b.name)} base</b><br>${w3wLink(G.data.bases_w3w && G.data.bases_w3w[b.key])}`).addTo(map));
   if (window.GPTHelipads) GPTHelipads.overlay(map, true);

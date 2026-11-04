@@ -375,6 +375,8 @@
       ((X.joins || {})[key] || []).forEach(j => js.push({ idx: iA + j.idx, conn_m: j.conn_m, conn_ascent: j.conn_ascent, geom: j.geom }));
       def.joins[key] = js;
     });
+    // Access points for the contingency only (e.g. Serra Rd, courses: ["contingency"]): their walks to the stretch.
+    Object.keys(X.joins || {}).forEach(key => { if (!def.joins[key]) def.joins[key] = X.joins[key].map(j => Object.assign({}, j, { idx: iA + j.idx })); });
     const E = makeCourse(def);
     E.mainKm = km => km <= kA ? km : km >= kB ? km - shift : null;  // GPT100 km for a km on this course
     E.shift = shift; E.leaveKm = kA; E.rejoinKm = kB;
