@@ -82,6 +82,10 @@ window.GPT100_CONFIG = {
   // GPS trackers (GPS-seuranta, tulospalvelu.fi): url is the public tracking page, for the Live tracking button.
   // gps is the event's id from that link (the last part of the address, e.g. 20260328buffalostamp); the app then
   // reads the runners' positions through the Worker's /gps/ relay. Leave it blank until the event's link exists.
+  // More than one event (a list) are all followed and merged. GPT100 2026 (Toph, Living It Live, 2 November):
+  // 20261106gpt100 the Miler, 20261105gpt50 the 50k and stage race. 20261105gptall (every tracker, support vehicles
+  // and shuttles too) is for internal use and isn't read: vehicles would show as runners. The Live tracking button
+  // goes to Toph's GPT100 page (tracking for both events, results and the finish camera).
   // Timing chips (RaceResult): chip is 'relay' once the timing team's Simple API link is in the Worker as the
   // TIMING_URL secret (the link never goes in the app), or blank for none. chipEvery: seconds between reads.
   // The feed's contest names are matched to the races by themselves ("GPT100 Solo/Pairs" the Miler, "GPT50K", "Stage 2",
@@ -98,7 +102,7 @@ window.GPT100_CONFIG = {
   // Where a medical plan place really is, when the plan pins it somewhere else, by the plan's place name.
   // Everyone at the place moves (medics, vehicles, Safety Officers), on every map and in every time.
   planPlaces: { 'Jimmy Creek': { lat: -37.37167, lon: 142.50391 } }, // Jimmy Creek Camp, not the road crossing
-  tracking: { url: '', results: '', label: 'Live tracking', gps: '', chip: '', chipEvery: 30, chipContests: {}, chipDay: '', chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
+  tracking: { url: 'https://gpt.livingitlive.com.au/', results: 'https://my.raceresult.com/427342/', label: 'Live tracking', gps: ['20261106gpt100', '20261105gpt50'], chip: 'relay', chipEvery: 30, chipContests: {}, chipDay: '', chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
   what3wordsKey: 'LBTPEWCQ'

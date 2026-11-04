@@ -254,14 +254,14 @@
     const el = $('medLive'); if (!el) return;
     const TR = window.GPTTracking;
     if (!TR) { el.innerHTML = ''; return; }
-    if (!TR.ready()) { el.innerHTML = `<p class="muted">${esc(TR.status())}</p>`; return; }
+    if (!TR.ready()) { el.innerHTML = `<p class="muted">${esc(TR.status())}</p>` + TR.links(); return; }
     const G = window.GPT, A = G.AID, rows = [];
     for (let i = 1; i < A.length; i++) {
       const rs = TR.between(G, A[i - 1].trail_km, A[i].trail_km);
       if (rs.length) rows.push({ a: A[i - 1], b: A[i], n: rs.length, stopped: rs.filter(r => r.pos.stopped).length });
     }
     const lead = TR.leaders(G), w = TR.watch();
-    el.innerHTML = `<div class="card"><h3>Runners on course now</h3><p class="trk-status">${esc(TR.status())}</p>` +
+    el.innerHTML = `<div class="card"><h3>Runners on course now</h3><p class="trk-status">${esc(TR.status())}</p>${TR.links()}` +
       (lead.length ? `<div class="row"><span><b>Leader</b><span class="sub">${TR.who(lead[0])}, km ${one(TR.cur(lead[0]))}${lead[0].pos.est ? ' (estimated)' : ''}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(lead[0].bib)}">Find</button></div>
         <div class="row"><span><b>Tail</b><span class="sub">${TR.who(lead[lead.length - 1])}, km ${one(TR.cur(lead[lead.length - 1]))}${lead[lead.length - 1].pos.est ? ' (estimated)' : ''}</span></span><button class="btn small trk-go" type="button" data-bib="${esc(lead[lead.length - 1].bib)}">Find</button></div>` : '') +
       rows.map(x => `<div class="row"><span><b>${esc(short(x.a.name))} to ${esc(short(x.b.name))}</b><span class="sub">km ${one(x.a.trail_km)} to ${one(x.b.trail_km)}${x.stopped ? `, <b>${x.stopped} not moving</b>` : ''}</span></span><span class="v">${x.n}</span></div>`).join('') +
