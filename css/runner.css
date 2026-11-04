@@ -295,3 +295,6 @@
 .tk-every-key button.off i { background: transparent !important; }
 .tk-pop-follow { margin-top: 6px; }
 .tk-every.tk-pop { visibility: hidden; }
+/* Everyone's bib numbers, in their race's colour (--c) */
+.trk-mk.tk-ev { background: var(--c); }
+.trk-mk.tk-ev.est { background: #fff; color: var(--c); border: 2px dashed var(--c); }
