@@ -1,11 +1,12 @@
-// Adds the Miler's contingency course (a different way between two aid stations) from its GPX, for the safety map
-// and the field app. Writes data/contingency.js: only the part that differs from the GPT100 course, plus where it
+// Adds the Miler's contingency course (a different way between two aid stations) from its GPX, for Find (as a course
+// of its own, built by js/engine.js), the safety map and the field app. Writes data/contingency.js: only the part that differs from the GPT100 course, plus where it
 // leaves and rejoins (GPT100 km, at aid stations), so the maps can show the GPT100, the contingency or both.
 // Usage: node tools/add_contingency.mjs path/to/contingency.gpx [leave aid station] [rejoin aid station]
 // e.g.   node tools/add_contingency.mjs "GPT100 Miler 2026 - Contingency Course.gpx" "Mt William Carpark" "Jimmy Creek Camp"
 // With no names given, it works out the stretch where the GPX is more than 150 m from the course, and picks the
 // aid stations either side of it.
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 
 const [file, leaveName, rejoinName] = process.argv.slice(2);
 if (!file) { console.error('Usage: node tools/add_contingency.mjs <file.gpx> [leave aid station] [rejoin aid station]'); process.exit(1); }
@@ -91,3 +92,6 @@ window.GPT100_CONTINGENCY = ${JSON.stringify(out)};
 console.log(`${title}: leaves at ${leave.name} (km ${m0}), rejoins at ${rejoin.name} (km ${m1}).`);
 console.log(`Contingency ${km.toFixed(1)} km and ${Math.round(up)} m up, instead of ${(m1 - m0).toFixed(1)} km and ${Math.round(mainUp)} m up (up to ${(maxOff / 1000).toFixed(1)} km from the course). Miler ${out.total_km.toFixed(1)} km.`);
 if (skipped.length) console.log('Not on the contingency: ' + skipped.join(', '));
+// The walks from the access points to the contingency stretch (OpenStreetMap), for the response times.
+try { execFileSync('python3', ['tools/contingency_joins.py'], { stdio: 'inherit' }); }
+catch (e) { console.error('Walks to the contingency not worked out (needs signal): run python3 tools/contingency_joins.py'); }

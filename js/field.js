@@ -496,7 +496,7 @@
     map = L.map('fdMap', { zoomControl: true });
     GPTBaseMap(map);
     if (window.GPTFullscreen) fs = GPTFullscreen(map, $('fdMap'));
-    MAIN.courses.forEach(E => L.polyline(E.route.map(p => [p[0], p[1]]), { color: '#8a8a8a', weight: 2, opacity: .55, interactive: false }).addTo(map));
+    MAIN.courses.filter(E => !E.alt).forEach(E => L.polyline(E.route.map(p => [p[0], p[1]]), { color: '#8a8a8a', weight: 2, opacity: .55, interactive: false }).addTo(map));
     raceLayer = L.layerGroup().addTo(map);
     soLayer = L.layerGroup().addTo(map);
     drawSO();
@@ -533,8 +533,8 @@
       map.on('click', e => {
         const CG = GPTContingency; if (!CG.shown()) return;
         const s = CG.snap(e.latlng.lat, e.latlng.lng);
-        if (s.offM > Math.max(150, 40 * 2 ** (16 - map.getZoom()))) return;
-        L.popup({ maxWidth: 280 }).setLatLng([s.lat, s.lon]).setContent(CG.popup(s, esc)).openOn(map);
+        if (s.offM > Math.max(150, 40 * 2 ** (16 - map.getZoom())) || s.km < 0.05 || s.toGo < 0.05) return;  // its own stretch only
+        L.popup({ maxWidth: 280 }).setLatLng([s.lat, s.lon]).setContent(CG.popup(s, esc, clock())).openOn(map);
       });
     }
     const t = document.createElement('div'); t.id = 'fdToast'; t.className = 'rn-toast'; t.hidden = true; t.setAttribute('role', 'status');

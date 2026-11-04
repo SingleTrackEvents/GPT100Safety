@@ -108,7 +108,7 @@
     // show three words with no signal. storedW3w(i): the words of route point i. nearW3w(lat, lon): the words
     // of the nearest course point and how far away it is, or null when it's further than maxM (30 m).
     const STORED_W3W = (window.GPT100_COURSE_W3W || {})[def.main ? 'gpt100' : def.id] || [];
-    function storedW3w(i) { return STORED_W3W[i] || null; }
+    function storedW3w(i) { return (def.w3wAt ? def.w3wAt(i) : STORED_W3W[i]) || null; }
     function nearW3w(lat, lon, maxM) {
       const s = snap(lat, lon), w = storedW3w(s.ic);
       return w && s.offM <= (maxM || 30) ? { words: w, m: s.offM, ic: s.ic } : null;
@@ -147,7 +147,8 @@
     // Climb carrying back up the walk from the course to the parking: its climb in, less the height gained (heights known, over 50 m long).
     function connBack(a, idx, m, up) { return a.ele != null && m > 50 ? Math.max(0, Math.round((up || 0) - (route[idx][3] - a.ele))) : 0; }
     // An access point can be limited to some courses ("courses": ["14k"]); otherwise it serves them all.
-    const serves = a => !a.courses || a.courses.includes(def.id);
+    // The contingency (def.alt) is the GPT100 with one stretch changed, so it serves the GPT100's points too.
+    const serves = a => !a.courses || a.courses.includes(def.id) || (def.alt && a.courses.includes('100'));
     let ACCESS;
     if (def.main) {
       ACCESS = ALL_ACCESS.filter(serves);
@@ -185,9 +186,10 @@
     function carryMin(k0, k1, extraKm, up, f) {
       const lo = Math.min(k0, k1), hi = Math.max(k0, k1), T = window.GPT100_TRACK, F = C.carryFactor || {};
       let min = extraKm * C.evacPace;
-      if (def.main && T && hi > lo) {
+      const SEGS = def.track ? def.track() : def.main && T ? T.segments : null;
+      if (SEGS && hi > lo) {
         let covered = 0;
-        for (const [a, b, g] of T.segments) {
+        for (const [a, b, g] of SEGS) {
           const o = Math.min(b, hi) - Math.max(a, lo);
           if (o > 0) { min += o * C.evacPace * (F[g] || 1); covered += o; }
         }
@@ -201,7 +203,7 @@
     function walkMin(k0, k1) {
       const lo = Math.min(k0, k1), hi = Math.max(k0, k1);
       let min = (hi - lo) * C.walkPace;
-      if (def.main) for (const s of C.slowWalk || []) {
+      for (const s of def.slowWalk || (def.main ? C.slowWalk || [] : [])) {
         const o = Math.min(s.to, hi) - Math.max(s.from, lo);
         if (o > 0) min += o * (s.pace - C.walkPace);
       }
@@ -317,7 +319,7 @@
     }
 
     return {
-      id: def.id, name: def.name, label: def.label, note: def.note || '', main: !!def.main,
+      id: def.id, name: def.name, label: def.label, note: def.note || '', main: !!def.main, alt: def.alt || null,
       data: D, config: C, route, ACCESS, AID: STOPS, BASES, crossings: def.main ? D.crossings : [],
       idxAtKm, snap, storedW3w, nearW3w, metres, climb, walkMin, carryMin, exitFor, driveLine, revisits, assess, bestAtAll, sections, rating, fmt, isGated, cleanName, now, sun, isNight,
       totalKm: def.total_km
@@ -325,9 +327,60 @@
   }
 
   const main = makeCourse({ id: '100', name: 'GPT100', label: 'GPT100 and stage races', main: true, route: D.route, total_km: D.total_km });
-  const courses = [main].concat(EXTRA.map(c => makeCourse(c)));
+  const alt = contingency(main);
+  const courses = [main].concat(EXTRA.map(c => makeCourse(c)), alt ? [alt] : []);
   // window.GPT is the main course engine; every course engine is in GPT.courses.
   courses.forEach(c => { c.courses = courses; c.course = id => courses.find(x => x.id === id) || main; });
+  // The Miler's contingency course (data/contingency.js) as a course of its own: the GPT100 up to the aid station
+  // where it leaves, the contingency stretch, then the GPT100 again from the aid station where it rejoins, with the km
+  // after that moved on by the difference in length. The shared parts use the GPT100's access points and walks, its
+  // track grades and slow ground; the stretch itself uses the walks from tools/contingency_joins.py, and counts as
+  // track not yet assessed for the carry-out.
+  function contingency(M) {
+    const X = window.GPT100_CONTINGENCY;
+    if (!X || !X.route || X.route.length < 2) return null;
+    const R = M.route, iA = M.idxAtKm(X.leave.km), iB = M.idxAtKm(X.rejoin.km), kA = R[iA][2];
+    if (iB <= iA) return null;
+    const sect = X.route.slice(1).map(p => [p[0], p[1], +(kA + p[2]).toFixed(3), p[3]]);
+    const jB = iA + sect.length, kB = sect[sect.length - 1][2], shift = kB - R[iB][2];
+    const route = R.slice(0, iA + 1).concat(sect, R.slice(iB + 1).map(p => [p[0], p[1], +(p[2] + shift).toFixed(3), p[3]]));
+    // A GPT100 route index on this course (null on the stretch it replaces), and a GPT100 km on this course.
+    const idxOf = i => i <= iA ? i : i >= iB ? jB + (i - iB) : null;
+    const kmOf = k => k <= kA ? k : k >= R[iB][2] ? k + shift : null;
+    // GPT100 km stretches (track grades, slow ground) moved onto this course, leaving out the replaced stretch.
+    const move = (a, b) => [a < kA ? [a, Math.min(b, kA)] : null, b > R[iB][2] ? [Math.max(a, R[iB][2]) + shift, b + shift] : null].filter(Boolean);
+    let track = null;
+    const def = {
+      id: 'contingency', name: 'Contingency course', label: 'Contingency', alt: X,
+      note: `The Miler with the contingency from ${X.leave.name} to ${X.rejoin.name} (${X.section_km.toFixed(1)} km instead of ${X.main_km.toFixed(1)} km, no ${X.skipped.join(', ') || 'other stops'}). Km after ${X.rejoin.name} are ${shift.toFixed(1)} km more than on the GPT100.`,
+      route, total_km: +route[route.length - 1][2].toFixed(1),
+      w3wAt: i => i <= iA ? M.storedW3w(i) : i >= jB ? M.storedW3w(iB + (i - jB)) : null,
+      track() {
+        const T = window.GPT100_TRACK;
+        if (track || !T) return track || [];
+        track = [];
+        T.segments.forEach(([a, b, g]) => move(a, b).forEach(([x, y]) => track.push([x, y, g])));
+        track.push([kA, kB, 'unassessed']);
+        return track.sort((x, y) => x[0] - y[0]);
+      },
+      slowWalk: (C.slowWalk || []).flatMap(s => move(s.from, s.to).map(([from, to]) => Object.assign({}, s, { from, to }))),
+      stops: M.AID.filter(a => kmOf(a.trail_km) != null && !(a.trail_km > kA + 0.02 && a.trail_km < R[iB][2] - 0.02))
+        .map(a => ({ name: a.name, lat: a.lat, lon: a.lon, km: kmOf(a.trail_km), w3w: a.w3w, kind: a === M.AID[0] ? 'start' : a === M.AID[M.AID.length - 1] ? 'finish' : undefined })),
+      joins: {}
+    };
+    // Every GPT100 access point's walks, where they join the shared parts, plus its walks to the contingency stretch.
+    M.ACCESS.forEach(a => {
+      const key = a.name + '|' + a.lat + '|' + a.lon;
+      const js = a.joins.map(j => ({ idx: idxOf(j.idx), conn_m: j.conn_m, conn_ascent: j.conn_ascent, geom: a.conn_geom || null })).filter(j => j.idx != null);
+      ((X.joins || {})[key] || []).forEach(j => js.push({ idx: iA + j.idx, conn_m: j.conn_m, conn_ascent: j.conn_ascent, geom: j.geom }));
+      def.joins[key] = js;
+    });
+    const E = makeCourse(def);
+    E.mainKm = km => km <= kA ? km : km >= kB ? km - shift : null;  // GPT100 km for a km on this course
+    E.shift = shift; E.leaveKm = kA; E.rejoinKm = kB;
+    return E;
+  }
+
   // The medical plan (or the public Safety Officer posts) with config.planPlaces applied: a copy with those places
   // where they really are. Names stay, so every shift stays with its place.
   const placed = new WeakMap();

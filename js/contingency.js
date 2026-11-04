@@ -1,7 +1,8 @@
 // The Miler's contingency course (data/contingency.js) on the safety map and the field app's map. A switch on the map
 // shows the GPT100 course, the contingency or both, remembered on this phone for both maps. The contingency is a
 // different way between two aid stations; the rest of the Miler is the GPT100 course.
-// Shown on the maps only: Find, Where am I?, the response times and tracking still work on the GPT100 course.
+// The engine (js/engine.js) makes it a course of its own ("contingency"), for Find, the map taps and Where am I?.
+// Live tracking stays on the GPT100 course.
 (function () {
   const C = window.GPT100_CONTINGENCY;
   if (!C || !C.route || !C.route.length) return;
@@ -50,13 +51,15 @@
       const p = C.route[bi];
       return { i: bi, offM: bd, lat: p[0], lon: p[1], ele: p[3], km: p[2], mk: C.leave.km + p[2], toGo: C.section_km - p[2] };
     },
-    // Popup words for a spot on the contingency.
-    popup(s, esc) {
-      return `<b>Contingency course, Miler km ${one(s.mk)}</b>` +
-        `<br>${esc(C.leave.name)} ${one(s.km)} km back, ${esc(C.rejoin.name)} ${one(s.toGo)} km ahead` +
-        `<br>Contingency ${one(C.section_km)} km and ${C.section_ascent_m} m up, instead of ${one(C.main_km)} km and ${C.main_ascent_m} m up` +
-        `<br>Miler km after ${esc(C.rejoin.name)} are ${one(C.extra_km)} km more than the GPT100 course km.` +
-        `<br><span class="muted">Response times aren't worked out for the contingency: plan from ${esc(C.leave.name)} or ${esc(C.rejoin.name)}, or call race control.</span>`;
+    // Popup words for a spot on the contingency: the km, and the team to send with the ETA (the field app's map).
+    popup(s, esc, t) {
+      const E = window.GPT && GPT.course('contingency');
+      let h = `<b>Contingency course km ${one(s.mk)}</b><br>${esc(C.leave.name)} ${one(s.km)} km back, ${esc(C.rejoin.name)} ${one(s.toGo)} km ahead`;
+      if (E && E.alt) {
+        const r = E.assess(E.idxAtKm(s.mk), t), b = r.best;
+        if (b) h += `<br>Send <b>${esc(b.base.name)} team</b> via ${esc(E.cleanName(b.a))}${E.isGated(b.a) ? ' (gated)' : ''}: drive ${E.fmt(b.drive)}, walk ${one(b.walkKm)} km, <b>ETA ${E.fmt(b.total)}</b>${r.night ? ' (night)' : ''}`;
+      }
+      return h + `<br>Km after ${esc(C.rejoin.name)} are ${one(C.extra_km)} km more than on the GPT100.`;
     },
     legendHTML: () => `<i class="ln" style="background:${COL}"></i>Contingency (${esc0(C.leave.name)} to ${esc0(C.rejoin.name)})`,
     // The switch, as a map control.

@@ -4,7 +4,8 @@
 // course for the km, the team to send and the ETA, with a link into Find for the full answer. The Runners panel has
 // a bib search, the Runner watch, the field by section, and the front and tail of each race.
 (function () {
-  const G = window.GPT, C = G.config, courses = G.courses;
+  // The contingency course (alt) is drawn by the course switch, not with the others.
+  const G = window.GPT, C = G.config, courses = G.courses.filter(c => !c.alt), ALT = G.courses.find(c => c.alt) || null;
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const one = n => (Math.round(n * 10) / 10).toFixed(1);
@@ -137,11 +138,12 @@
       if (E.main && hidden(E.route[s.ic][2])) continue;  // that stretch isn't shown
       if (!best || s.offM < best.offM) best = { E, ic: s.ic, offM: s.offM };
     }
-    // On the contingency (when it shows): its Miler km and the aid stations either side. No response times.
-    const cs = CG && CG.shown() ? CG.snap(e.latlng.lat, e.latlng.lng) : null;
-    if (cs && cs.offM <= 2000 && (!best || cs.offM < best.offM)) {
-      tapPop = L.popup({ maxWidth: 280 }).setLatLng([cs.lat, cs.lon]).setContent(CG.popup(cs, esc) + (cs.offM > 150 ? `<br>(${cs.offM >= 1000 ? one(cs.offM / 1000) + ' km' : Math.round(cs.offM) + ' m'} from the tap)` : '')).openOn(map);
-      return;
+    // The contingency course, when the switch shows it: its own km, team and ETA, where it's nearer than the rest.
+    // On the shared parts the GPT100 wins a tie, so the km there stay GPT100 km.
+    if (ALT && CG && CG.shown()) {
+      const s = ALT.snap(e.latlng.lat, e.latlng.lng), k = ALT.route[s.ic][2];
+      const own = k > ALT.leaveKm + 0.02 && k < ALT.rejoinKm - 0.02;
+      if (!best || (own && s.offM <= best.offM + 30) || (CG.only() && s.offM <= best.offM)) best = { E: ALT, ic: s.ic, offM: s.offM };
     }
     if (!best || best.offM > 2000) return;
     const E = best.E, r = E.assess(best.ic, E.now ? E.now() : Date.now()), b = r.best, p = E.route[best.ic];

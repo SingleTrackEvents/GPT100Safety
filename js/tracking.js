@@ -141,7 +141,7 @@
   let courses = null;
   function recompute() {
     const G = window.GPT; if (!G) return;
-    courses = courses || G.courses;
+    courses = courses || G.courses.filter(c => !c.alt);  // the contingency isn't tracked: runners stay on the GPT100
     const now = Date.now(), TC = CHIP();
     // Runners the chips know that the GPS feed doesn't get an entry of their own.
     for (const r of S.runners.values()) r.chip = null;

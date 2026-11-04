@@ -55,6 +55,7 @@
   // GPT100 km for a point: the course km on the main course, else the nearest GPT100 point within 40 m.
   function mainKm(G, r) {
     if (G.main) return r.km;
+    if (G.alt) return G.mainKm(r.km);  // the contingency: null on its own stretch
     const M = G.course('100'), s = M.snap(r.lat, r.lon);
     return s && s.offM <= 40 ? M.route[s.ic][2] : null;
   }
@@ -91,7 +92,7 @@
   function card(r, G, o) {
     o = o || {};
     const km = mainKm(G, r);
-    if (km == null) return '';
+    if (km == null) return G.alt ? `<div class="card tg"><h3>Track and carry-out</h3><p class="tg-here">${chip('unassessed')} <span class="tg-note">Contingency stretch: the Parks Victoria grades don't cover it. Carry-out times count it as track not yet assessed.</span></p></div>` : '';
     const g = at(km), i = info(g);
     let h = `<div class="card tg"><h3>Track and carry-out</h3>`;
     h += `<p class="tg-here">${chip(g)} <span class="tg-note">${esc(i.note)}</span></p>`;
@@ -130,7 +131,7 @@
   function line(r, G, o) {
     o = o || {};
     const km = mainKm(G, r);
-    if (km == null) return '';
+    if (km == null) return G.alt ? 'Contingency stretch, track not graded by Parks Victoria.' : '';
     const g = at(km), i = info(g), N = near(r, km), em = pickEM(N), hp = N.find(p => p.kind === 'helipad');
     let s = `Track ${i.label.toLowerCase()}`;
     if (g === 'easy') s += ', mule stretcher'; else if (g === 'medium') s += ', paraguard stretcher'; else if (g === 'hard') s += ', slow carry, may need hand to hand';
