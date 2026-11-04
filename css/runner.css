@@ -279,3 +279,19 @@
 .me-dir svg { display: block; width: 44px; height: 44px; overflow: visible; }
 .me-cone { fill: #1666c9; opacity: .22; }
 .me-arrow { fill: #1666c9; stroke: #fff; stroke-width: 1.5; stroke-linejoin: round; }
+
+/* Everyone racing on the Map tab: the button and the race key (js/track-tab.js) */
+.tk-every { max-width: min(260px, calc(100vw - 90px)); font-family: var(--body); }
+.tk-every[hidden] { display: none; }
+.tk-every button { font: inherit; cursor: pointer; }
+.tk-every-btn { display: block; min-height: 40px; padding: 0 14px; border-radius: 20px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); font-size: 14px; font-weight: 700; box-shadow: 0 1px 5px rgba(0,0,0,.3); }
+.tk-every-btn.on { background: var(--ink); color: var(--paper); }
+.tk-every-btn small { font-weight: 500; opacity: .8; margin-left: 4px; }
+.tk-every-key { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.tk-every-key button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 12px; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.tk-every-key button i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.3); }
+.tk-every-key button small { font-weight: 500; color: var(--muted); }
+.tk-every-key button.off { opacity: .5; text-decoration: line-through; }
+.tk-every-key button.off i { background: transparent !important; }
+.tk-pop-follow { margin-top: 6px; }
+.tk-every.tk-pop { visibility: hidden; }

@@ -3,6 +3,7 @@
 // time at every checkpoint so far, when they're expected at the ones to come, and the live order of each race,
 // with a link to the timing team's official results (config.tracking.results).
 // Followed runners are kept on the phone, shown on the Map tab, and can be shared as a link (runner.html#bib=1047).
+// The Map tab also shows everyone racing, as dots coloured by race, with Follow in each one's popup.
 // The last cards are saved, so with no signal the tab still shows where they were and when.
 (function () {
   const $ = id => document.getElementById(id);
@@ -253,11 +254,78 @@
     else prompt('Copy this link', url);
   }
 
+  // ---------- everyone racing on the Map tab ----------
+  // A small dot for every runner on course, coloured by race, under the followed runners' bib markers. Tap one for
+  // their name, race and km, and to follow them. The Everyone button turns it off, and the key hides or shows a race;
+  // both are remembered on the phone. Only where runners are: the staff apps' flags (not moving, late) aren't shown here.
+  const GROUPS = [
+    { id: 'miler', label: 'Miler', color: '#1666c9', keys: ['miler'] },
+    { id: '50k', label: '50k', color: '#7b3fb0', keys: ['50k'] },
+    { id: 'stage', label: 'Stage race', color: '#128c4a', keys: ['s1', 's2', 's3', 's4'] },
+    { id: '33k', label: '33k', color: '#c2185b', keys: ['33k'] },
+    { id: 'short', label: '14k and 6k', color: '#b87700', keys: ['14k', '6k'] },
+    { id: 'other', label: 'Other', color: '#6b6b6b', keys: [] }
+  ];
+  const groupOf = o => GROUPS.find(g => g.keys.includes(o.key)) || GROUPS[GROUPS.length - 1];
+  let everyOn = store.get('everyone', true) !== false, hidden = store.get('everyHide', []);
+  let everyLayer = null, everyCtl = null, openBib = null;
+  function everyControl(m) {
+    everyCtl = L.control({ position: 'topleft' });
+    everyCtl.onAdd = () => {
+      const d = L.DomUtil.create('div', 'tk-every');
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      d.addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.every) { everyOn = !everyOn; store.set('everyone', everyOn); }
+        else if (b.dataset.g) { const g = b.dataset.g; hidden = hidden.includes(g) ? hidden.filter(x => x !== g) : hidden.concat(g); store.set('everyHide', hidden); }
+        drawMap();
+      });
+      return d;
+    };
+    everyCtl.addTo(m);
+  }
+  function drawEveryone(m) {
+    if (!everyLayer) {
+      // Their own pane: above the course and its aid stations, under the followed runners' bib markers.
+      if (!m.getPane('tkEvery')) m.createPane('tkEvery').style.zIndex = 450;
+      everyLayer = L.layerGroup().addTo(m);
+      everyControl(m);
+      m.on('popupclose', e => { if (e.popup && e.popup.options.bib === openBib) openBib = null; everyCtl.getContainer().classList.remove('tk-pop'); });
+      // A popup sits under the map's buttons: the key steps aside while one is open, so its Follow button can be tapped.
+      m.on('popupopen', () => everyCtl.getContainer().classList.add('tk-pop'));
+      m.getContainer().addEventListener('click', e => { const b = e.target.closest('button[data-every-follow]'); if (b) { toggle(b.dataset.everyFollow); m.closePopup(); } });
+    }
+    const keep = openBib;
+    everyLayer.clearLayers();
+    const box = everyCtl.getContainer();
+    if (!live()) { box.hidden = true; return; }
+    const all = TR().list().map(r => info(r.bib)).filter(o => o && o.r.pos && !(o.c && o.c.status));
+    const n = {}; all.forEach(o => { const g = groupOf(o).id; n[g] = (n[g] || 0) + 1; });
+    box.hidden = !all.length;
+    box.innerHTML = `<button type="button" class="tk-every-btn${everyOn ? ' on' : ''}" data-every="1" aria-pressed="${everyOn}">Everyone <small>${all.length}</small></button>` +
+      (everyOn ? `<div class="tk-every-key">${GROUPS.filter(g => n[g.id]).map(g => `<button type="button" data-g="${g.id}" class="${hidden.includes(g.id) ? 'off' : ''}" aria-pressed="${!hidden.includes(g.id)}"><i style="background:${g.color}"></i>${esc(g.label)} <small>${n[g.id]}</small></button>`).join('')}</div>` : '');
+    if (!everyOn) return;
+    let reopen = null;
+    for (const o of all) {
+      const g = groupOf(o); if (hidden.includes(g.id)) continue;
+      const p = o.r.pos, ll = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon], km = TR().cur(o.r);
+      const mk = L.circleMarker(ll, { pane: 'tkEvery', radius: 6, weight: 2, color: '#fff', fillColor: g.color, fillOpacity: p.est || p.stale ? 0.45 : 1, bubblingMouseEvents: false })
+        .bindPopup(`<b>${esc(o.name || 'Bib ' + o.bib)}</b><br>Bib ${esc(o.bib)}${o.label ? ' · ' + esc(o.label) : ''}<br>km ${one(raceKm(o, km))}${p.est ? ' (likely, at their pace)' : ''}<br><span class="muted">${source(p)}</span>` +
+          `<br><button type="button" class="btn small tk-pop-follow" data-every-follow="${esc(o.bib)}">${isOn(o.bib) ? 'Unfollow' : 'Follow'}</button>`, { bib: o.bib })
+        .on('popupopen', () => { openBib = o.bib; })
+        .addTo(everyLayer);
+      if (o.bib === keep) reopen = mk;
+    }
+    // The positions refresh every few seconds: keep the runner's popup open on their new dot.
+    if (reopen) reopen.openPopup();
+  }
+
   // ---------- followed runners on the Map tab ----------
   let layer = null;
   function drawMap() {
     const m = window.GPTRunner && GPTRunner.map();
     if (!m || !window.L) return;
+    drawEveryone(m);
     if (!layer) layer = L.layerGroup().addTo(m);
     layer.clearLayers();
     if (!live()) return;
