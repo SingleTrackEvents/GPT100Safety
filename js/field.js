@@ -14,7 +14,7 @@
   const ago = ms => ms < 60e3 ? 'just now' : RX.dur(ms) + ' ago';
 
   // ---------- race and cut-offs (js/races.js, shared with the runner app) ----------
-  // Pick a race (and stage): every aid station with its cut-off and expected time. Once you've tapped Where
+  // Pick a race (and stage): every aid station with the first runner's time, its cut-off and expected time. Once you've tapped Where
   // am I? during the race, the times come from your position and the clock (for sweeps); otherwise from a
   // target time. Where am I? also shows your race km and the next cut-off.
   const RX = window.GPTRaces;
@@ -132,7 +132,7 @@
       const kind = { start: 'Start', finish: 'Finish', turn: 'Turnaround', aid: 'Aid station', water: 'Water point', emergency: 'Emergency aid', checkpoint: 'Checkpoint' }[x.kind] || 'Aid station';
       return `<div class="rn-row${late ? ' late' : ''}${past ? ' fd-past' : ''}"><div class="rn-km">${one(x.km)}<small>km</small></div>
         <div class="rn-main"><b>${esc(x.name)}</b><div class="rn-tags"><span class="rn-tag">${kind}</span>${x.drop ? '<span class="rn-tag">Drop bag</span>' : ''}</div>${leg ? `<div class="rn-leg">${leg}</div>` : ''}</div>
-        <div class="rn-times">${eta && !past ? `<div class="rn-eta">${RX.when(new Date(eta))}</div>` : i ? '' : `<div class="rn-eta">${RX.when(x.ft)}</div>`}${i && x.ct && !x.noCut ? `<div class="rn-cut">Cut-off ${RX.when(x.ct)}</div>` : ''}</div></div>`;
+        <div class="rn-times">${eta && !past ? `<div class="rn-eta">${RX.when(new Date(eta))}</div>` : i ? '' : `<div class="rn-eta">${RX.when(x.ft)}</div>`}${i && x.ft ? `<div class="rn-cut">First runner ${RX.when(x.ft)}</div>` : ''}${i && x.ct && !x.noCut ? `<div class="rn-cut">Cut-off ${RX.when(x.ct)}</div>` : ''}</div></div>`;
     }).join('');
   }
 
@@ -738,7 +738,7 @@
         <li><b>Where</b> Tap <b>Where am I?</b> for your course km, between which aid stations, and how far off the course you are (and which way the course is). No GPS? Type the km.</li>
         <li><b>Send</b> <b>Send my location</b> or <b>Urgent: casualty here</b> opens WhatsApp with the km, position, map link and nearest vehicle access ready. Add a note, pick the Safety Officer and Rescue Team group (or Event HQ), send.</li>
         <li><b>Way out</b> The nearest vehicle access and how long it takes on foot, and the aid stations either side.</li>
-        <li><b>Race</b> Pick your race (it stays picked): every aid station with its cut-off, and when you'll reach each one at your current pace (or from a target time). Handy for sweeps.</li>
+        <li><b>Race</b> Pick your race (it stays picked): every aid station with the first runner's expected time and the cut-off, and when you'll reach each one at your current pace (or from a target time). Handy for sweeps.</li>
         <li><b>Trail</b> Turn on <b>Keep updating</b> to follow your position and draw the trail you've walked.</li>
       </ul><p class="fd-hint">Tap <b>?</b> at the top any time to see this again. In an emergency call 000.${C.tracking && C.tracking.credit && C.tracking.credit.name ? ` Timing and tracking by ${C.tracking.credit.url ? `<a href="${esc(C.tracking.credit.url)}" target="_blank" rel="noopener">${esc(C.tracking.credit.name)}</a>` : esc(C.tracking.credit.name)}.` : ''}</p>` })
     ]
