@@ -54,7 +54,8 @@
       else if (k === 'GRABINTERVAL') F.interval = !F.relay && T.gpsEvery ? Math.max(2, +T.gpsEvery) : Math.max(10, +v || 15);
       else if (k === 'COMPETITOR') {
         // id|date|start|"1047 Jane Smith"|short name|...
-        const f = v.split('|'), id = f[0] && F.key + f[0], full = (f[3] || '').trim(), m = full.match(/^(\d+)\s*(.*)$/);
+        // Relay teams come as id|date|start|618|The Dawgs|...: the bib alone, then the team's name.
+        const f = v.split('|'), id = f[0] && F.key + f[0], b = (f[3] || '').trim(), full = /^\d+$/.test(b) && (f[4] || '').trim() ? b + ' ' + f[4].trim() : b, m = full.match(/^(\d+)\s*(.*)$/);
         if (!id) continue;
         const r = S.runners.get(id) || { id, pts: [] };
         r.bib = m ? m[1] : ''; r.name = m ? m[2] : full; r.label = full;
@@ -155,7 +156,11 @@
     S.listeners.forEach(fn => { try { fn(); } catch (e) { } });
   }
   function position(r, now, TC) {
-    const p = r.pts[r.pts.length - 1];
+    // A fix from before the runner's race day doesn't place them today: a stage race tracker's last fix from yesterday's
+    // finish, or one switched on for a test, would otherwise be walked along today's course at their pace.
+    const day = r.chip && r.chip.day != null && !T.chipDay ? r.chip.day : null;
+    let p = r.pts[r.pts.length - 1];
+    if (p && day != null && (p[0] + EPOCH) * 1000 < day) p = null;
     let gps = null;
     if (p) {
       let best = null;

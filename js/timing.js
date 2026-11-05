@@ -94,12 +94,31 @@
   function contestOf(raw, now) {
     const s = String(raw == null ? '' : raw).trim(), O = T.chipContests || {}, o = O[s] != null ? O[s] : O[s.toLowerCase()];
     let key = o != null ? (/^(none|skip|ignore|-)?$/i.test(String(o).trim()) ? 'fun' : keyOf(o)) : keyOf(s);
-    if (key === 'stage') key = stageNow(now);
+    const stageless = key === 'stage';
+    if (stageless) key = stageNow(now);
+    return Object.assign(contestFor(key, s), stageless ? { stageless } : {});
+  }
+  function contestFor(key, name) {
     const d = RACE[key];
-    if (d === undefined || key === '') return { key: '', name: s };
-    if (!d) return { key, name: s, off: true };
+    if (d === undefined || key === '') return { key: '', name };
+    if (!d) return { key, name, off: true };
     const R = window.GPT_RACES, st = R && R.stages && R.stages[d[1]], first = st && st.points && st.points[0] && st.points[0].first;
-    return { key, name: s, label: d[2], race: d[0] ? (C.races || []).find(r => r.id === d[0]) || raceOf(d[2]) : null, course: d[3] ? G.course(d[3]) : G, day: dayOf(first) };
+    return { key, name, label: d[2], race: d[0] ? (C.races || []).find(r => r.id === d[0]) || raceOf(d[2]) : null, course: d[3] ? G.course(d[3]) : G, day: dayOf(first) };
+  }
+  // The stage race's contest ("GPT100 Stage Race Solo") has no stage number, and the timing team's list holds one
+  // stage's times at a time, as times of day. Which stage they belong to comes from the timing points read: a point
+  // inside a stage (Copper Mine Track and GAR are Stage 1, Rosea and Borough Huts Stage 2), not Start, Finish or the
+  // stops two stages share. Without one: null, and the stage under way is taken.
+  const STAGES = ['s1', 's2', 's3', 's4'];
+  function stageOfReads(reads) {
+    let k = -1;
+    for (const rd of reads) {
+      if (!rd.c) continue;
+      const p = pointFor(rd.label, G, null);
+      if (!p || p.name === 'Start' || p.name === 'Finish') continue;
+      STAGES.forEach((s, i) => { const r = contestFor(s, '').race; if (r && p.kms[0] > startKm(G, r) + 0.3 && p.kms[0] < finishKm(G, r) - 0.3) k = Math.max(k, i); });
+    }
+    return k < 0 ? null : STAGES[k];
   }
   // A stage race contest with no stage number: the stage under way (the last to have started, or about to).
   function stageNow(now) {
@@ -115,6 +134,13 @@
     if (cd === 'today') { const d = new Date((today || Date.now()) + MEL); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - MEL; }
     const m = (cd || String(first || '')).match(/^(\d{4})-(\d\d)-(\d\d)/);
     return m ? Date.UTC(+m[1], m[2] - 1, +m[3]) - MEL : null;
+  }
+  // The event's first day: the earliest race start in data/races.js (the day RaceResult counts its D: days from).
+  function eventDay() {
+    const R = window.GPT_RACES, S_ = R && R.stages;
+    let d = null;
+    if (S_) for (const st of Object.values(S_)) { const f = st && st.points && st.points[0] && dayOf(st.points[0].first); if (f != null && (d == null || f < d)) d = f; }
+    return d;
   }
   // The race in the config (start and finish aid stations) whose label fits the contest name, e.g. "Stage 2".
   function raceOf(contest) {
@@ -169,7 +195,9 @@
     return 'point';
   }
   // A time from the feed: a full date and time or a Unix time ({ t }, in ms), or a Melbourne time of day ({ sec }):
-  // HH:MM:SS, or D:HH:MM:SS for D days past the start day (1:02:00:00 is 2 am the next day; pre: the day is given).
+  // HH:MM:SS, or D:HH:MM:SS for D days past the event's first day (pre: the day is given; d: counted from the event's
+  // first day). RaceResult counts days from the first day of the whole event, Thursday's Stage 1 and 50k: the Miler's
+  // start on Friday comes as 1:07:59:37, and plain times are on the first day or the race's own day.
   function clock(v) {
     if (v == null) return null;
     if (typeof v === 'number') return v > 1e12 ? { t: v } : v > 1e9 ? { t: v * 1000 } : null;
@@ -181,7 +209,7 @@
     m = s.match(/^(\d\d?)[./](\d\d?)[./](\d{4})[ T](\d\d?):(\d\d)(?::(\d\d))?/);
     if (m) return { t: Date.UTC(+m[3], m[2] - 1, +m[1], +m[4], +m[5], +(m[6] || 0)) - MEL };
     m = s.match(/^(\d{1,2})(?::|\.|d ?| )(\d\d?):(\d\d):(\d\d)(?:[.,]\d+)?$/);
-    if (m) return { sec: +m[1] * 86400 + +m[2] * 3600 + +m[3] * 60 + +m[4], pre: true };
+    if (m) return { sec: +m[1] * 86400 + +m[2] * 3600 + +m[3] * 60 + +m[4], pre: true, d: true };
     m = s.match(/^(\d\d?):(\d\d)(?::(\d\d))?(?:[.,]\d+)?$/);
     if (m) return { sec: +m[1] * 3600 + +m[2] * 60 + +(m[3] || 0), pre: +m[1] >= 24 };
     return null;
@@ -208,7 +236,7 @@
 
   function handle(j, now) {
     const rows = rowsOf(j);
-    const runners = new Map(), pts = new Map(), unmatched = new Set(), matched = new Set(), badContests = new Map(), odd = new Set(), tests = new Set(), future = [];
+    const runners = new Map(), pts = new Map(), unmatched = new Set(), matched = new Set(), badContests = new Map(), odd = new Set(), tests = new Set(), future = [], prevStage = new Map();
     let undated = 0;
     for (const row of rows) {
       let bib = '', name = '', first = '', last = '', contest = '', cp = -1, status = '', place = '', gender = '', m;
@@ -228,22 +256,30 @@
       if (!bib || !/^\d+$/.test(bib)) continue;
       name = name || (first + ' ' + last).trim();
       const lf = name.match(/^([^,]+),\s*(.+)$/); if (lf) name = lf[2].trim() + ' ' + lf[1].trim();
-      const ct = contestOf(contest, now);
+      let ct = contestOf(contest, now);
       if (!ct.key) { badContests.set(ct.name || '(blank)', (badContests.get(ct.name || '(blank)') || 0) + 1); continue; }
       if (ct.off) continue;
+      // A stage race runner: the stage the list's times belong to. Times from an earlier stage (the list still holds
+      // yesterday's) aren't today's: hung off today they'd put the runner back on yesterday's course. The runner is
+      // in today's stage with no reads yet (the GPS tracker places them), and yesterday's result doesn't count today.
+      if (ct.stageless) {
+        const was = stageOfReads(reads);
+        if (was && STAGES.indexOf(was) < STAGES.indexOf(ct.key)) { prevStage.set(was, (prevStage.get(was) || 0) + 1); reads.length = 0; status = ''; place = ''; }
+        else if (was && was !== ct.key) ct = contestFor(was, ct.name);
+      }
       const E = ct.course, race = ct.race;
       // Times of day hang off the contest's start day. The columns run in course order, so a time of day more than
       // 12 hours earlier than the read before it, with no day given, has gone past midnight: the next day.
       // Before the race's day they can only be the timing team's test reads: hung off today instead, and moved back
       // a day if that puts them ahead of the clock.
-      const early = ct.day != null && !T.chipDay && now < ct.day, day = early ? dayOf('', now) : ct.day;
+      const early = ct.day != null && !T.chipDay && now < ct.day, day = early ? dayOf('', now) : ct.day, d0 = early || T.chipDay ? day : eventDay() ?? day;
       let prev = 0, top = 0;
       for (const rd of reads) {
         const c = rd.c;
         if (!c) continue;
         if (c.t) rd.t = c.t;
         else if (day == null) { rd.t = recent(c.sec, now); undated++; }
-        else { rd.t = day + c.sec * 1000; if (!c.pre && prev) while (rd.t < prev - 12 * 3600e3) rd.t += 86400e3; if (early) { tests.add(bib); top = Math.max(top, rd.t); } }
+        else { rd.t = (c.d ? d0 : day) + c.sec * 1000; if (!c.pre && prev) while (rd.t < prev - 12 * 3600e3) rd.t += 86400e3; if (early) { tests.add(bib); top = Math.max(top, rd.t); } }
         prev = rd.t;
       }
       const back = top > now + AHEAD ? Math.ceil((top - now - AHEAD) / 86400e3) * 86400e3 : 0;
@@ -286,6 +322,7 @@
     S.future = future.sort((a, b) => a.t - b.t);
     S.undated = undated;
     S.tests = tests.size;
+    S.prevStage = [...prevStage];
   }
 
   // ---------- reading the feed ----------
@@ -339,6 +376,7 @@
       (S.future.length ? `. ${S.future.length} chip time${S.future.length === 1 ? '' : 's'} ahead of the clock ignored: ${S.future.slice(0, 3).map(f => `bib ${f.bib} ${f.label} ${dhm.format(f.t)}`).join(', ')}${S.future.length > 3 ? '…' : ''}` : '') +
       (S.odd.length ? `. Status not recognised (taken as still running): ${S.odd.join(', ')}` : '') +
       (S.tests ? `. ${S.tests} runner${S.tests === 1 ? ' has' : 's have'} chip times before their race's day (test reads?), taken as today's` : '') +
+      (S.prevStage && S.prevStage.length ? `. The stage race list still holds ${S.prevStage.map(([k, n]) => `${RACE[k][2]} times (${n} runner${n === 1 ? '' : 's'})`).join(', ')}: not used today, the GPS trackers place them until today's times come in` : '') +
       (S.undated ? `. The race start days didn't load, so times of day are taken as the latest such time` : '') + '.';
   }
   function onUpdate(fn) { S.listeners.push(fn); if (S.ready || S.off) fn(); }
