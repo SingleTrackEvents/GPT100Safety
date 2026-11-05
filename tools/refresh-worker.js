@@ -241,8 +241,8 @@ const ARCHIVE_SCHEMA = [
 const ARCHIVE_PART = 1500000;   // bytes per piece (D1 rows hold up to 2 MB)
 const ARCHIVE_GPS_MIN = 60;     // minutes between copies of each GPS event's data.lst (it holds every fix so far)
 // Each data.lst copy holds every fix before it, so older copies are thinned out to keep the database small (D1's free
-// plan allows 500 MB a database, shared with Race Control): the 3 latest are kept, and the last one of every 6 hours.
-const ARCHIVE_GPS_KEEP = 3, ARCHIVE_GPS_BLOCK = 6 * 3600e3;
+// plan allows 500 MB a database, shared with Race Control): the 2 latest are kept, and the last one of every 12 hours.
+const ARCHIVE_GPS_KEEP = 2, ARCHIVE_GPS_BLOCK = 12 * 3600e3;
 let archiveReady = false;
 async function ensureArchive(db) {
   if (archiveReady) return;

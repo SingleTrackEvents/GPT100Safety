@@ -6,7 +6,7 @@ During the race the Worker keeps its own copies of the timing list and the GPS t
 - **When:** only inside the race window, 5am Thursday 5 November to midday Monday 9 November 2026 (Melbourne time). Outside it the timer does nothing.
 - **Where:** the `gpt100-race-control` database the Race Control board already uses, in a table of its own (`archive`). Copies are gzipped and split into pieces small enough for the database.
 - **Who can read it:** only someone with the medical password. Names and GPS tracks never go into the GitHub repository, which is public.
-- **Size:** under about 100 MB for the whole weekend. D1's free plan allows 500 MB a database, shared here with Race Control. Each GPS copy holds every fix before it, so older ones are thinned out: the 3 latest are kept, plus the last one of every 6 hours. Every timing copy is kept.
+- **Size:** about 150 MB by the end of the weekend. The GPS files are big (the GPT50 positions were 18.6 MB after the first day) and every copy holds every fix before it, so older copies are thinned out: the 2 latest are kept, plus the last one of every 12 hours. Every timing copy is kept (about 455 kB each before gzip). D1's free plan allows 500 MB a database, shared here with Race Control.
 
 ## 1. Setup (about 5 minutes)
 
