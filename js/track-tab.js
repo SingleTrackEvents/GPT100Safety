@@ -35,12 +35,14 @@
   const myKey = () => { const r = window.GPTRunner && GPTRunner.race(), s = window.GPTRunner && GPTRunner.stage(); return !r ? 'miler' : r.id === 'stage' ? (s ? s.id : 's1') : r.id; };
 
   // ---------- one runner, from both feeds ----------
-  function info(bib) {
-    const tr = TR(), r = tr && tr.byBib(bib);
+  const info = bib => { const tr = TR(); return infoOf(tr && tr.byBib(bib)); };
+  function infoOf(r) {
     if (!r) return null;
-    const c = r.chip || null, key = c ? c.raceKey : '', S = key ? stageFor(key) : null;
+    // A tracker the chips don't know: its GPS event's race, when the event carries just one (config tracking.gpsRaces).
+    const F = !r.chip && r.feed && T.gpsRaces && T.gpsRaces[r.feed], only = Array.isArray(F) && F.length === 1 && STAGE_OF[F[0]] ? F[0] : '';
+    const c = r.chip || null, key = c ? c.raceKey : only, S = key ? stageFor(key) : null;
     const name = c ? (c.person || c.name.replace(/\s*\([^)]*\)$/, '')) : r.name || '';
-    return { r, c, key, S, bib: r.bib, name, gender: c ? c.gender : '', label: key ? LABEL[key] || c.raceLabel : '' };
+    return { r, c, key, S, bib: r.bib, name, gender: c ? c.gender : '', label: key ? LABEL[key] || (c ? c.raceLabel : '') : '' };
   }
   const raceKm = (o, km) => o.S ? Math.max(0, toRace(o.S, km)) : km;
   const lenOf = o => o.S ? o.S.points[o.S.points.length - 1].km : o.c ? o.c.finishKm - o.c.startKm : null;
@@ -327,7 +329,7 @@
     }
     const box = everyCtl.getContainer();
     if (!live()) { box.hidden = true; sync(everyMarks, everyLayer, []); return; }
-    const all = TR().list().map(r => info(r.bib)).filter(o => o && o.r.pos && !(o.c && o.c.status));
+    const all = TR().list().map(infoOf).filter(o => o && o.r.pos && !(o.c && o.c.status));
     const n = {}; all.forEach(o => { const g = groupOf(o).id; n[g] = (n[g] || 0) + 1; });
     box.hidden = !all.length;
     // In the bottom corner, so the key opens upwards, above the buttons.
@@ -344,7 +346,7 @@
       // Others on the same spot (an aid station, a bunch on the climb), named in the popup as their bibs overlap.
       const near = bibs ? shown.filter(x => x !== o && window.GPT.metres(spot(x), ll) < 40).map(x => x.bib).sort((a, b) => a - b) : [];
       return {
-        id: o.bib, ll, kind: bibs ? 'bib' : 'dot', look: g.color + faint,
+        id: o.r.id, ll, kind: bibs ? 'bib' : 'dot', look: g.color + faint,
         make: () => bibs ? L.marker(ll, { pane: 'tkEvery', icon: bibIcon(o.bib, g.color, faint) })
           : L.circleMarker(ll, { pane: 'tkEvery', radius: 6, weight: 2, color: '#fff', fillColor: g.color, fillOpacity: faint ? 0.45 : 1, bubblingMouseEvents: false }),
         restyle: mk => bibs ? mk.setIcon(bibIcon(o.bib, g.color, faint)) : mk.setStyle({ fillColor: g.color, fillOpacity: faint ? 0.45 : 1 }),

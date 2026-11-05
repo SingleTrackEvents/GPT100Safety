@@ -26,7 +26,7 @@
   const GPS = SRCS.length > 0;
   const isUrl = x => /^https?:\/\//.test(x);
   const FEEDS = SRCS.map((x, i) => ({
-    key: SRCS.length > 1 ? i + ':' : '',   // runner ids are per event, so keep them apart when there's more than one
+    id: x, key: SRCS.length > 1 ? i + ':' : '',   // runner ids are per event, so keep them apart when there's more than one
     base: isUrl(x) ? x.replace(/\/?$/, '/') : ((C.weather && C.weather.refreshUrl) || '').replace(/\/$/, '') + '/gps/' + x + '/',
     relay: !isUrl(x), ready: false, live: false, name: '', interval: 15, bytes: -1, reset: -1, lastLine: 'undef', error: null, timer: null
   }));
@@ -39,7 +39,7 @@
   const EST_MIN = 3;        // a hard fix older than this gets a projected km
   const LATE_MIN = 20;      // late at the next timing point: this long (or a quarter of the leg) past their expected time
 
-  const S = { ready: false, live: false, name: '', interval: 15, runners: new Map(), byBib: new Map(), bytes: -1, reset: -1, lastLine: 'undef', updated: 0, error: null, listeners: [], gps: GPS };
+  const S = { ready: false, live: false, name: '', interval: 15, runners: new Map(), byBib: new Map(), allBib: new Map(), bytes: -1, reset: -1, lastLine: 'undef', updated: 0, error: null, listeners: [], gps: GPS };
 
   // ---------- the GPS feed ----------
   function parseInit(F, txt) {
@@ -54,12 +54,13 @@
       else if (k === 'GRABINTERVAL') F.interval = !F.relay && T.gpsEvery ? Math.max(2, +T.gpsEvery) : Math.max(10, +v || 15);
       else if (k === 'COMPETITOR') {
         // id|date|start|"1047 Jane Smith"|short name|...
-        const f = v.split('|'), id = f[0] && F.key + f[0], full = (f[3] || '').trim(), m = full.match(/^(\d+)\s*(.*)$/);
+        // Relay teams come as id|date|start|618|The Dawgs|...: the bib alone, then the team's name.
+        const f = v.split('|'), id = f[0] && F.key + f[0], b = (f[3] || '').trim(), full = /^\d+$/.test(b) && (f[4] || '').trim() ? b + ' ' + f[4].trim() : b, m = full.match(/^(\d+)\s*(.*)$/);
         if (!id) continue;
         const r = S.runners.get(id) || { id, pts: [] };
-        r.bib = m ? m[1] : ''; r.name = m ? m[2] : full; r.label = full;
+        r.bib = m ? m[1] : ''; r.name = m ? m[2] : full; r.label = full; r.feed = F.id;
         S.runners.set(id, r);
-        if (r.bib) S.byBib.set(r.bib, r);
+        if (r.bib) { S.byBib.set(r.bib, r); const A = S.allBib.get(r.bib) || []; if (!A.includes(r)) A.push(r); S.allBib.set(r.bib, A); }
       }
     }
   }
@@ -143,19 +144,32 @@
     const G = window.GPT; if (!G) return;
     courses = courses || G.courses.filter(c => !c.alt);  // the contingency isn't tracked: runners stay on the GPT100
     const now = Date.now(), TC = CHIP();
-    // Runners the chips know that the GPS feed doesn't get an entry of their own.
+    // Runners the chips know that the GPS feed doesn't get an entry of their own. So does a chip runner whose bib a
+    // tracker in another race's GPS event has (the providers number some relay teams the same): two people, kept apart.
     for (const r of S.runners.values()) r.chip = null;
     if (TC) for (const c of TC.runners()) {
-      let r = S.byBib.get(c.bib);
-      if (!r) { r = { id: 'chip:' + c.bib, bib: c.bib, name: c.name, label: c.bib + ' ' + c.name, pts: [] }; S.runners.set(r.id, r); S.byBib.set(c.bib, r); }
+      const A = S.allBib.get(c.bib) || [];
+      let r = A.find(x => fits(x, c)) || (A.length ? S.runners.get('chip:' + c.bib) : S.byBib.get(c.bib)) || null;
+      if (!r) { r = { id: 'chip:' + c.bib, bib: c.bib, name: c.name, label: c.bib + ' ' + c.name, pts: [] }; S.runners.set(r.id, r); if (!S.byBib.has(c.bib)) S.byBib.set(c.bib, r); }
+      else if (A.length > 1) S.byBib.set(c.bib, r);  // two trackers with this bib: the one in the chip runner's race answers to it
       r.chip = c;
       if (!r.name && c.name) { r.name = c.name; r.label = c.bib + ' ' + c.name; }
     }
     for (const r of S.runners.values()) position(r, now, TC);
     S.listeners.forEach(fn => { try { fn(); } catch (e) { } });
   }
+  // tracking.gpsRaces: the races each GPS event carries ({ '20261106gpt100': ['miler'], ... }; 'stage' is every stage).
+  // A tracker joins a chip runner of the same bib only in one of its event's races. An event not listed takes any.
+  function fits(r, c) {
+    const L = r.feed && T.gpsRaces && T.gpsRaces[r.feed];
+    return !Array.isArray(L) || !c.raceKey || L.includes(c.raceKey) || (/^s[1-4]$/.test(c.raceKey) && L.includes('stage'));
+  }
   function position(r, now, TC) {
-    const p = r.pts[r.pts.length - 1];
+    // A fix from before the runner's race day doesn't place them today: a stage race tracker's last fix from yesterday's
+    // finish, or one switched on for a test, would otherwise be walked along today's course at their pace.
+    const day = r.chip && r.chip.day != null && !T.chipDay ? r.chip.day : null;
+    let p = r.pts[r.pts.length - 1];
+    if (p && day != null && (p[0] + EPOCH) * 1000 < day) p = null;
     let gps = null;
     if (p) {
       let best = null;
