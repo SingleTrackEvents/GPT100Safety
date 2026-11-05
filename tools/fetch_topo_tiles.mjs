@@ -1,4 +1,4 @@
-// One-off: save the OpenTopoMap tiles 2 km either side of both courses (zoom 8 to 15) into tiles/topo/,
+// One-off: save the OpenTopoMap tiles 2 km either side of both courses and the Miler's contingency (zoom 8 to 15) into tiles/topo/,
 // and write data/tiles.js (the list the apps use to save the map for offline).
 // Phones then save the map from our own site, so OpenTopoMap's free servers are only asked once.
 // Polite: one tile at a time with a pause, identified, and tiles already saved are skipped.
@@ -8,15 +8,16 @@ import path from 'path';
 
 const BUF_KM = 2, ZMIN = 8, ZMAX = 15, OUT = 'tiles/topo';
 globalThis.window = globalThis;
-for (const f of ['data/config.js', 'data/course.js', 'data/courses.js', 'data/access-edits.js', 'js/engine.js']) (0, eval)(fs.readFileSync(f, 'utf8'));
+for (const f of ['data/config.js', 'data/course.js', 'data/courses.js', 'data/access-edits.js', 'js/engine.js', 'data/contingency.js']) (0, eval)(fs.readFileSync(f, 'utf8'));
 const GPT = globalThis.GPT;
 
 const lon2x = (lon, z) => (lon + 180) / 360 * 2 ** z;
 const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z; };
 const keys = new Set();
-for (let z = ZMIN; z <= ZMAX; z++) GPT.courses.forEach(E => {
-  for (let i = 0; i < E.route.length; i++) {
-    const [lat, lon] = E.route[i];
+const lines = GPT.courses.map(E => E.route).concat(globalThis.GPT100_CONTINGENCY ? [globalThis.GPT100_CONTINGENCY.route] : []);
+for (let z = ZMIN; z <= ZMAX; z++) lines.forEach(route => {
+  for (let i = 0; i < route.length; i++) {
+    const [lat, lon] = route[i];
     const dLat = BUF_KM / 111.32, dLon = BUF_KM / (111.32 * Math.cos(lat * Math.PI / 180));
     for (let x = Math.floor(lon2x(lon - dLon, z)); x <= Math.floor(lon2x(lon + dLon, z)); x++)
       for (let y = Math.floor(lat2y(lat + dLat, z)); y <= Math.floor(lat2y(lat - dLat, z)); y++) keys.add(`${z}/${x}/${y}`);
@@ -58,7 +59,7 @@ const tree = {};
 have.forEach(k => { const [z, x, y] = k.split('/').map(Number); ((tree[z] = tree[z] || {})[x] = tree[z][x] || []).push(y); });
 const version = new Date().toISOString().slice(0, 10) + '-' + have.length;
 fs.writeFileSync('data/tiles.js', `// Topo map tiles saved on this site for offline use (written by tools/fetch_topo_tiles.mjs).
-// OpenTopoMap (CC-BY-SA), map data OpenStreetMap contributors and SRTM. ${BUF_KM} km either side of both courses, zoom ${ZMIN} to ${ZMAX}.
+// OpenTopoMap (CC-BY-SA), map data OpenStreetMap contributors and SRTM. ${BUF_KM} km either side of both courses and the contingency, zoom ${ZMIN} to ${ZMAX}.
 window.GPT_TILES = { version: '${version}', count: ${have.length}, bytes: ${bytes}, zmax: ${ZMAX}, tree: ${JSON.stringify(tree)} };
 `);
 console.log(`data/tiles.js: ${have.length} tiles, ${(bytes / 1e6).toFixed(1)} MB`);

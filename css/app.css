@@ -645,6 +645,12 @@ tr.muted td { color: var(--muted); }
 .gpt-fs-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .map-full { position: fixed !important; inset: 0 !important; width: auto !important; height: auto !important; min-height: 0 !important; max-height: none !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; z-index: 2500 !important; background: var(--map-bg); }
 html.map-full-on, html.map-full-on body { overflow: hidden; }
+/* Course switch on the safety map and field map (js/contingency.js): the GPT100, the contingency or both */
+.leaflet-bar.cg-switch { display: flex; border: 0; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,.4); overflow: hidden; }
+.cg-switch button { border: 0; background: var(--paper); color: #222; font: 600 12px var(--body); height: 30px; padding: 0 8px; cursor: pointer; }
+.cg-switch button + button { border-left: 1px solid var(--line); }
+.cg-switch button:hover { background: var(--hover); }
+.cg-switch button[aria-pressed="true"] { background: #7b2cbf; color: #fff; }
 :fullscreen { background: var(--map-bg); }
 
 /* The map page (map.html, js/map.js): the map fills the screen, with the Runners panel beside it */
@@ -768,6 +774,8 @@ html.demo-on body.field .demo-list { bottom: calc(112px + env(safe-area-inset-bo
   .rn-intro { background: rgba(0,0,0,.8); }
   .rn-intro-logo { background: #f4f3ef; border-radius: 10px; padding: 6px 8px; box-sizing: content-box; }
   .gpt-fs-btn { color: var(--ink); }
+  .cg-switch button { color: var(--ink); }
+  .cg-switch button[aria-pressed="true"] { background: #9d5cd6; color: #fff; }
   /* Elevation profile (js/profile.js draws its lines in #111): light lines on the dark card, a darker band for gentle ground */
   .prof-svg svg [stroke="#111"] { stroke: var(--svg-ink); }
   .prof-svg svg circle[fill="#111"] { fill: var(--svg-ink); }

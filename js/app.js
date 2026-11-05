@@ -113,7 +113,7 @@
     if (seg) wash(seg);
     const line = L.polyline(courseLL, { color: '#d9531e', weight: 4, opacity: .95 }).addTo(courseLayer);
     G.ACCESS.forEach(a => {
-      if (G.main && a.aid) return;
+      if ((G.main || G.alt) && a.aid) return;
       L.marker([a.lat, a.lon], { icon: pin(G.isGated(a) ? '#6d3b8e' : '#888', 10), title: G.cleanName(a) + (G.isGated(a) ? ' (gated)' : '') })
         .bindPopup(`<b>${esc(G.cleanName(a))}</b><br>${kmTxt(a.trail_km)}${G.isGated(a) ? ' &middot; gated' : ''}${a.conn_m > 50 ? ' &middot; ' + a.conn_m + ' m walk to course' : ''}${a.note ? '<br>' + esc(a.note) : ''}<br>${w3wLink(a.w3w)}`)
         .addTo(courseLayer);
@@ -137,10 +137,11 @@
     last = null; $('result').innerHTML = EMPTY; setMsg('');
     if (map) { resultLayer.clearLayers(); drawCourse(true); if (runnerLayer) { runnerLayer.clearLayers(); GPTTracking.draw(runnerLayer, G, null, null, { find: true }); } }
     if (profile) { profile.setHere(null); profile.setCourse(G); }
-    if ($('racePick')) $('racePick').hidden = !G.main;
+    if ($('racePick')) $('racePick').hidden = !G.main && !G.alt;
+    if (race) setRace(race.id);  // the placeholder follows the course
   }
   if (G.courses.length > 1) {
-    const html = `<div class="course-pick" role="group" aria-label="Course">${G.courses.map(c => `<button type="button" data-c="${c.id}"${c === G ? ' class="on"' : ''}>${esc(c.label)}</button>`).join('')}</div><p class="course-note"></p>`;
+    const html = `<div class="course-pick" role="group" aria-label="Course">${G.courses.map(c => `<button type="button" data-c="${c.id}"${c === G ? ' class="on"' : ''}>${esc(c.label)}</button>`).join('')}</div><p class="course-note">${esc(G.note)}</p>`;
     $('findForm').insertAdjacentHTML('afterbegin', html);
     document.querySelectorAll('.course-pick button').forEach(b => b.addEventListener('click', () => setCourse(b.dataset.c)));
   }
@@ -153,7 +154,14 @@
     return a && b ? Object.assign({}, r, { start: a.trail_km, end: b.trail_km }) : null;
   }).filter(Boolean);
   let race = RACES[0] || null;
-  const isSub = (r = race) => G.main && r && r.start + (window.GPT.totalKm - r.end) > 0.05; // not the whole course
+  // A race on the course being viewed: the GPT100's, or the same aid stations on the other way (the original course).
+  const raceOn = r => {
+    if (!r || G.main) return r;
+    if (!G.alt) return null;
+    const a = G.AID.find(x => x.name === r.from), b = G.AID.find(x => x.name === r.to);
+    return a && b ? Object.assign({}, r, { start: a.trail_km, end: b.trail_km }) : null;
+  };
+  const isSub = (r = race) => { const x = raceOn(r); return !!x && x.start + (G.totalKm - x.end) > 0.05; }; // not the whole course
   // The official race distances run up to 0.5 km past the course line's finish (Miler 163 against 162.6), so allow that much.
   const TOL = 0.5;
   if (RACES.length > 1) {
@@ -175,8 +183,9 @@
   }
   // Where a GPT100 km falls in the runner's race, or null if it's outside that race.
   function raceKmOf(km) {
-    if (!isSub() || km < race.start - 0.05 || km > race.end + 0.05) return null;
-    return Math.max(0, km - race.start);
+    const x = isSub() && raceOn(race);
+    if (!x || km < x.start - 0.05 || km > x.end + 0.05) return null;
+    return Math.max(0, km - x.start);
   }
 
   // ---------- Find ----------
@@ -282,7 +291,7 @@
     let r = race, txt = v;
     const st = v.match(/\bstage\s*([1-4])\b/i);
     if (st) {
-      if (!G.main) return { type: 'error', msg: `Pick ${window.GPT.label} above, then the runner's race` };
+      if (!G.main && !G.alt) return { type: 'error', msg: `Pick ${window.GPT.label} above, then the runner's race` };
       r = RACES.find(x => new RegExp('stage ' + st[1] + '\\b', 'i').test(x.label));
       if (!r) return { type: 'error', msg: 'Pick the runner\'s race above, then type their km' };
       txt = v.replace(st[0], ' ');
@@ -306,9 +315,9 @@
   function kmQuery(km, r) {
     if (!isFinite(km)) return { type: 'error', msg: ENTER() };
     if (isSub(r)) {
-      const len = r.end - r.start;
+      const x = raceOn(r), len = x.end - x.start;
       if (km < 0 || km > len + TOL) return { type: 'error', msg: `${r.label} km must be between 0 and ${len.toFixed(1)} (the finish)` };
-      return { type: 'km', km: Math.min(r.start + km, r.end) };
+      return { type: 'km', km: Math.min(x.start + km, x.end) };
     }
     if (km < 0 || km > G.totalKm + TOL) return { type: 'error', msg: `Km must be between 0 and ${G.totalKm}` };
     return { type: 'km', km: Math.min(km, G.totalKm) };
