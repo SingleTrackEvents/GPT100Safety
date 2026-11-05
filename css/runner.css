@@ -287,7 +287,7 @@
 .tk-every-btn { display: block; min-height: 40px; padding: 0 14px; border-radius: 20px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); font-size: 14px; font-weight: 700; box-shadow: 0 1px 5px rgba(0,0,0,.3); }
 .tk-every-btn.on { background: var(--ink); color: var(--paper); }
 .tk-every-btn small { font-weight: 500; opacity: .8; margin-left: 4px; }
-.tk-every-key { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.tk-every-key { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .tk-every-key button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 12px; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
 .tk-every-key button i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.3); }
 .tk-every-key button small { font-weight: 500; color: var(--muted); }
@@ -295,3 +295,18 @@
 .tk-every-key button.off i { background: transparent !important; }
 .tk-pop-follow { margin-top: 6px; }
 .tk-every.tk-pop { visibility: hidden; }
+/* Everyone's bib numbers, in their race's colour (--c) */
+.trk-mk.tk-ev { background: var(--c); }
+.trk-mk.tk-ev.est { background: #fff; color: var(--c); border: 2px dashed var(--c); }
+/* The Map tab's profile folds away under its bar, so the map takes the space (js/runner.js profShow) */
+.rn-profbar { flex: none; display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 34px; padding: 0 12px; border: 0; border-top: 1px solid var(--line); background: var(--paper); color: var(--muted); font: 600 12px var(--body); cursor: pointer; }
+.rn-profbar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
+.rn-profbar[aria-expanded="false"] svg { transform: rotate(180deg); }
+.rn-profbar + .fd-prof { border-top: 0; padding-top: 0; }
+.fd-prof[hidden] { display: none; }
+.tk-every-row { display: flex; gap: 6px; align-items: center; }
+.tk-every-races { display: inline-flex; align-items: center; gap: 3px; min-height: 40px; padding: 0 12px; border-radius: 20px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 13px; font-weight: 600; box-shadow: 0 1px 5px rgba(0,0,0,.3); }
+.tk-every-races i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+.tk-every-races i:last-of-type { margin-right: 4px; }
+.tk-every-races[aria-expanded="true"] { border-color: var(--ink); }
+.leaflet-bottom.leaflet-left .tk-every { margin-bottom: 26px; }  /* clear of the map's attribution line */

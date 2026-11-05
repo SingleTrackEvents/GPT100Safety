@@ -156,7 +156,7 @@
     // Some phones never answer at all: give up after 30 s (a late fix still places you).
     const fail = e => { clearTimeout(wait); if (b) b.classList.remove('busy'); msg(UL(e.code === 1 ? 'gpsBlocked' : 'gpsNone'), true); $('rnShareMsg').textContent = T()[e.code === 1 ? 'gpsBlocked' : 'gpsNone']; $('rnW3wMsg').textContent = $('rnShareMsg').textContent; };
     const wait = setTimeout(() => fail({ code: 3 }), 30000);
-    navigator.geolocation.getCurrentPosition(p => { clearTimeout(wait); if (b) { b.classList.remove('busy'); b.classList.add('on'); } msg(fill(UL('located'), { acc: Math.round(p.coords.accuracy) })); if (window.GPTHeading) GPTHeading.gps(p.coords); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
+    navigator.geolocation.getCurrentPosition(p => { clearTimeout(wait); if (b) { b.classList.remove('busy'); b.classList.add('on'); } msg(fill(UL('located'), { acc: Math.round(p.coords.accuracy) })); if (window.GPTHeading) GPTHeading.gps(p.coords); if ($('rnProf').hidden) profShow(true); place(p.coords.latitude, p.coords.longitude, p.coords.accuracy); then && then(); },
       fail, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
   }
   const DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
@@ -652,6 +652,17 @@
     km: { toRace: k => stage ? toRace(stage, k) : k, toCourse: k => stage ? toCourse(stage, k) : k },
     title: () => !stage ? '' : `${race.short}${race.stages.length > 1 ? ' ' + stage.label : ''}: ${one(stage.points[stage.points.length - 1].km)} km`
   });
+  // The profile folds away under its bar, so the map gets the screen (to follow the runners, say). Remembered.
+  function profShow(on) {
+    store.set('profOpen', on);
+    $('rnProf').hidden = !on;
+    $('rnProfBar').setAttribute('aria-expanded', on);
+    $('rnProfBar').querySelector('span').textContent = on ? 'Hide elevation profile' : 'Show elevation profile';
+    if (map) setTimeout(() => map.invalidateSize({ pan: false }), 0);
+    if (on && profile) profile.redraw();
+  }
+  $('rnProfBar').onclick = () => profShow($('rnProf').hidden);
+  profShow(store.get('profOpen', true) !== false);
   if (INFO.medicalPhone) { $('rnCallMed').hidden = false; $('rnCallMed').href = 'tel:' + INFO.medicalPhone.replace(/\s/g, ''); }
   $('rnW3wGet').addEventListener('click', () => { $('rnW3wMsg').textContent = T().finding; locate(); });
   helpTab();

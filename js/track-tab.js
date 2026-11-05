@@ -255,9 +255,10 @@
   }
 
   // ---------- everyone racing on the Map tab ----------
-  // A small dot for every runner on course, coloured by race, under the followed runners' bib markers. Tap one for
-  // their name, race and km, and to follow them. The Everyone button turns it off, and the key hides or shows a race;
-  // both are remembered on the phone. Only where runners are: the staff apps' flags (not moving, late) aren't shown here.
+  // Every runner on course, coloured by race, under the followed runners' bib markers: their bib number once zoomed
+  // in, a small dot on the whole course. Tap one for their name, race and km, and to follow them. The Everyone button
+  // turns them off, the Races button opens the key, and the key hides or shows a race; all remembered on the phone.
+  // Only where runners are: the staff apps' flags (not moving, late) aren't shown here.
   const GROUPS = [
     { id: 'miler', label: 'Miler', color: '#1666c9', keys: ['miler'] },
     { id: '50k', label: '50k', color: '#7b3fb0', keys: ['50k'] },
@@ -268,15 +269,18 @@
   ];
   const groupOf = o => GROUPS.find(g => g.keys.includes(o.key)) || GROUPS[GROUPS.length - 1];
   let everyOn = store.get('everyone', true) !== false, hidden = store.get('everyHide', []);
-  let everyLayer = null, everyCtl = null, openBib = null;
+  let keyOpen = store.get('everyKey', false) === true;  // the race key folds behind its Races button, to keep the map clear
+  let everyLayer = null, everyCtl = null, everyZoom = false;
+  const BIB_ZOOM = 12;  // from this zoom in, bib numbers instead of dots
   function everyControl(m) {
-    everyCtl = L.control({ position: 'topleft' });
+    everyCtl = L.control({ position: 'bottomleft' });  // the empty corner: zoom and layers are at the top
     everyCtl.onAdd = () => {
       const d = L.DomUtil.create('div', 'tk-every');
       L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
       d.addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return;
         if (b.dataset.every) { everyOn = !everyOn; store.set('everyone', everyOn); }
+        else if (b.dataset.keyopen) { keyOpen = !keyOpen; store.set('everyKey', keyOpen); }
         else if (b.dataset.g) { const g = b.dataset.g; hidden = hidden.includes(g) ? hidden.filter(x => x !== g) : hidden.concat(g); store.set('everyHide', hidden); }
         drawMap();
       });
@@ -284,40 +288,71 @@
     };
     everyCtl.addTo(m);
   }
+  // Markers are kept between refreshes and moved in place. Clearing and redrawing them all every few seconds made the
+  // map flicker, could break a pinch or drag under way, and reopened any popup, which panned the map back to it.
+  // An open popup only pans the map when it opens; after that it follows its runner without moving the map.
+  // items: { id, ll, kind (a new marker when it changes), look (restyle(mk) when it changes), make(), restyle, html }.
+  function sync(marks, lg, items) {
+    const seen = new Set();
+    for (const it of items) {
+      seen.add(it.id);
+      let e = marks.get(it.id);
+      if (e && e.kind !== it.kind) { lg.removeLayer(e.mk); marks.delete(it.id); e = null; }
+      if (!e) {
+        const mk = it.make().bindPopup(it.html, { autoPan: true });
+        mk.on('popupopen', ev => { ev.popup.options.autoPan = false; }).on('popupclose', ev => { ev.popup.options.autoPan = true; });
+        marks.set(it.id, { mk: mk.addTo(lg), kind: it.kind, look: it.look, html: it.html, ll: it.ll });
+        continue;
+      }
+      if (e.ll[0] !== it.ll[0] || e.ll[1] !== it.ll[1]) { e.mk.setLatLng(it.ll); e.ll = it.ll; }
+      if (e.look !== it.look) { it.restyle(e.mk); e.look = it.look; }
+      if (e.html !== it.html) { e.mk.setPopupContent(it.html); e.html = it.html; }
+    }
+    for (const [id, e] of marks) if (!seen.has(id)) { lg.removeLayer(e.mk); marks.delete(id); }
+  }
+  const everyMarks = new Map(), folMarks = new Map();
+  const bibIcon = (bib, c, faint) => L.divIcon({ className: '', html: `<div class="trk-mk tk-ev${faint ? ' est' : ''}" style="--c:${c}">${esc(bib)}</div>`, iconSize: [30, 18], iconAnchor: [15, 9] });
   function drawEveryone(m) {
     if (!everyLayer) {
       // Their own pane: above the course and its aid stations, under the followed runners' bib markers.
       if (!m.getPane('tkEvery')) m.createPane('tkEvery').style.zIndex = 450;
       everyLayer = L.layerGroup().addTo(m);
       everyControl(m);
-      m.on('popupclose', e => { if (e.popup && e.popup.options.bib === openBib) openBib = null; everyCtl.getContainer().classList.remove('tk-pop'); });
+      m.on('popupclose', () => everyCtl.getContainer().classList.remove('tk-pop'));
       // A popup sits under the map's buttons: the key steps aside while one is open, so its Follow button can be tapped.
       m.on('popupopen', () => everyCtl.getContainer().classList.add('tk-pop'));
+      // Swap dots and bib numbers as the map zooms past BIB_ZOOM.
+      m.on('zoomend', () => { if ((m.getZoom() >= BIB_ZOOM) !== everyZoom) drawEveryone(m); });
       m.getContainer().addEventListener('click', e => { const b = e.target.closest('button[data-every-follow]'); if (b) { toggle(b.dataset.everyFollow); m.closePopup(); } });
     }
-    const keep = openBib;
-    everyLayer.clearLayers();
     const box = everyCtl.getContainer();
-    if (!live()) { box.hidden = true; return; }
+    if (!live()) { box.hidden = true; sync(everyMarks, everyLayer, []); return; }
     const all = TR().list().map(r => info(r.bib)).filter(o => o && o.r.pos && !(o.c && o.c.status));
     const n = {}; all.forEach(o => { const g = groupOf(o).id; n[g] = (n[g] || 0) + 1; });
     box.hidden = !all.length;
-    box.innerHTML = `<button type="button" class="tk-every-btn${everyOn ? ' on' : ''}" data-every="1" aria-pressed="${everyOn}">Everyone <small>${all.length}</small></button>` +
-      (everyOn ? `<div class="tk-every-key">${GROUPS.filter(g => n[g.id]).map(g => `<button type="button" data-g="${g.id}" class="${hidden.includes(g.id) ? 'off' : ''}" aria-pressed="${!hidden.includes(g.id)}"><i style="background:${g.color}"></i>${esc(g.label)} <small>${n[g.id]}</small></button>`).join('')}</div>` : '');
-    if (!everyOn) return;
-    let reopen = null;
-    for (const o of all) {
-      const g = groupOf(o); if (hidden.includes(g.id)) continue;
-      const p = o.r.pos, ll = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon], km = TR().cur(o.r);
-      const mk = L.circleMarker(ll, { pane: 'tkEvery', radius: 6, weight: 2, color: '#fff', fillColor: g.color, fillOpacity: p.est || p.stale ? 0.45 : 1, bubblingMouseEvents: false })
-        .bindPopup(`<b>${esc(o.name || 'Bib ' + o.bib)}</b><br>Bib ${esc(o.bib)}${o.label ? ' · ' + esc(o.label) : ''}<br>km ${one(raceKm(o, km))}${p.est ? ' (likely, at their pace)' : ''}<br><span class="muted">${source(p)}</span>` +
-          `<br><button type="button" class="btn small tk-pop-follow" data-every-follow="${esc(o.bib)}">${isOn(o.bib) ? 'Unfollow' : 'Follow'}</button>`, { bib: o.bib })
-        .on('popupopen', () => { openBib = o.bib; })
-        .addTo(everyLayer);
-      if (o.bib === keep) reopen = mk;
-    }
-    // The positions refresh every few seconds: keep the runner's popup open on their new dot.
-    if (reopen) reopen.openPopup();
+    // In the bottom corner, so the key opens upwards, above the buttons.
+    const key = everyOn && keyOpen ? `<div class="tk-every-key">${GROUPS.filter(g => n[g.id]).map(g => `<button type="button" data-g="${g.id}" class="${hidden.includes(g.id) ? 'off' : ''}" aria-pressed="${!hidden.includes(g.id)}"><i style="background:${g.color}"></i>${esc(g.label)} <small>${n[g.id]}</small></button>`).join('')}</div>` : '';
+    const ctl = key + `<div class="tk-every-row"><button type="button" class="tk-every-btn${everyOn ? ' on' : ''}" data-every="1" aria-pressed="${everyOn}">Everyone <small>${all.length}</small></button>` +
+      (everyOn ? `<button type="button" class="tk-every-races" data-keyopen="1" aria-expanded="${keyOpen}">${GROUPS.filter(g => n[g.id]).map(g => `<i style="background:${g.color}"></i>`).join('')}Races</button>` : '') + '</div>';
+    if (box.dataset.html !== ctl) { box.innerHTML = ctl; box.dataset.html = ctl; }  // only when it changed: a tap mid-redraw is kept
+    // Zoomed in, each runner is their bib number in their race's colour; on the whole course, a small dot.
+    const bibs = (everyZoom = m.getZoom() >= BIB_ZOOM);
+    const shown = everyOn ? all.filter(o => !hidden.includes(groupOf(o).id)) : [];
+    const spot = o => o.r.pos.est ? [o.r.pos.est.lat, o.r.pos.est.lon] : [o.r.pos.lat, o.r.pos.lon];
+    sync(everyMarks, everyLayer, shown.map(o => {
+      const g = groupOf(o), p = o.r.pos, ll = spot(o), km = TR().cur(o.r), faint = !!(p.est || p.stale);
+      // Others on the same spot (an aid station, a bunch on the climb), named in the popup as their bibs overlap.
+      const near = bibs ? shown.filter(x => x !== o && window.GPT.metres(spot(x), ll) < 40).map(x => x.bib).sort((a, b) => a - b) : [];
+      return {
+        id: o.bib, ll, kind: bibs ? 'bib' : 'dot', look: g.color + faint,
+        make: () => bibs ? L.marker(ll, { pane: 'tkEvery', icon: bibIcon(o.bib, g.color, faint) })
+          : L.circleMarker(ll, { pane: 'tkEvery', radius: 6, weight: 2, color: '#fff', fillColor: g.color, fillOpacity: faint ? 0.45 : 1, bubblingMouseEvents: false }),
+        restyle: mk => bibs ? mk.setIcon(bibIcon(o.bib, g.color, faint)) : mk.setStyle({ fillColor: g.color, fillOpacity: faint ? 0.45 : 1 }),
+        html: `<b>${esc(o.name || 'Bib ' + o.bib)}</b><br>Bib ${esc(o.bib)}${o.label ? ' · ' + esc(o.label) : ''}<br>km ${one(raceKm(o, km))}${p.est ? ' (likely, at their pace)' : ''}<br><span class="muted">${source(p)}</span>` +
+          (near.length ? `<br><span class="muted">Also here: ${near.slice(0, 15).map(b => 'bib ' + esc(b)).join(', ')}${near.length > 15 ? ` and ${near.length - 15} more` : ''}</span>` : '') +
+          `<br><button type="button" class="btn small tk-pop-follow" data-every-follow="${esc(o.bib)}">${isOn(o.bib) ? 'Unfollow' : 'Follow'}</button>`
+      };
+    }));
   }
 
   // ---------- followed runners on the Map tab ----------
@@ -327,15 +362,16 @@
     if (!m || !window.L) return;
     drawEveryone(m);
     if (!layer) layer = L.layerGroup().addTo(m);
-    layer.clearLayers();
-    if (!live()) return;
-    follow.forEach((bib, k) => {
+    const items = [];
+    if (live()) follow.forEach((bib, k) => {
       const o = info(bib), p = o && o.r.pos;
       if (!p || (o.c && o.c.status && o.c.status !== 'finished')) return;
-      const ll = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon], km = TR().cur(o.r);
-      const icon = L.divIcon({ className: '', html: `<div class="trk-mk tk-mk${p.est ? ' est' : ''}${p.stale ? ' stale' : ''}">${esc(bib)}</div>`, iconSize: [30, 18], iconAnchor: [15, 9 - 20 * (k % 3)] });
-      L.marker(ll, { icon, zIndexOffset: 800 }).bindPopup(`<b>${esc(o.name || 'Bib ' + bib)}</b><br>Bib ${esc(bib)}${o.label ? ' · ' + esc(o.label) : ''}<br>${o.c && o.c.status === 'finished' ? 'Finished' : `km ${one(raceKm(o, km))}${p.est ? ' (likely, at their pace)' : ''}`}<br><span class="muted">${source(p)}</span>`).addTo(layer);
+      const ll = p.est ? [p.est.lat, p.est.lon] : [p.lat, p.lon], km = TR().cur(o.r), cls = `trk-mk tk-mk${p.est ? ' est' : ''}${p.stale ? ' stale' : ''}`;
+      const icon = () => L.divIcon({ className: '', html: `<div class="${cls}">${esc(bib)}</div>`, iconSize: [30, 18], iconAnchor: [15, 9 - 20 * (k % 3)] });
+      items.push({ id: bib, ll, kind: 'fol', look: cls + (k % 3), make: () => L.marker(ll, { icon: icon(), zIndexOffset: 800 }), restyle: mk => mk.setIcon(icon()),
+        html: `<b>${esc(o.name || 'Bib ' + bib)}</b><br>Bib ${esc(bib)}${o.label ? ' · ' + esc(o.label) : ''}<br>${o.c && o.c.status === 'finished' ? 'Finished' : `km ${one(raceKm(o, km))}${p.est ? ' (likely, at their pace)' : ''}`}<br><span class="muted">${source(p)}</span>` });
     });
+    sync(folMarks, layer, items);
   }
   function showOnMap(bib) {
     const o = info(bib), p = o && o.r.pos; if (!p) return;
