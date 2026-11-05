@@ -25,15 +25,28 @@
 // Timing chip relay (the timing team's RaceResult Simple API list, tools/TIMING.md; the link lives here as a secret):
 //   GET  /timing/                         the latest list as JSON, cached 20 seconds on the edge
 //
+// Race archive (needs the DB database and the RC_PASSWORD secret; every call sends the password, from anywhere):
+//   Cron trigger             during the race window, keeps a copy of the timing list (every 15 minutes) and of each
+//                            GPS event's init.txt and data.lst (every hour) in the database, for next year's predictions
+//   GET  /archive/list       every copy kept: when, what, size
+//   GET  /archive/part?snap=…&part=n   one piece of a copy (gzip)
+//   POST /archive/now        take a copy of everything now, inside the window or not (the final copy after the race)
+//   Download them all with tools/archive_race.mjs. Setup and use: tools/ARCHIVE.md.
+//
 // Secret:    GITHUB_TOKEN   fine-grained key, this repository only, Actions read and write
 // Secret:    TIMING_URL     the RaceResult Simple API link for the timing list (optional, turns on /timing/)
 // Optional:  REPO, WORKFLOW, BRANCH, ALLOWED_ORIGIN (defaults below; several origins separated by commas)
+// Optional:  ARCHIVE_GPS (GPS event ids, separated by commas), ARCHIVE_FROM and ARCHIVE_TO (the race window, as
+//            ISO times with the offset), defaults below. Change them for next year's race.
 
 const DEFAULTS = {
   REPO: 'SingleTrackEvents/GPT100Safety',
   WORKFLOW: 'weather.yml',
   BRANCH: 'main',
-  ALLOWED_ORIGIN: 'https://singletrackevents.github.io,https://app.gpt100.com.au'
+  ALLOWED_ORIGIN: 'https://singletrackevents.github.io,https://app.gpt100.com.au',
+  ARCHIVE_GPS: '20261106gpt100,20261105gpt50',
+  ARCHIVE_FROM: '2026-11-05T05:00:00+11:00',
+  ARCHIVE_TO: '2026-11-09T12:00:00+11:00'
 };
 const GPS_HOST = 'https://tulospalvelu.fi/gps/';  // the GPS tracking provider (GPS-seuranta)
 const COOLDOWN_MIN = 10;        // no new run within 10 minutes of the last one
@@ -215,6 +228,102 @@ async function raceControl(req, env, url, c) {
   return json({ error: 'Not found' }, 404);
 }
 
+// ---------- Race archive (D1 database) ----------
+// Copies of the timing list and the GPS files, kept so next year's predictions can be fitted to how this year's field
+// ran. The feeds only hold the latest state (and the providers may take an event down after the race), so the Worker
+// keeps its own copies. A copy the same as the last one isn't kept again. Each copy is stored gzipped, in pieces small
+// enough for a D1 row. Names and GPS tracks stay here, behind the password, never in the public repository.
+const ARCHIVE_SCHEMA = [
+  'CREATE TABLE IF NOT EXISTS archive (id INTEGER PRIMARY KEY AUTOINCREMENT, snap TEXT NOT NULL, t INTEGER NOT NULL, kind TEXT NOT NULL, event TEXT NOT NULL, part INTEGER NOT NULL, parts INTEGER NOT NULL, size INTEGER NOT NULL, sha TEXT NOT NULL, enc TEXT NOT NULL, body BLOB NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS archive_kind ON archive (kind, event, t)',
+  'CREATE INDEX IF NOT EXISTS archive_snap ON archive (snap, part)'
+];
+const ARCHIVE_PART = 1500000;   // bytes per piece (D1 rows hold up to 2 MB)
+const ARCHIVE_GPS_MIN = 60;     // minutes between copies of each GPS event's data.lst (it holds every fix so far)
+// Each data.lst copy holds every fix before it, so older copies are thinned out to keep the database small (D1's free
+// plan allows 500 MB a database, shared with Race Control): the 3 latest are kept, and the last one of every 6 hours.
+const ARCHIVE_GPS_KEEP = 3, ARCHIVE_GPS_BLOCK = 6 * 3600e3;
+let archiveReady = false;
+async function ensureArchive(db) {
+  if (archiveReady) return;
+  await db.batch(ARCHIVE_SCHEMA.map(q => db.prepare(q)));
+  archiveReady = true;
+}
+async function gzip(buf) {
+  return new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+}
+async function sha256(buf) {
+  return [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+// Keep one copy (unless it's the same as the last one of its kind).
+async function keepCopy(db, kind, event, buf, t) {
+  const sha = await sha256(buf);
+  const last = await db.prepare('SELECT sha FROM archive WHERE kind = ?1 AND event = ?2 AND part = 0 ORDER BY t DESC LIMIT 1').bind(kind, event).first();
+  if (last && last.sha === sha) return { kind, event, same: true, size: buf.byteLength };
+  const z = await gzip(buf), parts = Math.max(1, Math.ceil(z.length / ARCHIVE_PART)), snap = `${kind}:${event}:${t}`;
+  const ops = [];
+  for (let i = 0; i < parts; i++) {
+    ops.push(db.prepare('INSERT INTO archive (snap, t, kind, event, part, parts, size, sha, enc, body) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)')
+      .bind(snap, t, kind, event, i, parts, buf.byteLength, sha, 'gzip', z.slice(i * ARCHIVE_PART, (i + 1) * ARCHIVE_PART).buffer));
+  }
+  await db.batch(ops);
+  return { kind, event, kept: snap, size: buf.byteLength, gz: z.length, parts };
+}
+// One round of copies: the timing list, then each GPS event's competitors and (once an hour) its positions.
+// Outside the race window it does nothing, unless forced (POST /archive/now).
+async function archiveRun(env, force) {
+  if (!env.DB) return { error: 'The archive needs the DB database bound to the Worker' };
+  const c = cfg(env), now = Date.now();
+  const from = Date.parse(c.ARCHIVE_FROM), to = Date.parse(c.ARCHIVE_TO);
+  if (!force && !(now >= from && now <= to)) return { skipped: 'outside the race window', from: c.ARCHIVE_FROM, to: c.ARCHIVE_TO };
+  const db = env.DB;
+  await ensureArchive(db);
+  const out = [];
+  const grab = async (kind, event, url, ttl) => {
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'GPT100Safety archive' }, cf: { cacheTtl: ttl, cacheEverything: true } });
+      // An event set up but not started has no data.lst yet (403 or 404): nothing to keep.
+      if (!res.ok) { out.push({ kind, event, status: res.status }); return; }
+      out.push(await keepCopy(db, kind, event, await res.arrayBuffer(), now));
+    } catch (e) { out.push({ kind, event, error: e.message }); }
+  };
+  if (env.TIMING_URL) await grab('timing', '', env.TIMING_URL, 20);
+  else out.push({ kind: 'timing', error: 'no TIMING_URL secret' });
+  const events = String(c.ARCHIVE_GPS || '').split(',').map(x => x.trim()).filter(x => /^[A-Za-z0-9_-]{1,80}$/.test(x));
+  for (const ev of events) {
+    await grab('gps-init', ev, GPS_HOST + ev + '/init.txt', 60);
+    const last = await db.prepare('SELECT MAX(t) AS t FROM archive WHERE kind = ?1 AND event = ?2').bind('gps-data', ev).first();
+    // A couple of minutes' grace, so a cron run a little early still takes the hourly copy.
+    if (force || !last || !last.t || now - last.t >= (ARCHIVE_GPS_MIN - 3) * 60e3) await grab('gps-data', ev, GPS_HOST + ev + '/data.lst', 15);
+    await db.prepare(`DELETE FROM archive WHERE kind = 'gps-data' AND event = ?1
+      AND t NOT IN (SELECT t FROM archive WHERE kind = 'gps-data' AND event = ?1 AND part = 0 ORDER BY t DESC LIMIT ?2)
+      AND t NOT IN (SELECT MAX(t) FROM archive WHERE kind = 'gps-data' AND event = ?1 GROUP BY CAST(t / ?3 AS INTEGER))`).bind(ev, ARCHIVE_GPS_KEEP, ARCHIVE_GPS_BLOCK).run();
+  }
+  return { at: new Date(now).toISOString(), copies: out };
+}
+// The archive endpoints. They're behind the medical password (RC_PASSWORD) but, unlike Race Control, don't need the
+// app's site: tools/archive_race.mjs calls them from a computer.
+async function archiveApi(req, env, url, c) {
+  const json = (o, status) => new Response(JSON.stringify(o), { status: status || 200, headers: c.headers });
+  if (!env.DB || !env.RC_PASSWORD) return json({ error: 'The archive isn\'t set up on the Worker yet (needs the DB database and the RC_PASSWORD secret)' }, 503);
+  if (!sameText(req.headers.get('X-RC-Password'), env.RC_PASSWORD)) return json({ error: 'Wrong password' }, 401);
+  const db = env.DB;
+  await ensureArchive(db);
+  if (url.pathname === '/archive/list' && req.method === 'GET') {
+    const r = await db.prepare('SELECT snap, t, kind, event, parts, size, sha FROM archive WHERE part = 0 ORDER BY t, kind, event').all();
+    const tot = await db.prepare('SELECT COUNT(*) AS n, SUM(LENGTH(body)) AS bytes FROM archive').first();
+    const c2 = cfg(env);
+    return json({ now: Date.now(), window: { from: c2.ARCHIVE_FROM, to: c2.ARCHIVE_TO }, gps: c2.ARCHIVE_GPS, stored: tot, copies: r.results });
+  }
+  if (url.pathname === '/archive/part' && req.method === 'GET') {
+    const row = await db.prepare('SELECT body FROM archive WHERE snap = ?1 AND part = ?2').bind(String(url.searchParams.get('snap') || ''), +url.searchParams.get('part') || 0).first();
+    if (!row) return json({ error: 'No such copy' }, 404);
+    return new Response(new Uint8Array(row.body), { headers: Object.assign({}, c.headers, { 'Content-Type': 'application/gzip' }) });
+  }
+  if (url.pathname === '/archive/now' && req.method === 'POST') return json(await archiveRun(env, true));
+  return json({ error: 'Not found' }, 404);
+}
+
 // Relay the tracking provider's plain text files. The provider only lets its own viewer read them from a browser,
 // so the app reads them through here. Cached briefly on the edge so a room full of phones is one request upstream.
 async function gpsRelay(req, env, url, c) {
@@ -257,6 +366,9 @@ export default {
     if ((url.pathname === '/timing/' || url.pathname === '/timing') && req.method === 'GET') {
       try { return await timingRelay(req, env, url, c); } catch (e) { return new Response(JSON.stringify({ error: 'Timing feed unreachable: ' + e.message }), { status: 502, headers: c.headers }); }
     }
+    if (url.pathname.startsWith('/archive/')) {
+      try { return await archiveApi(req, env, url, c); } catch (e) { return new Response(JSON.stringify({ error: 'Archive: ' + e.message }), { status: 502, headers: c.headers }); }
+    }
     if (!env.GITHUB_TOKEN) return new Response(JSON.stringify({ error: 'The GITHUB_TOKEN secret is not set' }), { status: 500, headers: c.headers });
     try {
       if (url.pathname.startsWith('/rc/')) return await raceControl(req, env, url, c);
@@ -273,8 +385,10 @@ export default {
       return new Response(JSON.stringify({ error: e.message }), { status: 502, headers: c.headers });
     }
   },
-  // Cron trigger (every 15 minutes): keep the weather fresh even when nobody presses the button.
+  // Cron trigger (every 15 minutes): keep the weather fresh even when nobody presses the button, and during the race
+  // keep copies of the timing and GPS feeds (the race archive).
   async scheduled(event, env, ctx) {
     ctx.waitUntil(maybeStart(env, false).catch(e => console.log('refresh failed: ' + e.message)));
+    ctx.waitUntil(archiveRun(env, false).then(r => console.log('archive: ' + JSON.stringify(r))).catch(e => console.log('archive failed: ' + e.message)));
   }
 };
