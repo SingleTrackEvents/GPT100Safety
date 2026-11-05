@@ -92,7 +92,11 @@
   function card(r, G, o) {
     o = o || {};
     const km = mainKm(G, r);
-    if (km == null) return G.alt ? `<div class="card tg"><h3>Track and carry-out</h3><p class="tg-here">${chip('unassessed')} <span class="tg-note">Contingency stretch: the Parks Victoria grades don't cover it. Carry-out times count it as track not yet assessed.</span></p></div>` : '';
+    if (km == null) {
+      if (!G.alt) return '';
+      const ag = G.gradeAt && G.gradeAt(r.km);
+      return `<div class="card tg"><h3>Track and carry-out</h3><p class="tg-here">${chip(ag || 'unassessed')} <span class="tg-note">${ag ? esc(info(ag).note) : `${esc(G.name)}: the Parks Victoria grades don't cover this stretch. Carry-out times count it as track not yet assessed.`}</span></p></div>`;
+    }
     const g = at(km), i = info(g);
     let h = `<div class="card tg"><h3>Track and carry-out</h3>`;
     h += `<p class="tg-here">${chip(g)} <span class="tg-note">${esc(i.note)}</span></p>`;
@@ -131,7 +135,7 @@
   function line(r, G, o) {
     o = o || {};
     const km = mainKm(G, r);
-    if (km == null) return G.alt ? 'Contingency stretch, track not graded by Parks Victoria.' : '';
+    if (km == null) { if (!G.alt) return ''; const ag = G.gradeAt && G.gradeAt(r.km); return ag ? `Track ${info(ag).label.toLowerCase()}.` : 'Track not graded by Parks Victoria.'; }
     const g = at(km), i = info(g), N = near(r, km), em = pickEM(N), hp = N.find(p => p.kind === 'helipad');
     let s = `Track ${i.label.toLowerCase()}`;
     if (g === 'easy') s += ', mule stretcher'; else if (g === 'medium') s += ', paraguard stretcher'; else if (g === 'hard') s += ', slow carry, may need hand to hand';

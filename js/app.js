@@ -141,7 +141,7 @@
     if (race) setRace(race.id);  // the placeholder follows the course
   }
   if (G.courses.length > 1) {
-    const html = `<div class="course-pick" role="group" aria-label="Course">${G.courses.map(c => `<button type="button" data-c="${c.id}"${c === G ? ' class="on"' : ''}>${esc(c.label)}</button>`).join('')}</div><p class="course-note"></p>`;
+    const html = `<div class="course-pick" role="group" aria-label="Course">${G.courses.map(c => `<button type="button" data-c="${c.id}"${c === G ? ' class="on"' : ''}>${esc(c.label)}</button>`).join('')}</div><p class="course-note">${esc(G.note)}</p>`;
     $('findForm').insertAdjacentHTML('afterbegin', html);
     document.querySelectorAll('.course-pick button').forEach(b => b.addEventListener('click', () => setCourse(b.dataset.c)));
   }
@@ -154,7 +154,7 @@
     return a && b ? Object.assign({}, r, { start: a.trail_km, end: b.trail_km }) : null;
   }).filter(Boolean);
   let race = RACES[0] || null;
-  // A race on the course being viewed: the GPT100's, or the same aid stations on the contingency course.
+  // A race on the course being viewed: the GPT100's, or the same aid stations on the other way (the original course).
   const raceOn = r => {
     if (!r || G.main) return r;
     if (!G.alt) return null;

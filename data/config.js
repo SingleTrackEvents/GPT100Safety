@@ -72,9 +72,10 @@ window.GPT100_CONFIG = {
       storm: { close: 2, met: 3, capeClose: 800, proposed: true }, // models showing a thunderstorm
       smoke: { met: 150, close: 100, proposed: true },    // PM2.5 air quality index
       // Advisory, not an RMP trigger: the high ground (course above 850 m in each zone) in cloud for 3 hours or more,
-      // in at least half the models, while runners are there. rh = humidity that counts as cloud.
+      // in at least half the models, while runners are there. rh = humidity that counts as cloud. (The course no longer
+      // crosses the Major Mitchell Plateau: the Miler contingency from Mt William to Jimmy Creek is the course.)
       cloud: { hours: 3, agree: 50, rh: 93, minEle: 850, advisory: true,
-        zones: [{ name: 'Mt Rosea', fromKm: 61, toKm: 65.5 }, { name: 'Mt William and the Major Mitchell Plateau', fromKm: 79, toKm: 100 }] },
+        zones: [{ name: 'Mt Rosea', fromKm: 61, toKm: 65.5 }, { name: 'Mt William', fromKm: 79, toKm: 90 }] },
       fire: {}                                            // Total Fire Ban, or Extreme / Catastrophic rating
     }
   },

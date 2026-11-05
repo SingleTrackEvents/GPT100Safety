@@ -1,5 +1,8 @@
 // Races for the runner app, from the GPT Course Details sheet (tools/import_races.mjs). Melbourne local time.
 // km, up and down are the official race figures; the app maps them onto the course line by aid station.
+// Since 5 November 2026 the Miler and Stage 3 take the contingency from Mt William to Jimmy Creek: Stockyard Track is
+// replaced by the Serra Rd water point (no cut-off), and km, up and down from Jimmy Creek on move by the measured
+// difference (1.6 km, -517 m up, -517 m down). Cut-offs are unchanged. Re-importing the sheet undoes this.
 window.GPT_RACES = {
  "stages": {
   "miler": {
@@ -106,22 +109,23 @@ window.GPT_RACES = {
      "crew": "yes"
     },
     {
-     "name": "Stockyard Track",
-     "kind": "checkpoint",
-     "km": 99.5,
-     "up": 5058,
-     "down": 4395,
-     "first": "2026-11-06T19:52",
-     "cutoff": "2026-11-07T12:45",
+     "name": "Serra Rd",
+     "kind": "water",
+     "km": 104.9,
+     "up": 4563,
+     "down": 4470,
+     "first": "2026-11-06T20:02",
+     "cutoff": "2026-11-07T13:30",
+     "noCut": true,
      "drop": false,
      "crew": "no"
     },
     {
      "name": "Jimmy Creek Camp",
      "kind": "aid",
-     "km": 106.7,
-     "up": 5125,
-     "down": 5065,
+     "km": 108.3,
+     "up": 4608,
+     "down": 4548,
      "first": "2026-11-06T20:27",
      "cutoff": "2026-11-07T14:30",
      "drop": true,
@@ -130,9 +134,9 @@ window.GPT_RACES = {
     {
      "name": "Yarram Gap Rd",
      "kind": "emergency",
-     "km": 118.5,
-     "up": 5705,
-     "down": 5625,
+     "km": 120.1,
+     "up": 5188,
+     "down": 5108,
      "first": "2026-11-06T22:10",
      "cutoff": "2026-11-07T18:30",
      "drop": false,
@@ -141,9 +145,9 @@ window.GPT_RACES = {
     {
      "name": "Griffin Fireline",
      "kind": "aid",
-     "km": 130.7,
-     "up": 6145,
-     "down": 6115,
+     "km": 132.3,
+     "up": 5628,
+     "down": 5598,
      "first": "2026-11-06T23:53",
      "cutoff": "2026-11-07T22:15",
      "drop": true,
@@ -152,9 +156,9 @@ window.GPT_RACES = {
     {
      "name": "Cassidys Gap Rd",
      "kind": "aid",
-     "km": 142,
-     "up": 6595,
-     "down": 6485,
+     "km": 143.6,
+     "up": 6078,
+     "down": 5968,
      "first": "2026-11-07T01:28",
      "cutoff": "2026-11-08T02:00",
      "drop": false,
@@ -163,9 +167,9 @@ window.GPT_RACES = {
     {
      "name": "Bainggug car park",
      "kind": "aid",
-     "km": 152.8,
-     "up": 7245,
-     "down": 7215,
+     "km": 154.4,
+     "up": 6728,
+     "down": 6698,
      "first": "2026-11-07T03:23",
      "cutoff": "2026-11-08T06:30",
      "drop": false,
@@ -174,9 +178,9 @@ window.GPT_RACES = {
     {
      "name": "Dunkeld",
      "kind": "finish",
-     "km": 163,
-     "up": 7700,
-     "down": 7700,
+     "km": 164.6,
+     "up": 7183,
+     "down": 7183,
      "first": "2026-11-07T04:47",
      "cutoff": "2026-11-08T10:00",
      "drop": true,
@@ -322,22 +326,23 @@ window.GPT_RACES = {
      "crew": "yes"
     },
     {
-     "name": "Stockyard Track",
-     "kind": "checkpoint",
-     "km": 12.9,
-     "up": 708,
-     "down": 730,
-     "first": "2026-11-07T07:40",
-     "cutoff": "2026-11-07T10:30",
+     "name": "Serra Rd",
+     "kind": "water",
+     "km": 18.3,
+     "up": 213,
+     "down": 805,
+     "first": "2026-11-07T07:36",
+     "cutoff": "2026-11-07T11:02",
+     "noCut": true,
      "drop": false,
      "crew": "no"
     },
     {
      "name": "Jimmy Creek Rd",
      "kind": "aid",
-     "km": 20.1,
-     "up": 775,
-     "down": 1400,
+     "km": 21.7,
+     "up": 258,
+     "down": 883,
      "first": "2026-11-07T07:55",
      "cutoff": "2026-11-07T12:00",
      "drop": false,
@@ -346,9 +351,9 @@ window.GPT_RACES = {
     {
      "name": "Yarram Gap Rd",
      "kind": "emergency",
-     "km": 31.9,
-     "up": 1355,
-     "down": 1960,
+     "km": 33.5,
+     "up": 838,
+     "down": 1443,
      "first": "2026-11-07T08:45",
      "cutoff": "2026-11-07T15:00",
      "drop": false,
@@ -357,9 +362,9 @@ window.GPT_RACES = {
     {
      "name": "Griffin Fireline",
      "kind": "finish",
-     "km": 44,
-     "up": 1795,
-     "down": 2450,
+     "km": 45.6,
+     "up": 1278,
+     "down": 1933,
      "first": "2026-11-07T09:40",
      "cutoff": "2026-11-07T18:00",
      "drop": true,

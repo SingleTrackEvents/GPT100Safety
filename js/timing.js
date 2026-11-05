@@ -41,7 +41,7 @@
     return Math.max(jac, sub);
   }
   // The stops the feed's names can match: each course's aid stations and water points, plus the pacing table's
-  // extra points on the GPT100 (Stockyard Track), plus any overrides from the config.
+  // extra points on the GPT100 (none since Stockyard Track left the course), plus any overrides from the config.
   let cands = null;
   function candidates(E) {
     cands = cands || new Map();

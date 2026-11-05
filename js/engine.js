@@ -326,7 +326,9 @@
     };
   }
 
-  const main = makeCourse({ id: '100', name: 'GPT100', label: 'GPT100 and stage races', main: true, route: D.route, total_km: D.total_km });
+  const ALTD = window.GPT100_CONTINGENCY;
+  const main = makeCourse({ id: '100', name: 'GPT100', label: 'GPT100 and stage races', main: true, route: D.route, total_km: D.total_km,
+    note: ALTD && ALTD.mainLabel ? `On the ${ALTD.mainLabel.toLowerCase()} from ${ALTD.leave.name} to ${ALTD.rejoin.name}. ${ALTD.name} is the other way.` : '' });
   const alt = contingency(main);
   const courses = [main].concat(EXTRA.map(c => makeCourse(c)), alt ? [alt] : []);
   // window.GPT is the main course engine; every course engine is in GPT.courses.
@@ -351,21 +353,24 @@
     const move = (a, b) => [a < kA ? [a, Math.min(b, kA)] : null, b > R[iB][2] ? [Math.max(a, R[iB][2]) + shift, b + shift] : null].filter(Boolean);
     let track = null;
     const def = {
-      id: 'contingency', name: 'Contingency course', label: 'Contingency', alt: X,
-      note: `The Miler with the contingency from ${X.leave.name} to ${X.rejoin.name} (${X.section_km.toFixed(1)} km instead of ${X.main_km.toFixed(1)} km, no ${X.skipped.join(', ') || 'other stops'}). Km after ${X.rejoin.name} are ${shift.toFixed(1)} km more than on the GPT100.`,
+      id: X.id || 'contingency', name: X.name || 'Contingency course', label: X.name || X.label || 'Contingency', alt: X,
+      note: `The ${(X.name || 'contingency').toLowerCase()} from ${X.leave.name} to ${X.rejoin.name} (${X.section_km.toFixed(1)} km instead of ${X.main_km.toFixed(1)} km${X.skipped.length ? ', no ' + X.skipped.join(', ') : ''}${(X.stops || []).length ? ', with ' + X.stops.map(s => s.name).join(', ') : ''}). Km after ${X.rejoin.name} are ${Math.abs(shift).toFixed(1)} km ${shift < 0 ? 'less' : 'more'} than on the GPT100.`,
       route, total_km: +route[route.length - 1][2].toFixed(1),
-      w3wAt: i => i <= iA ? M.storedW3w(i) : i >= jB ? M.storedW3w(iB + (i - jB)) : null,
+      w3wAt: i => i <= iA ? M.storedW3w(i) : i >= jB ? M.storedW3w(iB + (i - jB)) : (X.w3w || [])[i - iA] || null,
       track() {
         const T = window.GPT100_TRACK;
         if (track || !T) return track || [];
         track = [];
         T.segments.forEach(([a, b, g]) => move(a, b).forEach(([x, y]) => track.push([x, y, g])));
-        track.push([kA, kB, 'unassessed']);
+        // The stretch's own grades when it has them (the original course), else not yet assessed.
+        if (X.track && X.track.length) X.track.forEach(([a, b, g]) => track.push([kA + a, kA + b, g]));
+        else track.push([kA, kB, 'unassessed']);
         return track.sort((x, y) => x[0] - y[0]);
       },
       slowWalk: (C.slowWalk || []).flatMap(s => move(s.from, s.to).map(([from, to]) => Object.assign({}, s, { from, to }))),
       stops: M.AID.filter(a => kmOf(a.trail_km) != null && !(a.trail_km > kA + 0.02 && a.trail_km < R[iB][2] - 0.02))
-        .map(a => ({ name: a.name, lat: a.lat, lon: a.lon, km: kmOf(a.trail_km), w3w: a.w3w, kind: a === M.AID[0] ? 'start' : a === M.AID[M.AID.length - 1] ? 'finish' : undefined })),
+        .map(a => ({ name: a.name, lat: a.lat, lon: a.lon, km: kmOf(a.trail_km), w3w: a.w3w, kind: a === M.AID[0] ? 'start' : a === M.AID[M.AID.length - 1] ? 'finish' : undefined }))
+        .concat((X.stops || []).map(s => Object.assign({}, s, { km: kA + s.km }))),
       joins: {}
     };
     // Every GPT100 access point's walks, where they join the shared parts, plus its walks to the contingency stretch.
@@ -379,6 +384,8 @@
     Object.keys(X.joins || {}).forEach(key => { if (!def.joins[key]) def.joins[key] = X.joins[key].map(j => Object.assign({}, j, { idx: iA + j.idx })); });
     const E = makeCourse(def);
     E.mainKm = km => km <= kA ? km : km >= kB ? km - shift : null;  // GPT100 km for a km on this course
+    // The track grade at a km on the stretch itself (null where it has none).
+    E.gradeAt = km => { const s = (X.track || []).find(([a, b]) => km - kA >= a && km - kA < b); return s ? s[2] : null; };
     E.shift = shift; E.leaveKm = kA; E.rejoinKm = kB;
     return E;
   }
