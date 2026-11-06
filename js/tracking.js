@@ -39,7 +39,10 @@
   const EST_MIN = 3;        // a hard fix older than this gets a projected km
   const LATE_MIN = 20;      // late at the next timing point: this long (or a quarter of the leg) past their expected time
 
-  const S = { ready: false, live: false, name: '', interval: 15, runners: new Map(), byBib: new Map(), allBib: new Map(), bytes: -1, reset: -1, lastLine: 'undef', updated: 0, error: null, listeners: [], gps: GPS };
+  // tracking.gpsJoinedOnly: GPS events that carry more than runners (every tracker: vehicles, sweeps, other races).
+  // A tracker in one of them is shown only when it's joined to a chip runner in the event's races (gpsRaces).
+  const JOINED = new Set(T.gpsJoinedOnly || []);
+  const S = { ready: false, live: false, name: '', interval: 15, runners: new Map(), byBib: new Map(), allBib: new Map(), rawIds: new Map(), bytes: -1, reset: -1, lastLine: 'undef', updated: 0, error: null, listeners: [], gps: GPS };
 
   // ---------- the GPS feed ----------
   function parseInit(F, txt) {
@@ -58,9 +61,10 @@
         const f = v.split('|'), id = f[0] && F.key + f[0], b = (f[3] || '').trim(), full = /^\d+$/.test(b) && (f[4] || '').trim() ? b + ' ' + f[4].trim() : b, m = full.match(/^(\d+)\s*(.*)$/);
         if (!id) continue;
         const r = S.runners.get(id) || { id, pts: [] };
-        r.bib = m ? m[1] : ''; r.name = m ? m[2] : full; r.label = full; r.feed = F.id;
+        r.bib = m ? m[1] : ''; r.name = m ? m[2] : full; r.label = full; r.feed = F.id; r.raw = f[0];
+        (S.rawIds.get(f[0]) || S.rawIds.set(f[0], new Set()).get(f[0])).add(F.id);
         S.runners.set(id, r);
-        if (r.bib) { S.byBib.set(r.bib, r); const A = S.allBib.get(r.bib) || []; if (!A.includes(r)) A.push(r); S.allBib.set(r.bib, A); }
+        if (r.bib) { if (!JOINED.has(F.id) || !S.byBib.has(r.bib)) S.byBib.set(r.bib, r); const A = S.allBib.get(r.bib) || []; if (!A.includes(r)) A.push(r); S.allBib.set(r.bib, A); }
       }
     }
   }
@@ -151,7 +155,7 @@
       const A = S.allBib.get(c.bib) || [];
       let r = A.find(x => fits(x, c)) || (A.length ? S.runners.get('chip:' + c.bib) : S.byBib.get(c.bib)) || null;
       if (!r) { r = { id: 'chip:' + c.bib, bib: c.bib, name: c.name, label: c.bib + ' ' + c.name, pts: [] }; S.runners.set(r.id, r); if (!S.byBib.has(c.bib)) S.byBib.set(c.bib, r); }
-      else if (A.length > 1) S.byBib.set(c.bib, r);  // two trackers with this bib: the one in the chip runner's race answers to it
+      else if (A.length > 1 && r.pts !== undefined && !r.id.startsWith('chip:')) S.byBib.set(c.bib, r);  // two trackers with this bib: the one in the chip runner's race answers to it
       r.chip = c;
       if (!r.name && c.name) { r.name = c.name; r.label = c.bib + ' ' + c.name; }
     }
@@ -161,10 +165,13 @@
   // tracking.gpsRaces: the races each GPS event carries ({ '20261106gpt100': ['miler'], ... }; 'stage' is every stage).
   // A tracker joins a chip runner of the same bib only in one of its event's races. An event not listed takes any.
   function fits(r, c) {
+    // A tracker the provider also has in another event we read (same tracker id) is followed there, not here.
+    if (JOINED.has(r.feed) && [...(S.rawIds.get(r.raw) || [])].some(f => f !== r.feed && !JOINED.has(f))) return false;
     const L = r.feed && T.gpsRaces && T.gpsRaces[r.feed];
     return !Array.isArray(L) || !c.raceKey || L.includes(c.raceKey) || (/^s[1-4]$/.test(c.raceKey) && L.includes('stage'));
   }
   function position(r, now, TC) {
+    if (r.feed && JOINED.has(r.feed) && !r.chip) { r.pos = null; return; }
     // A fix from before the runner's race day doesn't place them today: a stage race tracker's last fix from yesterday's
     // finish, or one switched on for a test, would otherwise be walked along today's course at their pace.
     const day = r.chip && r.chip.day != null && !T.chipDay ? r.chip.day : null;
@@ -286,10 +293,12 @@
       const txt = res.ok ? await res.text() : '';
       F.ready = true; F.error = null; sum();
       handleData(F, txt);
-      if (F.live && !F.timer) F.timer = setTimeout(() => poll(F), F.interval * 1000);
+      // Followed for new positions while live, and also once it has any: the provider can mark an event not live while
+      // its trackers still send (the 50k and stage race event on the Friday).
+      if ((F.live || F.lastLine !== 'undef') && !F.timer) F.timer = setTimeout(() => poll(F), F.interval * 1000);
       // An event that isn't live yet (set up ahead of race day) is checked again every few minutes, so it's picked up
       // when the provider switches it on, with its competitors, without reloading the app.
-      else if (!F.live && F.lastLine === 'undef') setTimeout(() => start(F), 5 * 60e3);
+      else if (!F.live) setTimeout(() => start(F), 5 * 60e3);
     } catch (e) {
       F.error = e.message; sum(); recompute();
       setTimeout(() => start(F), 60e3);
