@@ -90,6 +90,8 @@ window.GPT100_CONFIG = {
   // From 10:07 on Friday the stage race trackers are only in 20261105gptall (20261105gpt50 stopped), so that event is read
   // with gpsJoinedOnly: a tracker in it shows only once it's joined to a stage race runner in the timing list, which
   // leaves out the shuttles and sweeps (no bib) and the Miler runners it repeats.
+  // gpsBibs: a tracker's bib in the GPS to the runner's bib in the timing list, where the two differ. The Miler relay
+  // teams are 618 to 627 in the GPS and 14001 to 14009 in the timing list, paired by team name (618 The Dawgs has no match).
   // gpsRaces: the races each GPS event carries ('stage' is every stage), so a tracker only joins the chip runner
   // with its bib in one of those races. The two providers number some relay teams the same (618 to 627 are Miler
   // relay teams in the GPS and Stage Race relay runners in the timing list). An event not listed joins any race.
@@ -109,7 +111,7 @@ window.GPT100_CONFIG = {
   // Where a medical plan place really is, when the plan pins it somewhere else, by the plan's place name.
   // Everyone at the place moves (medics, vehicles, Safety Officers), on every map and in every time.
   planPlaces: { 'Jimmy Creek': { lat: -37.37167, lon: 142.50391 } }, // Jimmy Creek Camp, not the road crossing
-  tracking: { url: 'https://gpt.livingitlive.com.au/', results: 'https://my.raceresult.com/427342/', label: 'Live tracking', gps: ['20261106gpt100', '20261105gptall'], gpsRaces: { '20261106gpt100': ['miler'], '20261105gptall': ['stage'], '20261105gpt50': ['50k', 'stage'] }, gpsJoinedOnly: ['20261105gptall'], chip: 'relay', chipEvery: 30, chipContests: {}, chipDay: '', chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
+  tracking: { url: 'https://gpt.livingitlive.com.au/', results: 'https://my.raceresult.com/427342/', label: 'Live tracking', gps: ['20261106gpt100', '20261105gptall'], gpsRaces: { '20261106gpt100': ['miler'], '20261105gptall': ['stage'], '20261105gpt50': ['50k', 'stage'] }, gpsJoinedOnly: ['20261105gptall'], gpsBibs: { 619: 14002, 620: 14003, 621: 14004, 622: 14005, 623: 14006, 624: 14007, 626: 14008, 627: 14009 }, chip: 'relay', chipEvery: 30, chipContests: {}, chipDay: '', chipPoints: {}, credit: { name: 'Living It Live', url: 'https://livingitlive.com.au/' } },
   // what3words API key. It's locked in the what3words dashboard to singletrackevents.github.io,
   // so it only works from the live site. Leave blank to be asked once on each device instead.
   what3wordsKey: 'LBTPEWCQ'
