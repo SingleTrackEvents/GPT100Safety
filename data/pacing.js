@@ -2,7 +2,7 @@
 // From the GPT_2026 Course Details sheet (Miler): fastest = first runner's time of day, slowest = cut-off.
 // km is GPT100 km in this app (each point's km on the course line). Since 5 November 2026 the course takes the
 // contingency from Mt William to Jimmy Creek: km from Jimmy Creek on are 1.64 km more, and Stockyard Track is gone
-// (Serra Rd, its new water point, has no cut-off). Times are unchanged. Times are Melbourne local time.
+// (no water point in its place). Times are unchanged. Times are Melbourne local time.
 window.GPT100_PACING = {
   miler: {
     label: 'GPT100 Miler',

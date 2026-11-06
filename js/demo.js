@@ -137,7 +137,7 @@
 
   // ---------- the timing list (RaceResult shape) ----------
   // As the timing team's list sends it: a plain array of rows, the contest by name, Status and Place (DNF in both),
-  // one column per timing reader (In and Out at the aid stations; no reader at the Ridgeline or Serra Rd water points) as a
+  // one column per timing reader (In and Out at the aid stations; no reader at the Ridgeline water point) as a
   // time of day, D:HH:MM:SS once past midnight of the start day, then Time (elapsed) and Diff. The demo's start day is
   // today's, so it sets tracking.chipDay to anchor them (on race day the start days come from data/races.js).
   const COLS = [['Start'], ['CopperMineTrack', 'Copper Mine'], ['GARIN', 'GAR'], ['GAROUT', 'GAR', 1], ['MTDifficultRd', 'Mt Difficult Rd'], ['HallsGapIn', 'Halls Gap'], ['HallsGapOut', 'Halls Gap', 1],

@@ -1,7 +1,7 @@
 // Races for the runner app, from the GPT Course Details sheet (tools/import_races.mjs). Melbourne local time.
 // km, up and down are the official race figures; the app maps them onto the course line by aid station.
 // Since 5 November 2026 the Miler and Stage 3 take the contingency from Mt William to Jimmy Creek: Stockyard Track is
-// replaced by the Serra Rd water point (no cut-off), and km, up and down from Jimmy Creek on move by the measured
+// off the course (no water point in its place), and km, up and down from Jimmy Creek on move by the measured
 // difference (1.6 km, -517 m up, -517 m down). Cut-offs are unchanged. Re-importing the sheet undoes this.
 window.GPT_RACES = {
  "stages": {
@@ -107,18 +107,6 @@ window.GPT_RACES = {
      "cutoff": "2026-11-07T08:15",
      "drop": true,
      "crew": "yes"
-    },
-    {
-     "name": "Serra Rd",
-     "kind": "water",
-     "km": 104.9,
-     "up": 4563,
-     "down": 4470,
-     "first": "2026-11-06T20:02",
-     "cutoff": "2026-11-07T13:30",
-     "noCut": true,
-     "drop": false,
-     "crew": "no"
     },
     {
      "name": "Jimmy Creek Camp",
@@ -324,18 +312,6 @@ window.GPT_RACES = {
      "cutoff": "2026-11-07T06:00",
      "drop": false,
      "crew": "yes"
-    },
-    {
-     "name": "Serra Rd",
-     "kind": "water",
-     "km": 18.3,
-     "up": 213,
-     "down": 805,
-     "first": "2026-11-07T07:36",
-     "cutoff": "2026-11-07T11:02",
-     "noCut": true,
-     "drop": false,
-     "crew": "no"
     },
     {
      "name": "Jimmy Creek Rd",

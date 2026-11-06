@@ -2,7 +2,7 @@
 // For each checkpoint, the share of a runner's finish time they have used when they get there is a straight line
 // in their finish time: share = a + b × finish hours. Fitted to the GPT100 Miler 2025 results (Barefoot Sport export,
 // 107 finishers with checkpoint times; 60 at Jimmy Creek, where the timing mat missed runners) on 23 Oct 2026.
-// Points not listed (water points, Serra Rd) are placed in proportion by race km between the fitted ones.
+// Points not listed (water points) are placed in proportion by race km between the fitted ones.
 // Races without an entry here keep the blend of the first runner's time and the cut-off.
 //
 // The 2026 course adds about 1 km of flat, easy trail on the Mt William to Jimmy Creek leg and another on the
